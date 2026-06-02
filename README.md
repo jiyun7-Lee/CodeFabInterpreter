@@ -2,8 +2,11 @@
 
 ## 담당자 - Role
 김홍원님    Tokenizer    TokenType, Token Class, Lexer, Tokenize 테스트
+
 김홍원님    Expression Parser    LiteralExpr, VariableExpr, UnaryExpr, BinaryExpr, AssignExpr, GroupingExpr
+
 심민구님    Statement Parser + Checker    VarStmt, PrintStmt, BlockStmt, IfStmt, ForStmt, Checker
+
 이지윤님    Executor + Prompt Shell    Environment, Scope, Runtime Error, Executor, Shell
 
 
