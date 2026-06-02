@@ -11,6 +11,7 @@
 - Parser의 public 인터페이스 `parse(tokens)` 를 통해 간접 검증
 - 입력: 수동으로 구성한 `std::vector<Token>`
 - 출력: `ExpressionStmt`로 래핑된 `Expr*` 를 `dynamic_cast` 로 검증
+- 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
 - 현재 상태: **Red** (Parser.cpp 미구현 — stub)
 
 ---
@@ -45,10 +46,11 @@ ExpressionStmt
     └── value: 42.0
 ```
 
-**검증 항목**
-- `stmts[0]`이 `ExpressionStmt`로 캐스팅 가능
-- `expression`이 `LiteralExpr`로 캐스팅 가능
-- `value` == `42.0`
+| 단계 | 내용 |
+|---|---|
+| Arrange | 숫자 리터럴 42 하나짜리 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `expression`이 `LiteralExpr`이고 `value` == `42.0` |
 
 ---
 
@@ -68,9 +70,11 @@ ExpressionStmt
     └── name.lexeme: "a"
 ```
 
-**검증 항목**
-- `expression`이 `VariableExpr`로 캐스팅 가능
-- `name.lexeme` == `"a"`
+| 단계 | 내용 |
+|---|---|
+| Arrange | 식별자 `"a"` 하나짜리 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `expression`이 `VariableExpr`이고 `name.lexeme` == `"a"` |
 
 ---
 
@@ -93,11 +97,11 @@ ExpressionStmt
                └── right: LiteralExpr(3.0)
 ```
 
-**검증 항목**
-- 루트 BinaryExpr의 `op.type` == `PLUS`
-- `left`가 `LiteralExpr(1.0)`
-- `right`가 `BinaryExpr`이고 `op.type` == `STAR`
-- `right->left` == `LiteralExpr(2.0)`, `right->right` == `LiteralExpr(3.0)`
+| 단계 | 내용 |
+|---|---|
+| Arrange | `"1 + 2 * 3"` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | 루트가 `PLUS`, 우측 자식이 `STAR`인 트리 구조 확인 (우선순위 검증) |
 
 ---
 
@@ -121,11 +125,11 @@ ExpressionStmt
     └── right: LiteralExpr(3.0)
 ```
 
-**검증 항목**
-- 루트 BinaryExpr의 `op.type` == `STAR`
-- `left`가 `GroupingExpr`
-- `GroupingExpr->expression`이 `BinaryExpr(PLUS)`
-- `right`가 `LiteralExpr(3.0)`
+| 단계 | 내용 |
+|---|---|
+| Arrange | `"(1 + 2) * 3"` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | 루트가 `STAR`, 좌측 자식이 `GroupingExpr(PLUS)`인지 확인 (괄호 우선순위 역전 검증) |
 
 ---
 
@@ -146,10 +150,11 @@ ExpressionStmt
     └── value: LiteralExpr(10.0)
 ```
 
-**검증 항목**
-- `expression`이 `AssignExpr`로 캐스팅 가능
-- `name.lexeme` == `"a"`
-- `value`가 `LiteralExpr`이고 값 == `10.0`
+| 단계 | 내용 |
+|---|---|
+| Arrange | `"a = 10"` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `expression`이 `AssignExpr`이고 `name.lexeme` == `"a"`, `value` == `10.0` |
 
 ---
 
