@@ -32,15 +32,18 @@ static Expr* firstExpr(const std::vector<Stmt*>& stmts)
 // -----------------------------------------------------------------------
 TEST(ExprParser, ParsesNumberLiteral)
 {
+    // Arrange: 숫자 리터럴 42 하나짜리 토큰 시퀀스 구성
     std::vector<Token> tokens = {
         tok(TokenType::NUMBER, "42", 42.0),
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-
     Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
     auto stmts = parser.parse(tokens);
 
+    // Assert: 첫 번째 Stmt가 ExpressionStmt이고, 그 안의 Expr이 LiteralExpr(42.0)인지 확인
     auto* lit = dynamic_cast<LiteralExpr*>(firstExpr(stmts));
     ASSERT_NE(lit, nullptr);
     EXPECT_EQ(std::get<double>(lit->value), 42.0);
@@ -53,15 +56,18 @@ TEST(ExprParser, ParsesNumberLiteral)
 // -----------------------------------------------------------------------
 TEST(ExprParser, ParsesVariableExpr)
 {
+    // Arrange: 식별자 "a" 하나짜리 토큰 시퀀스 구성
     std::vector<Token> tokens = {
         tok(TokenType::IDENTIFIER, "a"),
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-
     Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
     auto stmts = parser.parse(tokens);
 
+    // Assert: Expr이 VariableExpr이고, name.lexeme가 "a"인지 확인
     auto* var = dynamic_cast<VariableExpr*>(firstExpr(stmts));
     ASSERT_NE(var, nullptr);
     EXPECT_EQ(var->name.lexeme, "a");
@@ -76,6 +82,7 @@ TEST(ExprParser, ParsesVariableExpr)
 // -----------------------------------------------------------------------
 TEST(ExprParser, RespectsMulBeforeAdd)
 {
+    // Arrange: "1 + 2 * 3" 에 해당하는 토큰 시퀀스 구성
     std::vector<Token> tokens = {
         tok(TokenType::NUMBER, "1", 1.0),
         tok(TokenType::PLUS,   "+"),
@@ -85,10 +92,12 @@ TEST(ExprParser, RespectsMulBeforeAdd)
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-
     Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
     auto stmts = parser.parse(tokens);
 
+    // Assert: 루트가 PLUS, 우측 자식이 STAR인 트리 구조인지 확인 (우선순위 검증)
     auto* add = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(add, nullptr);
     EXPECT_EQ(add->op.type, TokenType::PLUS);
@@ -118,6 +127,7 @@ TEST(ExprParser, RespectsMulBeforeAdd)
 // -----------------------------------------------------------------------
 TEST(ExprParser, GroupingOverridesPrecedence)
 {
+    // Arrange: "(1 + 2) * 3" 에 해당하는 토큰 시퀀스 구성
     std::vector<Token> tokens = {
         tok(TokenType::LEFT_PAREN,  "("),
         tok(TokenType::NUMBER, "1", 1.0),
@@ -129,10 +139,12 @@ TEST(ExprParser, GroupingOverridesPrecedence)
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-
     Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
     auto stmts = parser.parse(tokens);
 
+    // Assert: 루트가 STAR이고, 좌측 자식이 GroupingExpr(PLUS)인지 확인 (괄호 우선순위 역전 검증)
     auto* mul = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(mul, nullptr);
     EXPECT_EQ(mul->op.type, TokenType::STAR);
@@ -156,6 +168,7 @@ TEST(ExprParser, GroupingOverridesPrecedence)
 // -----------------------------------------------------------------------
 TEST(ExprParser, ParsesAssignExpr)
 {
+    // Arrange: "a = 10" 에 해당하는 토큰 시퀀스 구성
     std::vector<Token> tokens = {
         tok(TokenType::IDENTIFIER, "a"),
         tok(TokenType::EQUAL,      "="),
@@ -163,10 +176,12 @@ TEST(ExprParser, ParsesAssignExpr)
         tok(TokenType::SEMICOLON,  ";"),
         eof()
     };
-
     Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
     auto stmts = parser.parse(tokens);
 
+    // Assert: Expr이 AssignExpr이고, name과 value가 올바른지 확인
     auto* assign = dynamic_cast<AssignExpr*>(firstExpr(stmts));
     ASSERT_NE(assign, nullptr);
     EXPECT_EQ(assign->name.lexeme, "a");
