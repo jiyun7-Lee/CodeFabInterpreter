@@ -1,7 +1,7 @@
 # CodeFab 프로젝트 통합 설계서 (v1)
 
 ## 담당자 - Role
-김홍원님    Tokenizer    TokenType, Token Class, Lexer, Tokenize 테스트
+송용길님    Tokenizer    TokenType, Token Class, Lexer, Tokenize 테스트
 
 김홍원님    Expression Parser    LiteralExpr, VariableExpr, UnaryExpr, BinaryExpr, AssignExpr, GroupingExpr
 
