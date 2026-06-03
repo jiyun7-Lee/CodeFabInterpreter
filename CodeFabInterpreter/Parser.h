@@ -17,7 +17,7 @@ private:
     Stmt*  parseStatement();
     Stmt*  parseExpressionStatement();
 
-    // --- Expression (우선순위 낮은 순 → 높은 순) ---
+    // --- Expression (ordered lowest to highest precedence) ---
     Expr*  parseExpression();
     Expr*  parseAssignment();   // =
     Expr*  parseOr();           // or
@@ -25,13 +25,13 @@ private:
     Expr*  parseComparison();   // > <
     Expr*  parseTerm();         // + -
     Expr*  parseFactor();       // * /
-    Expr*  parseUnary();        // - (단항)
-    Expr*  parsePrimary();      // 리터럴, 변수, 괄호
+    Expr*  parseUnary();        // unary -
+    Expr*  parsePrimary();      // literals, variables, grouping
 
-    // --- 노드 생성 헬퍼 ---
+    // --- Node factory ---
     BinaryExpr* makeBinary(Expr* left, Token op, Expr* right);
 
-    // --- 토큰 헬퍼 ---
+    // --- Token helpers ---
     bool   match(std::initializer_list<TokenType> types);
     bool   check(TokenType type);
     bool   isAtEnd();
