@@ -1,4 +1,4 @@
-# TC_ExprParser — Expression Parser 테스트 케이스 명세
+﻿# TC_ExprParser — Expression Parser 테스트 케이스 명세
 
 담당자: 김홍원 (Hongwon Kim)  
 파일: `tests/ExpressionParserTest.cpp`  
