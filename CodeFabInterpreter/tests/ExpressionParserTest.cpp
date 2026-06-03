@@ -396,6 +396,36 @@ TEST(ExprParser, ParsesLogicalAnd)
 // 기대  : AssignExpr(a, AssignExpr(b, LiteralExpr(3.0)))
 //         → a = (b = 3) 으로 파싱되어야 한다
 // -----------------------------------------------------------------------
+// -----------------------------------------------------------------------
+// TC 14 : 논리 부정 단항 연산자 파싱 [🔴 Red - parseUnary 에 BANG 미구현]
+// 입력  : !true;
+// 기대  : ExpressionStmt → UnaryExpr(BANG, LiteralExpr(true))
+// -----------------------------------------------------------------------
+TEST(ExprParser, ParsesUnaryBang)
+{
+    // Arrange: 논리 부정 "!true" 에 해당하는 토큰 시퀀스 구성
+    std::vector<Token> tokens = {
+        tok(TokenType::BANG,      "!"),
+        tok(TokenType::TRUE,      "true"),
+        tok(TokenType::SEMICOLON, ";"),
+        eof()
+    };
+    Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    auto stmts = parser.parse(tokens);
+
+    // Assert: UnaryExpr 이고 operator 가 BANG, 피연산자가 LiteralExpr(true) 인지 확인
+    auto* unary = dynamic_cast<UnaryExpr*>(firstExpr(stmts));
+    ASSERT_NE(unary, nullptr);
+    EXPECT_EQ(unary->op.type, TokenType::BANG);
+
+    auto* operand = dynamic_cast<LiteralExpr*>(unary->right);
+    ASSERT_NE(operand, nullptr);
+    EXPECT_EQ(std::get<bool>(operand->value), true);
+}
+
+// -----------------------------------------------------------------------
 TEST(ExprParser, AssignIsRightAssociative)
 {
     // Arrange: "a = b = 3" 에 해당하는 토큰 시퀀스 구성

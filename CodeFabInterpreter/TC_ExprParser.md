@@ -33,6 +33,7 @@
 | TC-11 | ParsesSubtraction | `5 - 3;` | BinaryExpr (뺄셈) | 🟢 Green |
 | TC-12 | ParsesLogicalAnd | `a and b;` | BinaryExpr (논리) | 🟢 Green |
 | TC-13 | AssignIsRightAssociative | `a = b = 3;` | AssignExpr (우결합) | 🟢 Green |
+| TC-14 | ParsesUnaryBang | `!true;` | UnaryExpr (논리 부정) | 🔴 Red |
 
 ---
 
@@ -355,11 +356,40 @@ ExpressionStmt
 
 ---
 
-## 추가 예정 TC (논의 후 결정)
+| TC-14 | ParsesUnaryBang | `!true;` | UnaryExpr (논리 부정) | 🔴 Red |
+
+---
+
+### TC-14 ParsesUnaryBang
+
+**목적**: 논리 부정 `!true` 가 UnaryExpr 로 파싱되는지 확인
+
+**입력 토큰**
+```
+BANG("!") → TRUE("true") → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── UnaryExpr(BANG)
+    └── right: LiteralExpr(true)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 논리 부정 `!true` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `UnaryExpr` 이고 `op.type` == `BANG`, `right` == `LiteralExpr(true)` |
+
+**🔴 Red 상태 이유**: `parseUnary()` 에 `BANG` 처리 미구현 — Green 단계에서 `match({BANG})` 분기 추가 필요
+
+---
+
+## 추가 예정 TC
 
 | ID | 설명 | 입력 예시 | 비고 |
 |---|---|---|---|
-| TC-14 | UnaryExpr 논리 부정 | `!true;` | Token.h 에 `!` 토큰 추가 필요 — 팀 협의 필요 |
 | TC-15 | BinaryExpr 나눗셈 | `6 / 2;` | |
 | TC-16 | or 논리 연산 | `a or b;` | |
 | TC-17 | 좌결합 검증 | `1 + 2 + 3;` | BinaryExpr(PLUS, BinaryExpr(PLUS,1,2), 3) |
