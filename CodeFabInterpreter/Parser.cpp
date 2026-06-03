@@ -2,6 +2,31 @@
 #include "Expr.h"
 
 // -----------------------------------------------------------------------
+// [재귀 하강 파서 (Recursive Descent Parser) 개요]
+//
+// 재귀 하강 파서는 문법 규칙을 함수 호출 계층으로 표현한다.
+// 우선순위가 낮은 규칙일수록 상위 함수가 되고,
+// 우선순위가 높은 규칙일수록 하위 함수가 된다.
+//
+// 호출 체인 (위로 갈수록 우선순위 낮음 / 아래로 갈수록 우선순위 높음):
+//
+//   parseExpression
+//     └─ parseAssignment   (=)
+//          └─ parseOr      (or)
+//               └─ parseAnd         (and)
+//                    └─ parseComparison   (> <)
+//                         └─ parseTerm    (+ -)
+//                              └─ parseFactor   (* /)
+//                                   └─ parseUnary    (단항 -)
+//                                        └─ parsePrimary  (리터럴, 변수, 괄호)
+//
+// 예) 1 + 2 * 3 을 파싱하면:
+//   parseTerm 이 parseFactor 를 두 번 호출하는데,
+//   두 번째 parseFactor 안에서 * 가 먼저 묶이므로
+//   결과 트리의 루트는 + 가 되고 * 는 오른쪽 자식이 된다.
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
 // public
 // -----------------------------------------------------------------------
 
@@ -10,6 +35,7 @@ std::vector<Stmt*> Parser::parse(const std::vector<Token>& tokens)
     m_tokens  = tokens;
     m_current = 0;
 
+    // EOF 토큰을 만날 때까지 Statement를 반복 파싱하여 AST 목록을 구성한다.
     std::vector<Stmt*> statements;
     while (!isAtEnd())
         statements.push_back(parseStatement());
@@ -23,11 +49,15 @@ std::vector<Stmt*> Parser::parse(const std::vector<Token>& tokens)
 
 Stmt* Parser::parseStatement()
 {
+    // 현재는 Expression Statement만 지원한다.
+    // PrintStmt, VarDeclareStmt, IfStmt, ForStmt 등은 심민구 담당 (Statement Parser).
     return parseExpressionStatement();
 }
 
 Stmt* Parser::parseExpressionStatement()
 {
+    // Expression을 파싱한 뒤 반드시 세미콜론(;)으로 닫혀야 한다.
+    // ExpressionStmt는 Expr을 Stmt로 감싸는 래퍼 역할을 한다.
     Expr* expr = parseExpression();
     consume(TokenType::SEMICOLON);
 
@@ -42,33 +72,43 @@ Stmt* Parser::parseExpressionStatement()
 
 Expr* Parser::parseExpression()
 {
+    // 모든 Expression 파싱의 진입점.
+    // 가장 우선순위가 낮은 parseAssignment 부터 시작한다.
     return parseAssignment();
 }
 
-// a = expr  (우결합)
 Expr* Parser::parseAssignment()
 {
+    // 우선 하위 우선순위 표현식(parseOr)을 파싱한다.
+    // 이후 = 토큰이 나오면 대입식으로 확정한다.
+    //
+    // [우결합 처리]
+    // 우변에 재귀적으로 parseAssignment를 호출하므로
+    // a = b = 3 은 a = (b = 3) 으로 파싱된다.
     Expr* expr = parseOr();
 
     if (match({ TokenType::EQUAL }))
     {
-        Expr* value = parseAssignment();
+        Expr* value = parseAssignment(); // 우결합: 재귀 호출
 
+        // 대입의 좌변은 반드시 변수(VariableExpr)여야 한다.
+        // 예) 3 = 5 는 문법 오류 — Checker 단계에서 추가 검증 예정.
         if (auto* var = dynamic_cast<VariableExpr*>(expr))
         {
             auto* assign  = new AssignExpr();
             assign->name  = var->name;
             assign->value = value;
-            delete expr;
+            delete expr; // VariableExpr는 AssignExpr에 흡수되므로 해제
             return assign;
         }
     }
     return expr;
 }
 
-// or
 Expr* Parser::parseOr()
 {
+    // or 연산자는 좌결합이므로 while로 반복 처리한다.
+    // 예) a or b or c → BinaryExpr(or, BinaryExpr(or, a, b), c)
     Expr* expr = parseAnd();
 
     while (match({ TokenType::OR }))
@@ -79,14 +119,14 @@ Expr* Parser::parseOr()
         bin->left  = expr;
         bin->op    = op;
         bin->right = right;
-        expr = bin;
+        expr = bin; // 결과를 누적하여 좌결합 트리를 만든다
     }
     return expr;
 }
 
-// and
 Expr* Parser::parseAnd()
 {
+    // and 연산자도 좌결합.
     Expr* expr = parseComparison();
 
     while (match({ TokenType::AND }))
@@ -102,9 +142,10 @@ Expr* Parser::parseAnd()
     return expr;
 }
 
-// > <
 Expr* Parser::parseComparison()
 {
+    // 비교 연산자 > < 처리.
+    // 예) a > b → BinaryExpr(>, VariableExpr(a), VariableExpr(b))
     Expr* expr = parseTerm();
 
     while (match({ TokenType::GREATER, TokenType::LESS }))
@@ -120,9 +161,10 @@ Expr* Parser::parseComparison()
     return expr;
 }
 
-// + -
 Expr* Parser::parseTerm()
 {
+    // 덧셈·뺄셈 처리.
+    // parseFactor를 먼저 호출하므로 * / 가 + - 보다 높은 우선순위를 갖는다.
     Expr* expr = parseFactor();
 
     while (match({ TokenType::PLUS, TokenType::MINUS }))
@@ -138,9 +180,10 @@ Expr* Parser::parseTerm()
     return expr;
 }
 
-// * /
 Expr* Parser::parseFactor()
 {
+    // 곱셈·나눗셈 처리.
+    // parseUnary를 먼저 호출하므로 단항 연산자가 * / 보다 높은 우선순위를 갖는다.
     Expr* expr = parseUnary();
 
     while (match({ TokenType::STAR, TokenType::SLASH }))
@@ -156,13 +199,14 @@ Expr* Parser::parseFactor()
     return expr;
 }
 
-// 단항 -
 Expr* Parser::parseUnary()
 {
+    // 단항 - 연산자 처리.
+    // 재귀 호출로 --a 같은 중첩 단항 연산도 처리된다.
     if (match({ TokenType::MINUS }))
     {
         Token  op    = previous();
-        Expr*  right = parseUnary();
+        Expr*  right = parseUnary(); // 재귀: --a → UnaryExpr(-, UnaryExpr(-, a))
         auto*  unary = new UnaryExpr();
         unary->op    = op;
         unary->right = right;
@@ -171,9 +215,11 @@ Expr* Parser::parseUnary()
     return parsePrimary();
 }
 
-// 숫자·문자열·bool 리터럴, 변수, 괄호 묶음
 Expr* Parser::parsePrimary()
 {
+    // 가장 기본 단위(원자) 파싱. 더 이상 분해되지 않는 토큰들을 처리한다.
+
+    // 숫자·문자열 리터럴: 토큰의 literal 필드에 값이 담겨있다.
     if (match({ TokenType::NUMBER, TokenType::STRING }))
     {
         auto* lit  = new LiteralExpr();
@@ -181,6 +227,7 @@ Expr* Parser::parsePrimary()
         return lit;
     }
 
+    // 불리언 리터럴: TRUE/FALSE 토큰을 bool 값으로 변환
     if (match({ TokenType::TRUE }))
     {
         auto* lit  = new LiteralExpr();
@@ -195,6 +242,7 @@ Expr* Parser::parsePrimary()
         return lit;
     }
 
+    // 식별자(변수명): lexeme을 그대로 보관하고 Executor가 실행 시 값을 조회한다.
     if (match({ TokenType::IDENTIFIER }))
     {
         auto* var  = new VariableExpr();
@@ -202,16 +250,18 @@ Expr* Parser::parsePrimary()
         return var;
     }
 
+    // 괄호 묶음: 내부 표현식을 GroupingExpr로 감싸서 우선순위를 명시적으로 높인다.
+    // 예) (1 + 2) * 3 → parseFactor가 GroupingExpr를 하나의 단위로 인식
     if (match({ TokenType::LEFT_PAREN }))
     {
-        Expr* expr = parseExpression();
+        Expr* expr = parseExpression(); // 괄호 안은 다시 최상위부터 파싱
         consume(TokenType::RIGHT_PAREN);
         auto* grp       = new GroupingExpr();
         grp->expression = expr;
         return grp;
     }
 
-    return nullptr;
+    return nullptr; // 매칭되는 토큰 없음 — 에러 처리는 Refactor 단계에서 추가 예정
 }
 
 // -----------------------------------------------------------------------
@@ -220,6 +270,7 @@ Expr* Parser::parsePrimary()
 
 bool Parser::match(std::initializer_list<TokenType> types)
 {
+    // 현재 토큰이 주어진 타입 중 하나이면 소비(advance)하고 true를 반환한다.
     for (TokenType type : types)
     {
         if (check(type))
@@ -233,6 +284,7 @@ bool Parser::match(std::initializer_list<TokenType> types)
 
 bool Parser::check(TokenType type)
 {
+    // 현재 토큰 타입을 확인만 하고 소비하지 않는다 (peek와 같은 역할).
     if (isAtEnd()) return false;
     return peek().type == type;
 }
@@ -244,22 +296,27 @@ bool Parser::isAtEnd()
 
 Token Parser::advance()
 {
+    // 현재 토큰을 소비하고 이전 토큰을 반환한다.
     if (!isAtEnd()) m_current++;
     return previous();
 }
 
 Token Parser::peek()
 {
+    // 현재 위치의 토큰을 소비하지 않고 반환한다.
     return m_tokens[m_current];
 }
 
 Token Parser::previous()
 {
+    // 가장 최근에 소비한 토큰을 반환한다. match() 직후 연산자 확인에 사용.
     return m_tokens[m_current - 1];
 }
 
 Token Parser::consume(TokenType type)
 {
+    // 기대하는 토큰이 맞으면 소비하고 반환한다.
+    // 틀린 경우 현재 토큰을 그대로 반환 — 에러 처리는 추후 추가 예정.
     if (check(type)) return advance();
     return peek();
 }
