@@ -1,7 +1,7 @@
 # TC_ExprParser — Expression Parser 테스트 케이스 명세
 
 담당자: 김홍원 (Hongwon Kim)  
-파일: `tests/ExcutorParserTest.cpp`  
+파일: `tests/ExpressionParserTest.cpp`  
 프레임워크: Google Test (gtest) / Google Mock (gmock)
 
 ---
