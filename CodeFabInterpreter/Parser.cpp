@@ -172,9 +172,9 @@ Expr* Parser::parseFactor()
 
 Expr* Parser::parseUnary()
 {
-    // 단항 - 연산자 처리.
-    // 재귀 호출로 --a 같은 중첩 단항 연산도 처리된다.
-    if (match({ TokenType::MINUS }))
+    // 단항 연산자 처리: - (음수), ! (논리 부정)
+    // 재귀 호출로 !!a 같은 중첩 단항 연산도 처리된다.
+    if (match({ TokenType::MINUS, TokenType::BANG }))
     {
         Token op    = previous();
         Expr* right = parseUnary(); // 재귀: --a → UnaryExpr(-, UnaryExpr(-, a))

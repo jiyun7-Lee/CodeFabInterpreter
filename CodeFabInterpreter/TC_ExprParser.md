@@ -12,7 +12,7 @@
 - 입력: 수동으로 구성한 `std::vector<Token>`
 - 출력: `ExpressionStmt`로 래핑된 `Expr*` 를 `dynamic_cast` 로 검증
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **Green** (TC-01~13 전체 통과)
+- 현재 상태: **Green** (TC-01~14 전체 통과)
 
 ---
 
@@ -33,7 +33,7 @@
 | TC-11 | ParsesSubtraction | `5 - 3;` | BinaryExpr (뺄셈) | 🟢 Green |
 | TC-12 | ParsesLogicalAnd | `a and b;` | BinaryExpr (논리) | 🟢 Green |
 | TC-13 | AssignIsRightAssociative | `a = b = 3;` | AssignExpr (우결합) | 🟢 Green |
-| TC-14 | ParsesUnaryBang | `!true;` | UnaryExpr (논리 부정) | 🔴 Red |
+| TC-14 | ParsesUnaryBang | `!true;` | UnaryExpr (논리 부정) | 🟢 Green |
 
 ---
 
@@ -356,7 +356,7 @@ ExpressionStmt
 
 ---
 
-| TC-14 | ParsesUnaryBang | `!true;` | UnaryExpr (논리 부정) | 🔴 Red |
+| TC-14 | ParsesUnaryBang | `!true;` | UnaryExpr (논리 부정) | 🟢 Green |
 
 ---
 
@@ -382,7 +382,7 @@ ExpressionStmt
 | Act | `parser.parse(tokens)` 호출 |
 | Assert | `UnaryExpr` 이고 `op.type` == `BANG`, `right` == `LiteralExpr(true)` |
 
-**🔴 Red 상태 이유**: `parseUnary()` 에 `BANG` 처리 미구현 — Green 단계에서 `match({BANG})` 분기 추가 필요
+**🟢 Green**: `parseUnary()` 의 `match({MINUS, BANG})` 으로 처리
 
 ---
 

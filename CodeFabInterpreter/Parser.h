@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 #include <vector>
 #include <initializer_list>
 #include "Token.h"
@@ -25,7 +25,7 @@ private:
     Expr*  parseComparison();   // > <
     Expr*  parseTerm();         // + -
     Expr*  parseFactor();       // * /
-    Expr*  parseUnary();        // unary -
+    Expr*  parseUnary();        // unary -, !
     Expr*  parsePrimary();      // literals, variables, grouping
 
     // --- Node factory ---
