@@ -12,7 +12,7 @@
 - 입력: 수동으로 구성한 `std::vector<Token>`
 - 출력: `ExpressionStmt`로 래핑된 `Expr*` 를 `dynamic_cast` 로 검증
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **Red** (Parser.cpp 미구현 — stub)
+- 현재 상태: **Green** (TC-01~13 전체 통과)
 
 ---
 
@@ -20,11 +20,19 @@
 
 | ID | 테스트 이름 | 입력 코드 | 검증 Expr 타입 | 상태 |
 |---|---|---|---|---|
-| TC-01 | ParsesNumberLiteral | `42;` | LiteralExpr | 🔴 Red |
-| TC-02 | ParsesVariableExpr | `a;` | VariableExpr | 🔴 Red |
-| TC-03 | RespectsMulBeforeAdd | `1 + 2 * 3;` | BinaryExpr (우선순위) | 🔴 Red |
-| TC-04 | GroupingOverridesPrecedence | `(1 + 2) * 3;` | GroupingExpr | 🔴 Red |
-| TC-05 | ParsesAssignExpr | `a = 10;` | AssignExpr | 🔴 Red |
+| TC-01 | ParsesNumberLiteral | `42;` | LiteralExpr | 🟢 Green |
+| TC-02 | ParsesVariableExpr | `a;` | VariableExpr | 🟢 Green |
+| TC-03 | RespectsMulBeforeAdd | `1 + 2 * 3;` | BinaryExpr (우선순위) | 🟢 Green |
+| TC-04 | GroupingOverridesPrecedence | `(1 + 2) * 3;` | GroupingExpr | 🟢 Green |
+| TC-05 | ParsesAssignExpr | `a = 10;` | AssignExpr | 🟢 Green |
+| TC-06 | ParsesStringLiteral | `"hello";` | LiteralExpr (문자열) | 🟢 Green |
+| TC-07 | ParsesBooleanTrue | `true;` | LiteralExpr (bool) | 🟢 Green |
+| TC-08 | ParsesBooleanFalse | `false;` | LiteralExpr (bool) | 🟢 Green |
+| TC-09 | ParsesUnaryMinus | `-5;` | UnaryExpr | 🟢 Green |
+| TC-10 | ParsesComparisonGreater | `a > 3;` | BinaryExpr (비교) | 🟢 Green |
+| TC-11 | ParsesSubtraction | `5 - 3;` | BinaryExpr (뺄셈) | 🟢 Green |
+| TC-12 | ParsesLogicalAnd | `a and b;` | BinaryExpr (논리) | 🟢 Green |
+| TC-13 | AssignIsRightAssociative | `a = b = 3;` | AssignExpr (우결합) | 🟢 Green |
 
 ---
 
@@ -158,12 +166,200 @@ ExpressionStmt
 
 ---
 
+### TC-06 ParsesStringLiteral
+
+**목적**: 문자열 리터럴이 LiteralExpr 로 파싱되는지 확인
+
+**입력 토큰**
+```
+STRING("hello") → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── LiteralExpr
+    └── value: "hello" (std::string)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 문자열 리터럴 토큰 시퀀스 구성 (literal 필드에 std::string 저장) |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `LiteralExpr` 이고 `value` == `"hello"` |
+
+---
+
+### TC-07 ParsesBooleanTrue
+
+**목적**: `true` 키워드가 불리언 LiteralExpr 로 파싱되는지 확인
+
+**입력 토큰**
+```
+TRUE("true") → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── LiteralExpr
+    └── value: true (bool)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | TRUE 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `LiteralExpr` 이고 `value` == `true` |
+
+---
+
+### TC-08 ParsesBooleanFalse
+
+**목적**: `false` 키워드가 불리언 LiteralExpr 로 파싱되는지 확인
+
+**입력 토큰**
+```
+FALSE("false") → SEMICOLON → EOF
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | FALSE 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `LiteralExpr` 이고 `value` == `false` |
+
+---
+
+### TC-09 ParsesUnaryMinus
+
+**목적**: 단항 음수 `-5` 가 UnaryExpr 로 파싱되는지 확인
+
+**입력 토큰**
+```
+MINUS("-") → NUMBER("5", 5.0) → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── UnaryExpr(MINUS)
+    └── right: LiteralExpr(5.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 단항 음수 `-5` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `UnaryExpr` 이고 `op.type` == `MINUS`, `right` == `LiteralExpr(5.0)` |
+
+---
+
+### TC-10 ParsesComparisonGreater
+
+**목적**: 비교 연산자 `>` 가 BinaryExpr 로 파싱되는지 확인
+
+**입력 토큰**
+```
+IDENTIFIER("a") → GREATER(">") → NUMBER("3", 3.0) → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── BinaryExpr(GREATER)
+    ├── left:  VariableExpr(a)
+    └── right: LiteralExpr(3.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `"a > 3"` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `BinaryExpr` 이고 `op.type` == `GREATER`, 좌우 피연산자 확인 |
+
+---
+
+### TC-11 ParsesSubtraction
+
+**목적**: 뺄셈 연산이 BinaryExpr 로 파싱되는지 확인
+
+**입력 토큰**
+```
+NUMBER("5", 5.0) → MINUS("-") → NUMBER("3", 3.0) → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── BinaryExpr(MINUS)
+    ├── left:  LiteralExpr(5.0)
+    └── right: LiteralExpr(3.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `"5 - 3"` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `BinaryExpr` 이고 `op.type` == `MINUS`, 좌우 피연산자 확인 |
+
+---
+
+### TC-12 ParsesLogicalAnd
+
+**목적**: 논리 `and` 연산이 BinaryExpr 로 파싱되는지 확인
+
+**입력 토큰**
+```
+IDENTIFIER("a") → AND("and") → IDENTIFIER("b") → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── BinaryExpr(AND)
+    ├── left:  VariableExpr(a)
+    └── right: VariableExpr(b)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `"a and b"` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `BinaryExpr` 이고 `op.type` == `AND`, 좌우 피연산자 확인 |
+
+---
+
+### TC-13 AssignIsRightAssociative
+
+**목적**: 대입 연산자가 우결합으로 파싱되는지 확인 (`a = (b = 3)`)
+
+**입력 토큰**
+```
+IDENTIFIER("a") → EQUAL → IDENTIFIER("b") → EQUAL → NUMBER("3", 3.0) → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── AssignExpr(a)
+    └── value: AssignExpr(b)
+               └── value: LiteralExpr(3.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `"a = b = 3"` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | 외부 `AssignExpr(a)` 내부에 `AssignExpr(b, LiteralExpr(3))` 중첩 확인 |
+
+---
+
 ## 추가 예정 TC (논의 후 결정)
 
-| ID | 설명 | 입력 예시 |
-|---|---|---|
-| TC-06 | UnaryExpr 음수 | `-5;` |
-| TC-07 | UnaryExpr 논리 부정 | `!true;` |
-| TC-08 | LogicalExpr and/or | `a and b;` |
-| TC-09 | 중첩 BinaryExpr | `1 + 2 + 3;` (좌결합) |
-| TC-10 | 문자열 리터럴 | `"hello";` |
+| ID | 설명 | 입력 예시 | 비고 |
+|---|---|---|---|
+| TC-14 | UnaryExpr 논리 부정 | `!true;` | Token.h 에 `!` 토큰 추가 필요 — 팀 협의 필요 |
+| TC-15 | BinaryExpr 나눗셈 | `6 / 2;` | |
+| TC-16 | or 논리 연산 | `a or b;` | |
+| TC-17 | 좌결합 검증 | `1 + 2 + 3;` | BinaryExpr(PLUS, BinaryExpr(PLUS,1,2), 3) |
