@@ -110,17 +110,8 @@ Expr* Parser::parseOr()
     // or 연산자는 좌결합이므로 while로 반복 처리한다.
     // 예) a or b or c → BinaryExpr(or, BinaryExpr(or, a, b), c)
     Expr* expr = parseAnd();
-
     while (match({ TokenType::OR }))
-    {
-        Token  op    = previous();
-        Expr*  right = parseAnd();
-        auto*  bin   = new BinaryExpr();
-        bin->left  = expr;
-        bin->op    = op;
-        bin->right = right;
-        expr = bin; // 결과를 누적하여 좌결합 트리를 만든다
-    }
+        expr = makeBinary(expr, previous(), parseAnd());
     return expr;
 }
 
@@ -128,17 +119,8 @@ Expr* Parser::parseAnd()
 {
     // and 연산자도 좌결합.
     Expr* expr = parseComparison();
-
     while (match({ TokenType::AND }))
-    {
-        Token  op    = previous();
-        Expr*  right = parseComparison();
-        auto*  bin   = new BinaryExpr();
-        bin->left  = expr;
-        bin->op    = op;
-        bin->right = right;
-        expr = bin;
-    }
+        expr = makeBinary(expr, previous(), parseComparison());
     return expr;
 }
 
@@ -147,17 +129,8 @@ Expr* Parser::parseComparison()
     // 비교 연산자 > < 처리.
     // 예) a > b → BinaryExpr(>, VariableExpr(a), VariableExpr(b))
     Expr* expr = parseTerm();
-
     while (match({ TokenType::GREATER, TokenType::LESS }))
-    {
-        Token  op    = previous();
-        Expr*  right = parseTerm();
-        auto*  bin   = new BinaryExpr();
-        bin->left  = expr;
-        bin->op    = op;
-        bin->right = right;
-        expr = bin;
-    }
+        expr = makeBinary(expr, previous(), parseTerm());
     return expr;
 }
 
@@ -166,17 +139,8 @@ Expr* Parser::parseTerm()
     // 덧셈·뺄셈 처리.
     // parseFactor를 먼저 호출하므로 * / 가 + - 보다 높은 우선순위를 갖는다.
     Expr* expr = parseFactor();
-
     while (match({ TokenType::PLUS, TokenType::MINUS }))
-    {
-        Token  op    = previous();
-        Expr*  right = parseFactor();
-        auto*  bin   = new BinaryExpr();
-        bin->left  = expr;
-        bin->op    = op;
-        bin->right = right;
-        expr = bin;
-    }
+        expr = makeBinary(expr, previous(), parseFactor());
     return expr;
 }
 
@@ -185,17 +149,8 @@ Expr* Parser::parseFactor()
     // 곱셈·나눗셈 처리.
     // parseUnary를 먼저 호출하므로 단항 연산자가 * / 보다 높은 우선순위를 갖는다.
     Expr* expr = parseUnary();
-
     while (match({ TokenType::STAR, TokenType::SLASH }))
-    {
-        Token  op    = previous();
-        Expr*  right = parseUnary();
-        auto*  bin   = new BinaryExpr();
-        bin->left  = expr;
-        bin->op    = op;
-        bin->right = right;
-        expr = bin;
-    }
+        expr = makeBinary(expr, previous(), parseUnary());
     return expr;
 }
 
@@ -262,6 +217,20 @@ Expr* Parser::parsePrimary()
     }
 
     return nullptr; // 매칭되는 토큰 없음 — 에러 처리는 Refactor 단계에서 추가 예정
+}
+
+// -----------------------------------------------------------------------
+// 노드 생성 헬퍼
+// -----------------------------------------------------------------------
+
+BinaryExpr* Parser::makeBinary(Expr* left, Token op, Expr* right)
+{
+    // parseOr/And/Comparison/Term/Factor 에서 공통으로 사용하는 BinaryExpr 생성.
+    auto* bin  = new BinaryExpr();
+    bin->left  = left;
+    bin->op    = op;
+    bin->right = right;
+    return bin;
 }
 
 // -----------------------------------------------------------------------

@@ -28,6 +28,9 @@ private:
     Expr*  parseUnary();        // - (단항)
     Expr*  parsePrimary();      // 리터럴, 변수, 괄호
 
+    // --- 노드 생성 헬퍼 ---
+    BinaryExpr* makeBinary(Expr* left, Token op, Expr* right);
+
     // --- 토큰 헬퍼 ---
     bool   match(std::initializer_list<TokenType> types);
     bool   check(TokenType type);
