@@ -111,7 +111,12 @@ Expr* Parser::parseOr()
     // 예) a or b or c → BinaryExpr(or, BinaryExpr(or, a, b), c)
     Expr* expr = parseAnd();
     while (match({ TokenType::OR }))
-        expr = makeBinary(expr, previous(), parseAnd());
+    {
+        // C++은 함수 인자 평가 순서를 보장하지 않으므로
+        // previous()를 반드시 재귀 호출 이전에 지역 변수로 캡처해야 한다.
+        Token op = previous();
+        expr = makeBinary(expr, op, parseAnd());
+    }
     return expr;
 }
 
@@ -120,7 +125,10 @@ Expr* Parser::parseAnd()
     // and 연산자도 좌결합.
     Expr* expr = parseComparison();
     while (match({ TokenType::AND }))
-        expr = makeBinary(expr, previous(), parseComparison());
+    {
+        Token op = previous();
+        expr = makeBinary(expr, op, parseComparison());
+    }
     return expr;
 }
 
@@ -130,7 +138,10 @@ Expr* Parser::parseComparison()
     // 예) a > b → BinaryExpr(>, VariableExpr(a), VariableExpr(b))
     Expr* expr = parseTerm();
     while (match({ TokenType::GREATER, TokenType::LESS }))
-        expr = makeBinary(expr, previous(), parseTerm());
+    {
+        Token op = previous();
+        expr = makeBinary(expr, op, parseTerm());
+    }
     return expr;
 }
 
@@ -140,7 +151,10 @@ Expr* Parser::parseTerm()
     // parseFactor를 먼저 호출하므로 * / 가 + - 보다 높은 우선순위를 갖는다.
     Expr* expr = parseFactor();
     while (match({ TokenType::PLUS, TokenType::MINUS }))
-        expr = makeBinary(expr, previous(), parseFactor());
+    {
+        Token op = previous();
+        expr = makeBinary(expr, op, parseFactor());
+    }
     return expr;
 }
 
@@ -150,7 +164,10 @@ Expr* Parser::parseFactor()
     // parseUnary를 먼저 호출하므로 단항 연산자가 * / 보다 높은 우선순위를 갖는다.
     Expr* expr = parseUnary();
     while (match({ TokenType::STAR, TokenType::SLASH }))
-        expr = makeBinary(expr, previous(), parseUnary());
+    {
+        Token op = previous();
+        expr = makeBinary(expr, op, parseUnary());
+    }
     return expr;
 }
 
