@@ -12,7 +12,7 @@
 - 입력: 수동으로 구성한 `std::vector<Token>`
 - 출력: `ExpressionStmt`로 래핑된 `Expr*` 를 `dynamic_cast` 로 검증
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **Green** (TC-01~14 전체 통과)
+- 현재 상태: **Green** (TC-01~17 전체 통과)
 
 ---
 
@@ -34,6 +34,9 @@
 | TC-12 | ParsesLogicalAnd | `a and b;` | BinaryExpr (논리) | 🟢 Green |
 | TC-13 | AssignIsRightAssociative | `a = b = 3;` | AssignExpr (우결합) | 🟢 Green |
 | TC-14 | ParsesUnaryBang | `!true;` | UnaryExpr (논리 부정) | 🟢 Green |
+| TC-15 | ParsesDivision | `6 / 2;` | BinaryExpr (나눗셈) | 🟢 Green |
+| TC-16 | ParsesComparisonLess | `3 < 5;` | BinaryExpr (비교 <) | 🟢 Green |
+| TC-17 | ParsesLogicalOr | `a or b;` | BinaryExpr (논리 or) | 🟢 Green |
 
 ---
 
@@ -386,10 +389,89 @@ ExpressionStmt
 
 ---
 
+### TC-15 ParsesDivision
+
+**목적**: 나눗셈 연산자 `/` 가 BinaryExpr(SLASH) 로 파싱되는지 확인
+
+**입력 토큰**
+```
+NUMBER("6", 6.0) → SLASH("/") → NUMBER("2", 2.0) → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── BinaryExpr(SLASH)
+    ├── left:  LiteralExpr(6.0)
+    └── right: LiteralExpr(2.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `6 / 2` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `BinaryExpr` 이고 `op.type` == `SLASH`, 좌우 피연산자 == `LiteralExpr(6.0)` / `LiteralExpr(2.0)` |
+
+**🟢 Green**: `parseFactor()` 의 `match({STAR, SLASH})` 로 처리
+
+---
+
+### TC-16 ParsesComparisonLess
+
+**목적**: 비교 연산자 `<` 가 BinaryExpr(LESS) 로 파싱되는지 확인
+
+**입력 토큰**
+```
+NUMBER("3", 3.0) → LESS("<") → NUMBER("5", 5.0) → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── BinaryExpr(LESS)
+    ├── left:  LiteralExpr(3.0)
+    └── right: LiteralExpr(5.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `3 < 5` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `BinaryExpr` 이고 `op.type` == `LESS`, 좌우 피연산자 == `LiteralExpr(3.0)` / `LiteralExpr(5.0)` |
+
+**🟢 Green**: `parseComparison()` 의 `match({GREATER, LESS})` 로 처리
+
+---
+
+### TC-17 ParsesLogicalOr
+
+**목적**: 논리 연산자 `or` 가 BinaryExpr(OR) 로 파싱되는지 확인
+
+**입력 토큰**
+```
+IDENTIFIER("a") → OR("or") → IDENTIFIER("b") → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── BinaryExpr(OR)
+    ├── left:  VariableExpr("a")
+    └── right: VariableExpr("b")
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `a or b` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `BinaryExpr` 이고 `op.type` == `OR`, 좌우 피연산자 == `VariableExpr("a")` / `VariableExpr("b")` |
+
+**🟢 Green**: `parseOr()` 의 `match({OR})` 로 처리
+
+---
+
 ## 추가 예정 TC
 
 | ID | 설명 | 입력 예시 | 비고 |
 |---|---|---|---|
-| TC-15 | BinaryExpr 나눗셈 | `6 / 2;` | |
-| TC-16 | or 논리 연산 | `a or b;` | |
-| TC-17 | 좌결합 검증 | `1 + 2 + 3;` | BinaryExpr(PLUS, BinaryExpr(PLUS,1,2), 3) |
+| TC-18 | 좌결합 검증 | `1 + 2 + 3;` | BinaryExpr(PLUS, BinaryExpr(PLUS,1,2), 3) |
