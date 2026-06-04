@@ -1,4 +1,4 @@
-#include "Parser.h"
+﻿#include "Parser.h"
 #include "Expr.h"
 #include <stdexcept>
 
@@ -36,35 +36,122 @@ std::vector<std::unique_ptr<Stmt>> Parser::parse(const std::vector<Token>& token
     tokens_  = tokens;
     current_ = 0;
 
-    // EOF 토큰을 만날 때까지 Statement 를 반복 파싱하여 AST 목록을 구성한다.
-    // C파트 구현 시 parseStatement() → parseDeclaration() 으로 교체 예정
+    // EOF 토큰을 만날 때까지 Declaration 을 반복 파싱하여 AST 목록을 구성한다.
     std::vector<std::unique_ptr<Stmt>> statements;
     while (!isAtEnd())
-        statements.push_back(parseStatement());
+        statements.push_back(parseDeclaration());
 
     return statements;
 }
 
 // -----------------------------------------------------------------------
-// Statement  (C파트 구현 예정 — 현재는 ExpressionStmt 만 처리)
+// Statement  (C파트)
 // -----------------------------------------------------------------------
 
 std::unique_ptr<Stmt> Parser::parseDeclaration()
 {
+    // var 선언은 Statement 가 아닌 Declaration 계층에서 처리한다.
+    // 블록 내부에서도 var 를 쓸 수 있도록 parseBlock() 도 이 함수를 호출한다.
+    if (match({ TokenType::VAR }))
+        return parseVarDeclaration();
     return parseStatement();
 }
 
 std::unique_ptr<Stmt> Parser::parseStatement()
 {
-    // C파트 구현 예정: VAR / PRINT / IF / FOR / BLOCK 분기 추가
+    // 첫 토큰으로 문장 종류를 판별하는 디스패치 테이블
+    if (match({ TokenType::PRINT }))       return parsePrintStatement();
+    if (match({ TokenType::IF }))          return parseIfStatement();
+    if (match({ TokenType::FOR }))         return parseForStatement();
+    if (match({ TokenType::LEFT_BRACE }))  return parseBlock();
     return parseExpressionStatement();
 }
 
-std::unique_ptr<Stmt> Parser::parseVarDeclaration()   { return nullptr; }
-std::unique_ptr<Stmt> Parser::parsePrintStatement()   { return nullptr; }
-std::unique_ptr<Stmt> Parser::parseIfStatement()      { return nullptr; }
-std::unique_ptr<Stmt> Parser::parseForStatement()     { return nullptr; }
-std::unique_ptr<Stmt> Parser::parseBlock()            { return nullptr; }
+std::unique_ptr<Stmt> Parser::parseVarDeclaration()
+{
+    // VAR 는 이미 소비된 상태로 진입. 문법: var IDENTIFIER = expr ;
+    Token name = consume(TokenType::IDENTIFIER, "변수 이름이 필요합니다.");
+    consume(TokenType::EQUAL, "'=' 가 필요합니다.");
+    auto initializer = parseExpression();
+    consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
+
+    auto stmt         = std::make_unique<VarDeclareStmt>();
+    stmt->name        = name;
+    stmt->initializer = std::move(initializer);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parsePrintStatement()
+{
+    // PRINT 는 이미 소비된 상태로 진입. 문법: print expr ;
+    auto expr = parseExpression();
+    consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
+
+    auto stmt        = std::make_unique<PrintStmt>();
+    stmt->expression = std::move(expr);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parseIfStatement()
+{
+    // IF 는 이미 소비된 상태로 진입. 문법: if ( expr ) stmt ( else stmt )?
+    consume(TokenType::LEFT_PAREN, "'(' 가 필요합니다.");
+    auto condition = parseExpression();
+    consume(TokenType::RIGHT_PAREN, "')' 가 필요합니다.");
+
+    auto thenBranch = parseStatement();
+
+    // else 는 발견 즉시 소비한다 — 가장 가까운 if 에 결합 (dangling-else 해소)
+    std::unique_ptr<Stmt> elseBranch;
+    if (match({ TokenType::ELSE }))
+        elseBranch = parseStatement();
+
+    auto stmt        = std::make_unique<IfStmt>();
+    stmt->condition  = std::move(condition);
+    stmt->thenBranch = std::move(thenBranch);
+    stmt->elseBranch = std::move(elseBranch);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parseForStatement()
+{
+    // FOR 는 이미 소비된 상태로 진입. 문법: for ( init cond ; incr ) stmt
+    // init 은 VarDeclareStmt 또는 ExpressionStmt — 각 함수가 세미콜론까지 소비한다.
+    consume(TokenType::LEFT_PAREN, "'(' 가 필요합니다.");
+
+    std::unique_ptr<Stmt> init;
+    if (match({ TokenType::VAR }))
+        init = parseVarDeclaration();       // var i = 0;  (세미콜론 포함)
+    else
+        init = parseExpressionStatement();  // i = 0;      (세미콜론 포함)
+
+    auto condition = parseExpression();
+    consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
+
+    auto increment = parseExpression();
+    consume(TokenType::RIGHT_PAREN, "')' 가 필요합니다.");
+
+    auto body = parseStatement();
+
+    auto stmt       = std::make_unique<ForStmt>();
+    stmt->init      = std::move(init);
+    stmt->condition = std::move(condition);
+    stmt->increment = std::move(increment);
+    stmt->body      = std::move(body);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parseBlock()
+{
+    // LEFT_BRACE 는 이미 소비된 상태로 진입.
+    // isAtEnd() 검사는 닫는 중괄호 없이 EOF 에 도달했을 때 무한루프를 방지한다.
+    // 실제 오류는 consume(RIGHT_BRACE) 에서 던진다.
+    auto stmt = std::make_unique<BlockStmt>();
+    while (!check(TokenType::RIGHT_BRACE) && !isAtEnd())
+        stmt->statements.push_back(parseDeclaration());
+    consume(TokenType::RIGHT_BRACE, "'}' 가 필요합니다.");
+    return stmt;
+}
 
 std::unique_ptr<Stmt> Parser::parseExpressionStatement()
 {
