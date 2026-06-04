@@ -41,6 +41,7 @@ protected:
     std::unique_ptr<Expr> parseExpression() override
     {
         auto lit = std::make_unique<LiteralExpr>();
+        // 첫 토큰의 값을 literal에 저장
         if (check(TokenType::NUMBER))
             lit->value = std::get<double>(advance().literal);
         else if (check(TokenType::STRING))
@@ -48,6 +49,12 @@ protected:
         else if (check(TokenType::TRUE) || check(TokenType::FALSE))
             lit->value = (advance().type == TokenType::TRUE);
         else if (check(TokenType::IDENTIFIER))
+            advance();
+        // 나머지 표현식 토큰을 문장 경계(; ) })까지 소비
+        while (!isAtEnd()                         &&
+               !check(TokenType::SEMICOLON)       &&
+               !check(TokenType::RIGHT_PAREN)     &&
+               !check(TokenType::RIGHT_BRACE))
             advance();
         return lit;
     }
@@ -167,6 +174,7 @@ TEST(ParserStmtTest, P_TC_07_PrintExpression)
     FakeExprParser p;
     auto stmts = p.parse({
         makeTok(TokenType::PRINT, "print"), makeId("a"),
+        makeTok(TokenType::PLUS, "+"), makeId("b"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
     ASSERT_EQ(stmts.size(), 1u);
