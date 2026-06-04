@@ -32,5 +32,20 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
     if (auto* e = dynamic_cast<LiteralExpr*>(expr))
         return e->value;
 
+    if (auto* e = dynamic_cast<BinaryExpr*>(expr))
+    {
+        double l = std::get<double>(evaluateExpr(e->left.get(), env));
+        double r = std::get<double>(evaluateExpr(e->right.get(), env));
+
+        switch (e->op.type)
+        {
+            case TokenType::PLUS:  return l + r;
+            case TokenType::MINUS: return l - r;
+            case TokenType::STAR:  return l * r;
+            case TokenType::SLASH: return l / r;
+            default:               return std::monostate{};
+        }
+    }
+
     return std::monostate{};
 }
