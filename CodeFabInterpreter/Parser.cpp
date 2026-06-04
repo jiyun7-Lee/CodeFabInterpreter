@@ -52,6 +52,8 @@ std::unique_ptr<Stmt> Parser::parseDeclaration()
 {
     // var 선언은 Statement 가 아닌 Declaration 계층에서 처리한다.
     // 블록 내부에서도 var 를 쓸 수 있도록 parseBlock() 도 이 함수를 호출한다.
+    if (match({ TokenType::FUNC }))
+        return parseFunctionDeclaration();
     if (match({ TokenType::VAR }))
         return parseVarDeclaration();
     return parseStatement();
@@ -64,6 +66,7 @@ std::unique_ptr<Stmt> Parser::parseStatement()
     if (match({ TokenType::IF }))          return parseIfStatement();
     if (match({ TokenType::FOR }))         return parseForStatement();
     if (match({ TokenType::LEFT_BRACE }))  return parseBlock();
+    if (match({ TokenType::RETURN }))      return parseReturnStatement();
     return parseExpressionStatement();
 }
 
@@ -161,6 +164,40 @@ std::unique_ptr<Stmt> Parser::parseExpressionStatement()
 
     auto stmt        = std::make_unique<ExpressionStmt>();
     stmt->expression = std::move(expr);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parseFunctionDeclaration()
+{
+    // FUNC 는 이미 소비된 상태로 진입. 문법: func name(p1, p2) { body }
+    Token name = consume(TokenType::IDENTIFIER, "함수 이름이 필요합니다.");
+    consume(TokenType::LEFT_PAREN, "'(' 가 필요합니다.");
+
+    std::vector<Token> params;
+    if (!check(TokenType::RIGHT_PAREN))
+    {
+        do { params.push_back(consume(TokenType::IDENTIFIER, "매개변수 이름이 필요합니다.")); }
+        while (match({ TokenType::COMMA }));
+    }
+    consume(TokenType::RIGHT_PAREN, "')' 가 필요합니다.");
+    consume(TokenType::LEFT_BRACE,  "'{' 가 필요합니다.");
+
+    auto body         = parseBlock(); // LEFT_BRACE 이미 소비된 상태로 호출
+    auto stmt         = std::make_unique<FunctionDeclareStmt>();
+    stmt->name        = name;
+    stmt->params      = std::move(params);
+    stmt->body        = std::move(body);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parseReturnStatement()
+{
+    // RETURN 은 이미 소비된 상태로 진입. 문법: return expr ;
+    auto value = parseExpression();
+    consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
+
+    auto stmt   = std::make_unique<ReturnStmt>();
+    stmt->value = std::move(value);
     return stmt;
 }
 
@@ -267,7 +304,23 @@ std::unique_ptr<Expr> Parser::parseUnary()
         unary->right = std::move(right);
         return unary;
     }
-    return parsePrimary();
+    return parsePostfix();
+}
+
+std::unique_ptr<Expr> Parser::parsePostfix()
+{
+    // 배열 접근: expr[index] (좌결합, 중첩 가능)
+    auto expr = parsePrimary();
+    while (match({ TokenType::LEFT_BRACKET }))
+    {
+        auto index  = parseExpression();
+        consume(TokenType::RIGHT_BRACKET, "']' 가 필요합니다.");
+        auto access  = std::make_unique<ArrayAccessExpr>();
+        access->array = std::move(expr);
+        access->index = std::move(index);
+        expr = std::move(access);
+    }
+    return expr;
 }
 
 std::unique_ptr<Expr> Parser::parsePrimary()
@@ -295,9 +348,40 @@ std::unique_ptr<Expr> Parser::parsePrimary()
 
     if (match({ TokenType::IDENTIFIER }))
     {
+        Token name = previous();
+        if (match({ TokenType::LEFT_PAREN }))
+        {
+            // 함수 호출: name(arg1, arg2, ...)
+            std::vector<std::unique_ptr<Expr>> args;
+            if (!check(TokenType::RIGHT_PAREN))
+            {
+                do { args.push_back(parseExpression()); }
+                while (match({ TokenType::COMMA }));
+            }
+            consume(TokenType::RIGHT_PAREN, "')' 가 필요합니다.");
+            auto call    = std::make_unique<FunctionCallExpr>();
+            call->callee = name;
+            call->args   = std::move(args);
+            return call;
+        }
         auto var  = std::make_unique<VariableExpr>();
-        var->name = previous();
+        var->name = name;
         return var;
+    }
+
+    if (match({ TokenType::LEFT_BRACKET }))
+    {
+        // 배열 리터럴: [elem1, elem2, ...]
+        std::vector<std::unique_ptr<Expr>> elements;
+        if (!check(TokenType::RIGHT_BRACKET))
+        {
+            do { elements.push_back(parseExpression()); }
+            while (match({ TokenType::COMMA }));
+        }
+        consume(TokenType::RIGHT_BRACKET, "']' 가 필요합니다.");
+        auto arr      = std::make_unique<ArrayLiteralExpr>();
+        arr->elements = std::move(elements);
+        return arr;
     }
 
     if (match({ TokenType::LEFT_PAREN }))
