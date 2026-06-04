@@ -11,7 +11,7 @@ void Shell::run()
     std::string line;
     while (true)
     {
-        std::cout << ">>> ";
+        std::cout << ">>> " << std::flush;
         if (!std::getline(std::cin, line)) break;
         runLine(line);
     }
@@ -39,7 +39,7 @@ void Shell::runLine(const std::string& source)
         if (!checker.check(stmts))
         {
             for (const auto& err : checker.getErrors())
-                std::cerr << "[Checker] " << err << "\n";
+                std::cout << "[Checker] " << err << "\n";
             return;
         }
 
@@ -47,6 +47,6 @@ void Shell::runLine(const std::string& source)
     }
     catch (const std::exception& e)
     {
-        std::cerr << "[Error] " << e.what() << "\n";
+        std::cout << "[Error] " << e.what() << "\n";
     }
 }
