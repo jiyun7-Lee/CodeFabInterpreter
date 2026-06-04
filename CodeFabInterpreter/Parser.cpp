@@ -1,5 +1,4 @@
 ﻿#include "Parser.h"
-#include "Expr.h"
 #include <stdexcept>
 
 // -----------------------------------------------------------------------
@@ -69,10 +68,13 @@ std::unique_ptr<Stmt> Parser::parseStatement()
 
 std::unique_ptr<Stmt> Parser::parseVarDeclaration()
 {
-    // VAR 는 이미 소비된 상태로 진입. 문법: var IDENTIFIER = expr ;
+    // VAR 는 이미 소비된 상태로 진입. 문법: var IDENTIFIER ( = expr )? ;
     Token name = consume(TokenType::IDENTIFIER, "변수 이름이 필요합니다.");
-    consume(TokenType::EQUAL, "'=' 가 필요합니다.");
-    auto initializer = parseExpression();
+
+    std::unique_ptr<Expr> initializer;
+    if (match({ TokenType::EQUAL }))
+        initializer = parseExpression();
+
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
     auto stmt         = std::make_unique<VarDeclareStmt>();
