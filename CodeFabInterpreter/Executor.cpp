@@ -14,6 +14,13 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
         printValue(evaluateExpr(s->expression.get(), env));
         return;
     }
+
+    if (auto* s = dynamic_cast<VarDeclareStmt*>(stmt))
+    {
+        Value val = s->initializer ? evaluateExpr(s->initializer.get(), env) : std::monostate{};
+        env->define(s->name.lexeme, val);
+        return;
+    }
 }
 
 void Executor::printValue(const Value& val)
@@ -31,6 +38,9 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
 {
     if (auto* e = dynamic_cast<LiteralExpr*>(expr))
         return e->value;
+
+    if (auto* e = dynamic_cast<VariableExpr*>(expr))
+        return env->get(e->name.lexeme);
 
     if (auto* e = dynamic_cast<BinaryExpr*>(expr))
     {
