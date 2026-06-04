@@ -44,6 +44,7 @@ std::vector<Token> Tokenizer::tokenize(const std::string& source)
             case '=': tokens.push_back({TokenType::EQUAL,       "=", line, {}}); ++pos; continue;
             case '>': tokens.push_back({TokenType::GREATER,     ">", line, {}}); ++pos; continue;
             case '<': tokens.push_back({TokenType::LESS,        "<", line, {}}); ++pos; continue;
+            case '!': tokens.push_back({TokenType::BANG,        "!", line, {}}); ++pos; continue;
         }
 
         if (c == '"')

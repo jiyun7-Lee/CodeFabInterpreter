@@ -12,7 +12,7 @@
 - 입력: `std::string` 소스 코드
 - 출력: `std::vector<Token>` — 각 Token의 `type`, `lexeme`, `literal`, `line` 검증
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **Red** (TC-01~12 전체 미통과 — 구현 전)
+- 현재 상태: **Green** (TC-01~13 전체 통과)
 
 ---
 
@@ -20,18 +20,19 @@
 
 | ID | 테스트 이름 | 입력 소스 | 검증 항목 | 상태 |
 |---|---|---|---|---|
-| TC-01 | TokenizesAllTokenTypes | 전체 토큰 나열 문자열 | 모든 type 순서 | 🔴 Red |
-| TC-02 | EmptySourceReturnsOnlyEof | `""` | size == 1, EOF_TOKEN | 🔴 Red |
-| TC-03 | LastTokenIsAlwaysEof | `"var x = 1;"` | tokens.back() == EOF | 🔴 Red |
-| TC-04 | WhitespaceIsSkipped | `"  +  \t  -  "` | PLUS, MINUS, EOF 만 존재 | 🔴 Red |
-| TC-05 | SingleCharTokensHaveCorrectLexeme | `"( ) + - * /"` | lexeme 문자열 일치 | 🔴 Red |
-| TC-06 | IdentifierHasCorrectLexeme | `"myVar"` | lexeme == "myVar" | 🔴 Red |
-| TC-07 | StringLiteralHasCorrectValue | `"\"hello\""` | literal == "hello" (string) | 🔴 Red |
-| TC-08 | IntegerLiteralHasCorrectValue | `"123"` | literal == 123.0 (double) | 🔴 Red |
-| TC-09 | FloatLiteralHasCorrectValue | `"3.14"` | literal == 3.14 (double) | 🔴 Red |
-| TC-10 | KeywordsAreNotIdentifiers | 키워드 9개 나열 | 각 keyword → 고유 TokenType | 🔴 Red |
-| TC-11 | IdentifierStartingWithKeywordIsIdentifier | `"variable iffy forge"` | 모두 IDENTIFIER | 🔴 Red |
-| TC-12 | NewlineIncrementsLineNumber | `"+\n-\n*"` | line 1, 2, 3 순서 | 🔴 Red |
+| TC-01 | TokenizesAllTokenTypes | 전체 토큰 나열 문자열 | 모든 type 순서 | 🟢 Green |
+| TC-02 | EmptySourceReturnsOnlyEof | `""` | size == 1, EOF_TOKEN | 🟢 Green |
+| TC-03 | LastTokenIsAlwaysEof | `"var x = 1;"` | tokens.back() == EOF | 🟢 Green |
+| TC-04 | WhitespaceIsSkipped | `"  +  \t  -  "` | PLUS, MINUS, EOF 만 존재 | 🟢 Green |
+| TC-05 | SingleCharTokensHaveCorrectLexeme | `"( ) + - * /"` | lexeme 문자열 일치 | 🟢 Green |
+| TC-06 | IdentifierHasCorrectLexeme | `"myVar"` | lexeme == "myVar" | 🟢 Green |
+| TC-07 | StringLiteralHasCorrectValue | `"\"hello\""` | literal == "hello" (string) | 🟢 Green |
+| TC-08 | IntegerLiteralHasCorrectValue | `"123"` | literal == 123.0 (double) | 🟢 Green |
+| TC-09 | FloatLiteralHasCorrectValue | `"3.14"` | literal == 3.14 (double) | 🟢 Green |
+| TC-10 | KeywordsAreNotIdentifiers | 키워드 9개 나열 | 각 keyword → 고유 TokenType | 🟢 Green |
+| TC-11 | IdentifierStartingWithKeywordIsIdentifier | `"variable iffy forge"` | 모두 IDENTIFIER | 🟢 Green |
+| TC-12 | NewlineIncrementsLineNumber | `"+\n-\n*"` | line 1, 2, 3 순서 | 🟢 Green |
+| TC-13 | BangTokenHasCorrectLexeme | `"!"` | BANG, lexeme == "!" | 🟢 Green |
 
 ---
 
@@ -43,13 +44,13 @@
 
 **입력 소스**
 ```
-( ) { } , . ; + - * / = > < identifier "hello" 123 var print if else for true false and or
+( ) { } , . ; + - * / ! = > < identifier "hello" 123 var print if else for true false and or
 ```
 
 **기대 토큰 시퀀스**
 ```
 LEFT_PAREN → RIGHT_PAREN → LEFT_BRACE → RIGHT_BRACE → COMMA → DOT → SEMICOLON
-→ PLUS → MINUS → STAR → SLASH → EQUAL → GREATER → LESS
+→ PLUS → MINUS → STAR → SLASH → BANG → EQUAL → GREATER → LESS
 → IDENTIFIER → STRING → NUMBER
 → VAR → PRINT → IF → ELSE → FOR → TRUE → FALSE → AND → OR
 → EOF_TOKEN
@@ -316,11 +317,33 @@ STAR  (line == 3)
 
 ---
 
+### TC-13 BangTokenHasCorrectLexeme
+
+**목적**: `!` 문자가 BANG 타입으로 인식되고 lexeme이 `"!"`인지 확인
+
+**입력 소스**
+```
+!
+```
+
+**기대 결과**
+```
+BANG, lexeme == "!"
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `!` 단일 문자 소스 구성 |
+| Act | `tokenizer.tokenize("!")` 호출 |
+| Assert | `tokens[0].type` == BANG, `tokens[0].lexeme` == "!" |
+
+---
+
 ## 추가 예정 TC
 
 | ID | 설명 | 입력 예시 | 비고 |
 |---|---|---|---|
-| TC-13 | 문자열 lexeme이 따옴표를 포함한다 | `"hello"` | lexeme == `"\"hello\""` |
-| TC-14 | 숫자 lexeme이 소스 문자열과 일치한다 | `3.14` | lexeme == `"3.14"` |
-| TC-15 | 밑줄(_)로 시작하는 식별자 인식 | `_count` | IDENTIFIER, lexeme == "_count" |
-| TC-16 | 여러 줄에 걸친 소스의 복합 검증 | `var\nx\n=\n1` | type + line 복합 검증 |
+| TC-14 | 문자열 lexeme이 따옴표를 포함한다 | `"hello"` | lexeme == `"\"hello\""` |
+| TC-15 | 숫자 lexeme이 소스 문자열과 일치한다 | `3.14` | lexeme == `"3.14"` |
+| TC-16 | 밑줄(_)로 시작하는 식별자 인식 | `_count` | IDENTIFIER, lexeme == "_count" |
+| TC-17 | 여러 줄에 걸친 소스의 복합 검증 | `var\nx\n=\n1` | type + line 복합 검증 |
