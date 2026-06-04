@@ -1,6 +1,7 @@
 ﻿#include "Parser.h"
 #include "Expr.h"
 #include <stdexcept>
+#include <iostream>
 
 // -----------------------------------------------------------------------
 // [재귀 하강 파서 (Recursive Descent Parser) 개요]
@@ -314,7 +315,9 @@ Token Parser::previous()
 Token Parser::consume(TokenType type)
 {
     // 기대하는 토큰이 맞으면 소비하고 반환한다.
-    // 틀린 경우 현재 토큰을 그대로 반환 — 에러 처리는 추후 추가 예정.
+    // 틀린 경우 stderr 에 경고를 출력하고 현재 토큰을 반환한다.
     if (check(type)) return advance();
+    std::cerr << "[" << peek().line << "번째 줄] "
+              << "예상치 못한 토큰: '" << peek().lexeme << "'\n";
     return peek();
 }
