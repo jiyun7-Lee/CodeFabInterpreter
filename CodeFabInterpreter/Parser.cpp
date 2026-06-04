@@ -19,7 +19,7 @@
 //           parseComparison  (> <)
 //             parseTerm      (+ -)
 //               parseFactor  (* /)
-//                 parseUnary   (단항 -)
+//                 parseUnary   (단항 -, !)
 //                   parsePrimary  (리터럴, 변수, 괄호)
 //
 // 예) 1 + 2 * 3 을 파싱하면:
@@ -32,13 +32,13 @@
 // public
 // -----------------------------------------------------------------------
 
-std::vector<Stmt*> Parser::parse(const std::vector<Token>& tokens)
+std::vector<std::unique_ptr<Stmt>> Parser::parse(const std::vector<Token>& tokens)
 {
     m_tokens  = tokens;
     m_current = 0;
 
     // EOF 토큰을 만날 때까지 Statement 를 반복 파싱하여 AST 목록을 구성한다.
-    std::vector<Stmt*> statements;
+    std::vector<std::unique_ptr<Stmt>> statements;
     while (!isAtEnd())
         statements.push_back(parseStatement());
 
@@ -49,22 +49,22 @@ std::vector<Stmt*> Parser::parse(const std::vector<Token>& tokens)
 // Statement
 // -----------------------------------------------------------------------
 
-Stmt* Parser::parseStatement()
+std::unique_ptr<Stmt> Parser::parseStatement()
 {
     // 현재는 ExpressionStmt 만 지원한다.
     // PrintStmt, VarDeclareStmt, IfStmt, ForStmt 등은 심민구 담당 (Statement Parser).
     return parseExpressionStatement();
 }
 
-Stmt* Parser::parseExpressionStatement()
+std::unique_ptr<Stmt> Parser::parseExpressionStatement()
 {
     // Expression 을 파싱한 뒤 반드시 세미콜론(;) 으로 닫혀야 한다.
     // ExpressionStmt 는 Expr 을 Stmt 로 감싸는 래퍼 역할을 한다.
-    Expr* expr = parseExpression();
+    auto expr = parseExpression();
     consume(TokenType::SEMICOLON);
 
-    auto* stmt = new ExpressionStmt();
-    stmt->expression = expr;
+    auto stmt = std::make_unique<ExpressionStmt>();
+    stmt->expression = std::move(expr);
     return stmt;
 }
 
@@ -72,14 +72,14 @@ Stmt* Parser::parseExpressionStatement()
 // Expression — 우선순위 낮은 순서대로 호출
 // -----------------------------------------------------------------------
 
-Expr* Parser::parseExpression()
+std::unique_ptr<Expr> Parser::parseExpression()
 {
     // 모든 Expression 파싱의 진입점.
     // 가장 우선순위가 낮은 parseAssignment 부터 시작한다.
     return parseAssignment();
 }
 
-Expr* Parser::parseAssignment()
+std::unique_ptr<Expr> Parser::parseAssignment()
 {
     // 우선 하위 우선순위 표현식(parseOr) 을 파싱한다.
     // 이후 = 토큰이 나오면 대입식으로 확정한다.
@@ -87,115 +87,115 @@ Expr* Parser::parseAssignment()
     // [우결합 처리]
     // 우변에 재귀적으로 parseAssignment 를 호출하므로
     // a = b = 3 은 a = (b = 3) 으로 파싱된다.
-    Expr* expr = parseOr();
+    auto expr = parseOr();
 
     if (match({ TokenType::EQUAL }))
     {
         Token op = previous(); // 연산자를 재귀 호출 이전에 캡처 (인자 평가 순서 보장)
-        Expr* value = parseAssignment(); // 우결합: 재귀 호출
+        auto value = parseAssignment(); // 우결합: 재귀 호출
 
         // 대입의 좌변은 반드시 변수(VariableExpr) 여야 한다.
         // 예) 3 = 5 는 문법 오류 — Checker 단계에서 추가 검증 예정.
-        if (auto* var = dynamic_cast<VariableExpr*>(expr))
+        if (auto* var = dynamic_cast<VariableExpr*>(expr.get()))
         {
-            auto* assign  = new AssignExpr();
+            auto assign   = std::make_unique<AssignExpr>();
             assign->name  = var->name;
-            assign->value = value;
-            delete expr; // VariableExpr 는 AssignExpr 에 흡수되므로 해제
+            assign->value = std::move(value);
+            // expr(unique_ptr) 는 스코프 종료 시 자동 해제됨
             return assign;
         }
     }
     return expr;
 }
 
-Expr* Parser::parseOr()
+std::unique_ptr<Expr> Parser::parseOr()
 {
     // or 연산자는 좌결합이므로 while 로 반복 처리한다.
     // 예) a or b or c → BinaryExpr(or, BinaryExpr(or, a, b), c)
-    Expr* expr = parseAnd();
+    auto expr = parseAnd();
     while (match({ TokenType::OR }))
     {
         Token op = previous(); // 연산자를 재귀 호출 이전에 캡처
-        expr = makeBinary(expr, op, parseAnd());
+        expr = makeBinary(std::move(expr), op, parseAnd());
     }
     return expr;
 }
 
-Expr* Parser::parseAnd()
+std::unique_ptr<Expr> Parser::parseAnd()
 {
     // and 연산자도 좌결합.
-    Expr* expr = parseComparison();
+    auto expr = parseComparison();
     while (match({ TokenType::AND }))
     {
         Token op = previous();
-        expr = makeBinary(expr, op, parseComparison());
+        expr = makeBinary(std::move(expr), op, parseComparison());
     }
     return expr;
 }
 
-Expr* Parser::parseComparison()
+std::unique_ptr<Expr> Parser::parseComparison()
 {
     // 비교 연산자 > < 처리.
     // 예) a > b → BinaryExpr(>, VariableExpr(a), VariableExpr(b))
-    Expr* expr = parseTerm();
+    auto expr = parseTerm();
     while (match({ TokenType::GREATER, TokenType::LESS }))
     {
         Token op = previous();
-        expr = makeBinary(expr, op, parseTerm());
+        expr = makeBinary(std::move(expr), op, parseTerm());
     }
     return expr;
 }
 
-Expr* Parser::parseTerm()
+std::unique_ptr<Expr> Parser::parseTerm()
 {
     // 덧셈·뺄셈 처리.
     // parseFactor 를 먼저 호출하므로 * / 가 + - 보다 높은 우선순위를 갖는다.
-    Expr* expr = parseFactor();
+    auto expr = parseFactor();
     while (match({ TokenType::PLUS, TokenType::MINUS }))
     {
         Token op = previous();
-        expr = makeBinary(expr, op, parseFactor());
+        expr = makeBinary(std::move(expr), op, parseFactor());
     }
     return expr;
 }
 
-Expr* Parser::parseFactor()
+std::unique_ptr<Expr> Parser::parseFactor()
 {
     // 곱셈·나눗셈 처리.
     // parseUnary 를 먼저 호출하므로 단항 연산자가 * / 보다 높은 우선순위를 갖는다.
-    Expr* expr = parseUnary();
+    auto expr = parseUnary();
     while (match({ TokenType::STAR, TokenType::SLASH }))
     {
         Token op = previous();
-        expr = makeBinary(expr, op, parseUnary());
+        expr = makeBinary(std::move(expr), op, parseUnary());
     }
     return expr;
 }
 
-Expr* Parser::parseUnary()
+std::unique_ptr<Expr> Parser::parseUnary()
 {
     // 단항 연산자 처리: - (음수), ! (논리 부정)
     // 재귀 호출로 !!a 같은 중첩 단항 연산도 처리된다.
     if (match({ TokenType::MINUS, TokenType::BANG }))
     {
         Token op    = previous();
-        Expr* right = parseUnary(); // 재귀: --a → UnaryExpr(-, UnaryExpr(-, a))
-        auto* unary = new UnaryExpr();
+        auto  right = parseUnary(); // 재귀: --a → UnaryExpr(-, UnaryExpr(-, a))
+        auto  unary = std::make_unique<UnaryExpr>();
         unary->op    = op;
-        unary->right = right;
+        unary->right = std::move(right);
         return unary;
     }
     return parsePrimary();
 }
 
-Expr* Parser::parsePrimary()
+std::unique_ptr<Expr> Parser::parsePrimary()
 {
     // 가장 기본 단위(원자) 파싱. 더 이상 분해되지 않는 토큰들을 처리한다.
 
     // 숫자·문자열 리터럴: 토큰의 literal 필드에 값이 담겨있다.
     if (match({ TokenType::NUMBER, TokenType::STRING }))
     {
-        auto* lit  = new LiteralExpr();
+        auto lit  = std::make_unique<LiteralExpr>();
         lit->value = previous().literal;
         return lit;
     }
@@ -203,14 +203,14 @@ Expr* Parser::parsePrimary()
     // 불리언 리터럴: TRUE/FALSE 토큰을 bool 값으로 변환
     if (match({ TokenType::TRUE }))
     {
-        auto* lit  = new LiteralExpr();
+        auto lit  = std::make_unique<LiteralExpr>();
         lit->value = true;
         return lit;
     }
 
     if (match({ TokenType::FALSE }))
     {
-        auto* lit  = new LiteralExpr();
+        auto lit  = std::make_unique<LiteralExpr>();
         lit->value = false;
         return lit;
     }
@@ -218,7 +218,7 @@ Expr* Parser::parsePrimary()
     // 식별자(변수명): lexeme 을 그대로 보관하고 Executor 가 실행 시 값을 조회한다.
     if (match({ TokenType::IDENTIFIER }))
     {
-        auto* var = new VariableExpr();
+        auto var  = std::make_unique<VariableExpr>();
         var->name = previous();
         return var;
     }
@@ -227,10 +227,10 @@ Expr* Parser::parsePrimary()
     // 예) (1 + 2) * 3 → parseFactor 가 GroupingExpr 를 하나의 단위로 인식
     if (match({ TokenType::LEFT_PAREN }))
     {
-        Expr* expr = parseExpression(); // 괄호 안은 다시 최상위부터 파싱
+        auto expr = parseExpression(); // 괄호 안은 다시 최상위부터 파싱
         consume(TokenType::RIGHT_PAREN);
-        auto* grp       = new GroupingExpr();
-        grp->expression = expr;
+        auto grp        = std::make_unique<GroupingExpr>();
+        grp->expression = std::move(expr);
         return grp;
     }
 
@@ -246,20 +246,20 @@ Expr* Parser::parsePrimary()
 // 노드 생성 헬퍼
 // -----------------------------------------------------------------------
 
-BinaryExpr* Parser::makeBinary(Expr* left, Token op, Expr* right)
+std::unique_ptr<BinaryExpr> Parser::makeBinary(std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
 {
     // parseOr/And/Comparison/Term/Factor 에서 공통으로 사용하는 BinaryExpr 생성.
     // parsePrimary 가 throw 로 막혀있더라도, 향후 호출 경로가 추가될 경우를 대비해
     // nullptr 피연산자가 Executor 에 전달되지 않도록 진입 시점에서 한 번 더 검사한다.
-    if (left == nullptr || right == nullptr)
+    if (!left || !right)
         throw std::runtime_error(
             "[" + std::to_string(op.line) + "번째 줄] "
             "'" + op.lexeme + "' 연산자의 피연산자가 없습니다.");
 
-    auto* bin  = new BinaryExpr();
-    bin->left  = left;
+    auto bin   = std::make_unique<BinaryExpr>();
+    bin->left  = std::move(left);
     bin->op    = op;
-    bin->right = right;
+    bin->right = std::move(right);
     return bin;
 }
 

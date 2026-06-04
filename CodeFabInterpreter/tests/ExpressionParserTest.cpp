@@ -17,12 +17,13 @@ static Token tok(TokenType type, const std::string& lexeme, Value literal = {}, 
 static Token eof() { return tok(TokenType::EOF_TOKEN, ""); }
 
 // parse() 결과의 첫 번째 Stmt 를 ExpressionStmt 로 꺼낸다.
-static Expr* firstExpr(const std::vector<Stmt*>& stmts)
+// unique_ptr 소유권은 stmts 에 있으므로 raw pointer 로 반환 (읽기 전용).
+static Expr* firstExpr(const std::vector<std::unique_ptr<Stmt>>& stmts)
 {
     if (stmts.empty()) return nullptr;
-    auto* es = dynamic_cast<ExpressionStmt*>(stmts[0]);
+    auto* es = dynamic_cast<ExpressionStmt*>(stmts[0].get());
     if (!es) return nullptr;
-    return es->expression;
+    return es->expression.get();
 }
 
 // -----------------------------------------------------------------------
@@ -100,16 +101,16 @@ TEST(ExprParser, RespectsMulBeforeAdd)
     ASSERT_NE(add, nullptr);
     EXPECT_EQ(add->op.type, TokenType::PLUS);
 
-    auto* addLeft = dynamic_cast<LiteralExpr*>(add->left);
+    auto* addLeft = dynamic_cast<LiteralExpr*>(add->left.get());
     ASSERT_NE(addLeft, nullptr);
     EXPECT_EQ(std::get<double>(addLeft->value), 1.0);
 
-    auto* mul = dynamic_cast<BinaryExpr*>(add->right);
+    auto* mul = dynamic_cast<BinaryExpr*>(add->right.get());
     ASSERT_NE(mul, nullptr);
     EXPECT_EQ(mul->op.type, TokenType::STAR);
 
-    auto* mulLeft  = dynamic_cast<LiteralExpr*>(mul->left);
-    auto* mulRight = dynamic_cast<LiteralExpr*>(mul->right);
+    auto* mulLeft  = dynamic_cast<LiteralExpr*>(mul->left.get());
+    auto* mulRight = dynamic_cast<LiteralExpr*>(mul->right.get());
     ASSERT_NE(mulLeft, nullptr);
     ASSERT_NE(mulRight, nullptr);
     EXPECT_EQ(std::get<double>(mulLeft->value), 2.0);
@@ -145,14 +146,14 @@ TEST(ExprParser, GroupingOverridesPrecedence)
     ASSERT_NE(mul, nullptr);
     EXPECT_EQ(mul->op.type, TokenType::STAR);
 
-    auto* grp = dynamic_cast<GroupingExpr*>(mul->left);
+    auto* grp = dynamic_cast<GroupingExpr*>(mul->left.get());
     ASSERT_NE(grp, nullptr);
 
-    auto* add = dynamic_cast<BinaryExpr*>(grp->expression);
+    auto* add = dynamic_cast<BinaryExpr*>(grp->expression.get());
     ASSERT_NE(add, nullptr);
     EXPECT_EQ(add->op.type, TokenType::PLUS);
 
-    auto* mulRight = dynamic_cast<LiteralExpr*>(mul->right);
+    auto* mulRight = dynamic_cast<LiteralExpr*>(mul->right.get());
     ASSERT_NE(mulRight, nullptr);
     EXPECT_EQ(std::get<double>(mulRight->value), 3.0);
 }
@@ -182,7 +183,7 @@ TEST(ExprParser, ParsesAssignExpr)
     ASSERT_NE(assign, nullptr);
     EXPECT_EQ(assign->name.lexeme, "a");
 
-    auto* val = dynamic_cast<LiteralExpr*>(assign->value);
+    auto* val = dynamic_cast<LiteralExpr*>(assign->value.get());
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(std::get<double>(val->value), 10.0);
 }
@@ -283,7 +284,7 @@ TEST(ExprParser, ParsesUnaryMinus)
     ASSERT_NE(unary, nullptr);
     EXPECT_EQ(unary->op.type, TokenType::MINUS);
 
-    auto* operand = dynamic_cast<LiteralExpr*>(unary->right);
+    auto* operand = dynamic_cast<LiteralExpr*>(unary->right.get());
     ASSERT_NE(operand, nullptr);
     EXPECT_EQ(std::get<double>(operand->value), 5.0);
 }
@@ -313,11 +314,11 @@ TEST(ExprParser, ParsesComparisonGreater)
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::GREATER);
 
-    auto* left = dynamic_cast<VariableExpr*>(bin->left);
+    auto* left = dynamic_cast<VariableExpr*>(bin->left.get());
     ASSERT_NE(left, nullptr);
     EXPECT_EQ(left->name.lexeme, "a");
 
-    auto* right = dynamic_cast<LiteralExpr*>(bin->right);
+    auto* right = dynamic_cast<LiteralExpr*>(bin->right.get());
     ASSERT_NE(right, nullptr);
     EXPECT_EQ(std::get<double>(right->value), 3.0);
 }
@@ -347,11 +348,11 @@ TEST(ExprParser, ParsesSubtraction)
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::MINUS);
 
-    auto* left = dynamic_cast<LiteralExpr*>(bin->left);
+    auto* left = dynamic_cast<LiteralExpr*>(bin->left.get());
     ASSERT_NE(left, nullptr);
     EXPECT_EQ(std::get<double>(left->value), 5.0);
 
-    auto* right = dynamic_cast<LiteralExpr*>(bin->right);
+    auto* right = dynamic_cast<LiteralExpr*>(bin->right.get());
     ASSERT_NE(right, nullptr);
     EXPECT_EQ(std::get<double>(right->value), 3.0);
 }
@@ -381,21 +382,15 @@ TEST(ExprParser, ParsesLogicalAnd)
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::AND);
 
-    auto* left = dynamic_cast<VariableExpr*>(bin->left);
+    auto* left = dynamic_cast<VariableExpr*>(bin->left.get());
     ASSERT_NE(left, nullptr);
     EXPECT_EQ(left->name.lexeme, "a");
 
-    auto* right = dynamic_cast<VariableExpr*>(bin->right);
+    auto* right = dynamic_cast<VariableExpr*>(bin->right.get());
     ASSERT_NE(right, nullptr);
     EXPECT_EQ(right->name.lexeme, "b");
 }
 
-// -----------------------------------------------------------------------
-// TC 13 : 대입 우결합 파싱
-// 입력  : a = b = 3;
-// 기대  : AssignExpr(a, AssignExpr(b, LiteralExpr(3.0)))
-//         → a = (b = 3) 으로 파싱되어야 한다
-// -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 // TC 14 : 논리 부정 단항 연산자 파싱
 // 입력  : !true;
@@ -420,11 +415,16 @@ TEST(ExprParser, ParsesUnaryBang)
     ASSERT_NE(unary, nullptr);
     EXPECT_EQ(unary->op.type, TokenType::BANG);
 
-    auto* operand = dynamic_cast<LiteralExpr*>(unary->right);
+    auto* operand = dynamic_cast<LiteralExpr*>(unary->right.get());
     ASSERT_NE(operand, nullptr);
     EXPECT_EQ(std::get<bool>(operand->value), true);
 }
 
+// -----------------------------------------------------------------------
+// TC 13 : 대입 우결합 파싱
+// 입력  : a = b = 3;
+// 기대  : AssignExpr(a, AssignExpr(b, LiteralExpr(3.0)))
+//         → a = (b = 3) 으로 파싱되어야 한다
 // -----------------------------------------------------------------------
 TEST(ExprParser, AssignIsRightAssociative)
 {
@@ -448,11 +448,11 @@ TEST(ExprParser, AssignIsRightAssociative)
     ASSERT_NE(outer, nullptr);
     EXPECT_EQ(outer->name.lexeme, "a");
 
-    auto* inner = dynamic_cast<AssignExpr*>(outer->value);
+    auto* inner = dynamic_cast<AssignExpr*>(outer->value.get());
     ASSERT_NE(inner, nullptr);
     EXPECT_EQ(inner->name.lexeme, "b");
 
-    auto* val = dynamic_cast<LiteralExpr*>(inner->value);
+    auto* val = dynamic_cast<LiteralExpr*>(inner->value.get());
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(std::get<double>(val->value), 3.0);
 }
