@@ -456,3 +456,105 @@ TEST(ExprParser, AssignIsRightAssociative)
     ASSERT_NE(val, nullptr);
     EXPECT_EQ(std::get<double>(val->value), 3.0);
 }
+
+// -----------------------------------------------------------------------
+// TC 15 : 나눗셈 파싱
+// 입력  : 6 / 2;
+// 기대  : ExpressionStmt → BinaryExpr(SLASH, LiteralExpr(6.0), LiteralExpr(2.0))
+// -----------------------------------------------------------------------
+TEST(ExprParser, ParsesDivision)
+{
+    // Arrange: "6 / 2" 에 해당하는 토큰 시퀀스 구성
+    std::vector<Token> tokens = {
+        tok(TokenType::NUMBER, "6", 6.0),
+        tok(TokenType::SLASH,  "/"),
+        tok(TokenType::NUMBER, "2", 2.0),
+        tok(TokenType::SEMICOLON, ";"),
+        eof()
+    };
+    Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    auto stmts = parser.parse(tokens);
+
+    // Assert: BinaryExpr 이고 operator 가 SLASH, 좌우 피연산자가 올바른지 확인
+    auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->op.type, TokenType::SLASH);
+
+    auto* left = dynamic_cast<LiteralExpr*>(bin->left.get());
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(std::get<double>(left->value), 6.0);
+
+    auto* right = dynamic_cast<LiteralExpr*>(bin->right.get());
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(std::get<double>(right->value), 2.0);
+}
+
+// -----------------------------------------------------------------------
+// TC 16 : 비교 연산자 < 파싱
+// 입력  : 3 < 5;
+// 기대  : ExpressionStmt → BinaryExpr(LESS, LiteralExpr(3.0), LiteralExpr(5.0))
+// -----------------------------------------------------------------------
+TEST(ExprParser, ParsesComparisonLess)
+{
+    // Arrange: "3 < 5" 에 해당하는 토큰 시퀀스 구성
+    std::vector<Token> tokens = {
+        tok(TokenType::NUMBER, "3", 3.0),
+        tok(TokenType::LESS,   "<"),
+        tok(TokenType::NUMBER, "5", 5.0),
+        tok(TokenType::SEMICOLON, ";"),
+        eof()
+    };
+    Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    auto stmts = parser.parse(tokens);
+
+    // Assert: BinaryExpr 이고 operator 가 LESS, 좌우 피연산자가 올바른지 확인
+    auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->op.type, TokenType::LESS);
+
+    auto* left = dynamic_cast<LiteralExpr*>(bin->left.get());
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(std::get<double>(left->value), 3.0);
+
+    auto* right = dynamic_cast<LiteralExpr*>(bin->right.get());
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(std::get<double>(right->value), 5.0);
+}
+
+// -----------------------------------------------------------------------
+// TC 17 : 논리 or 파싱
+// 입력  : a or b;
+// 기대  : ExpressionStmt → BinaryExpr(OR, VariableExpr(a), VariableExpr(b))
+// -----------------------------------------------------------------------
+TEST(ExprParser, ParsesLogicalOr)
+{
+    // Arrange: "a or b" 에 해당하는 토큰 시퀀스 구성
+    std::vector<Token> tokens = {
+        tok(TokenType::IDENTIFIER, "a"),
+        tok(TokenType::OR,         "or"),
+        tok(TokenType::IDENTIFIER, "b"),
+        tok(TokenType::SEMICOLON,  ";"),
+        eof()
+    };
+    Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    auto stmts = parser.parse(tokens);
+
+    // Assert: BinaryExpr 이고 operator 가 OR, 좌우 피연산자가 VariableExpr 인지 확인
+    auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->op.type, TokenType::OR);
+
+    auto* left = dynamic_cast<VariableExpr*>(bin->left.get());
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(left->name.lexeme, "a");
+
+    auto* right = dynamic_cast<VariableExpr*>(bin->right.get());
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(right->name.lexeme, "b");
+}
