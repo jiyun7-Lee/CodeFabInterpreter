@@ -1,5 +1,6 @@
 ﻿#include "Parser.h"
 #include "Expr.h"
+#include <stdexcept>
 
 // -----------------------------------------------------------------------
 // [재귀 하강 파서 (Recursive Descent Parser) 개요]
@@ -232,11 +233,12 @@ Expr* Parser::parsePrimary()
         return grp;
     }
 
-    // 매칭되는 토큰 없음.
-    // 무한 루프 방지를 위해 미인식 토큰을 한 칸 소비한 뒤 nullptr 반환.
-    // 실제 에러 처리는 추후 추가 예정.
-    advance();
-    return nullptr;
+    // 매칭되는 토큰 없음 — 파싱 불가능한 토큰이므로 예외를 던진다.
+    // nullptr 을 반환하면 상위 호출자(parseUnary, makeBinary 등)에서
+    // 역참조 크래시가 발생하므로 즉시 중단한다.
+    throw std::runtime_error(
+        "[" + std::to_string(peek().line) + "번째 줄] "
+        "예상치 못한 토큰: '" + peek().lexeme + "'");
 }
 
 // -----------------------------------------------------------------------
