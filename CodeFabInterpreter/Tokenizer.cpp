@@ -17,6 +17,7 @@ static const std::unordered_map<char, TokenType> SINGLE_CHAR = {
     {'/', TokenType::SLASH},       {'=', TokenType::EQUAL},
     {'>', TokenType::GREATER},     {'<', TokenType::LESS},
     {'!', TokenType::BANG},
+    {'[', TokenType::LEFT_BRACKET}, {']', TokenType::RIGHT_BRACKET},
 };
 
 static const std::unordered_map<std::string, TokenType> KEYWORDS = {
@@ -27,8 +28,10 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"for",   TokenType::FOR},
     {"true",  TokenType::TRUE},
     {"false", TokenType::FALSE},
-    {"and",   TokenType::AND},
-    {"or",    TokenType::OR},
+    {"and",    TokenType::AND},
+    {"or",     TokenType::OR},
+    {"func",   TokenType::FUNC},
+    {"return", TokenType::RETURN},
 };
 
 Token Tokenizer::scanString(const std::string& source, size_t& pos, int& line)

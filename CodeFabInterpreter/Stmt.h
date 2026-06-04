@@ -50,3 +50,17 @@ public:
     std::unique_ptr<Expr>  increment;
     std::unique_ptr<Stmt>  body;
 };
+
+class FunctionDeclareStmt : public Stmt
+{
+public:
+    Token                  name;
+    std::vector<Token>     params;
+    std::unique_ptr<Stmt>  body;
+};
+
+class ReturnStmt : public Stmt
+{
+public:
+    std::unique_ptr<Expr>  value;
+};

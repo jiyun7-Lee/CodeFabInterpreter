@@ -16,6 +16,8 @@ enum class TokenType
     FOR,
     TRUE, FALSE,
     AND, OR,
+    FUNC, RETURN,
+    LEFT_BRACKET, RIGHT_BRACKET,
     EOF_TOKEN
 };
 

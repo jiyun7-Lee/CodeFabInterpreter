@@ -48,3 +48,23 @@ class GroupingExpr : public Expr
 public:
     std::unique_ptr<Expr>  expression;
 };
+
+class FunctionCallExpr : public Expr
+{
+public:
+    Token                                callee;
+    std::vector<std::unique_ptr<Expr>>   args;
+};
+
+class ArrayLiteralExpr : public Expr
+{
+public:
+    std::vector<std::unique_ptr<Expr>>   elements;
+};
+
+class ArrayAccessExpr : public Expr
+{
+public:
+    std::unique_ptr<Expr>  array;
+    std::unique_ptr<Expr>  index;
+};
