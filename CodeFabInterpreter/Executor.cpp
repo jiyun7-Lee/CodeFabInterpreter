@@ -1,6 +1,17 @@
 ﻿#include "Executor.h"
 #include <iostream>
 
+static bool isTruthy(const Value& val)
+{
+    return std::visit([](const auto& v) -> bool {
+        using T = std::decay_t<decltype(v)>;
+        if constexpr (std::is_same_v<T, bool>)        return v;
+        if constexpr (std::is_same_v<T, double>)      return v != 0.0;
+        if constexpr (std::is_same_v<T, std::string>) return !v.empty();
+        return false;
+    }, val);
+}
+
 void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 {
     for (const auto& stmt : statements)
@@ -19,6 +30,15 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
     {
         Value val = s->initializer ? evaluateExpr(s->initializer.get(), env) : std::monostate{};
         env->define(s->name.lexeme, val);
+        return;
+    }
+
+    if (auto* s = dynamic_cast<IfStmt*>(stmt))
+    {
+        if (isTruthy(evaluateExpr(s->condition.get(), env)))
+            executeStatement(s->thenBranch.get(), env);
+        else if (s->elseBranch)
+            executeStatement(s->elseBranch.get(), env);
         return;
     }
 }
