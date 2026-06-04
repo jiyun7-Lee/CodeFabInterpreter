@@ -788,8 +788,7 @@ Runtime Error
 
 \[ \] Tokenizer
 
-\[ \] LiteralExpr \[ \] VariableExpr \[ \] UnaryExpr \[ \] BinaryExpr \[
-\] AssignExpr \[ \] GroupingExpr
+\[x\] LiteralExpr \[x\] VariableExpr \[x\] UnaryExpr \[x\] BinaryExpr \[x\] AssignExpr \[x\] GroupingExpr
 
 \[ \] VarStmt \[ \] PrintStmt \[ \] BlockStmt \[ \] IfStmt \[ \] ForStmt
 
