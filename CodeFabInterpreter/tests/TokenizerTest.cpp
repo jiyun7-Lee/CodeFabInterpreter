@@ -12,7 +12,7 @@ TEST(TokenizerTest, TokenizesAllTokenTypes)
     Tokenizer tokenizer;
 
     const std::string source =
-        "( ) { } , . ; + - * / = > < "
+        "( ) { } , . ; + - * / ! = > < "
         "identifier \"hello\" 123 "
         "var print if else for true false and or";
 
@@ -34,6 +34,7 @@ TEST(TokenizerTest, TokenizesAllTokenTypes)
         TokenType::MINUS,
         TokenType::STAR,
         TokenType::SLASH,
+        TokenType::BANG,
         TokenType::EQUAL,
         TokenType::GREATER,
         TokenType::LESS,
@@ -206,6 +207,19 @@ TEST(TokenizerTest, IdentifierStartingWithKeywordIsIdentifier)
     EXPECT_EQ(tokens[1].lexeme, "iffy");
     EXPECT_EQ(tokens[2].type,   TokenType::IDENTIFIER);
     EXPECT_EQ(tokens[2].lexeme, "forge");
+}
+
+// ──────────────────────────────────────────────
+// lexeme: ! 는 BANG 타입으로 인식되고 lexeme이 "!"이다
+// ──────────────────────────────────────────────
+TEST(TokenizerTest, BangTokenHasCorrectLexeme)
+{
+    Tokenizer tokenizer;
+    const auto tokens = tokenizer.tokenize("!");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::BANG);
+    EXPECT_EQ(tokens[0].lexeme, "!");
 }
 
 // ──────────────────────────────────────────────
