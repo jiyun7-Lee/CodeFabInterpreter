@@ -23,7 +23,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
 {
     if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
     {
-        evaluateExpr(s->expression.get(), env);
+        printValue(evaluateExpr(s->expression.get(), env));
         return;
     }
 
@@ -90,6 +90,23 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
 
     if (auto* e = dynamic_cast<VariableExpr*>(expr))
         return env->get(e->name.lexeme);
+
+    if (auto* e = dynamic_cast<GroupingExpr*>(expr))
+        return evaluateExpr(e->expression.get(), env);
+
+    if (auto* e = dynamic_cast<UnaryExpr*>(expr))
+    {
+        Value val = evaluateExpr(e->right.get(), env);
+        if (e->op.type == TokenType::MINUS)
+        {
+            if (!std::holds_alternative<double>(val))
+                throw std::runtime_error("Type error: unary '-' requires a number");
+            return -std::get<double>(val);
+        }
+        if (e->op.type == TokenType::BANG)
+            return !isTruthy(val);
+        return std::monostate{};
+    }
 
     if (auto* e = dynamic_cast<AssignExpr*>(expr))
     {
