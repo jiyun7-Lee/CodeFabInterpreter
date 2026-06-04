@@ -14,4 +14,5 @@ private:
 
     void executeStatement(Stmt* stmt, Environment* env);
     Value evaluateExpr(Expr* expr, Environment* env);
+    void printValue(const Value& val);
 };
