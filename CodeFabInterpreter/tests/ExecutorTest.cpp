@@ -359,4 +359,28 @@ TEST(ExecutorTest, TypeError)
 }
 
 // TC10: 0으로 나누기 시 RuntimeError가 발생하는지 확인
-TEST(ExecutorTest, DivideByZero) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, DivideByZero)
+{
+	// print 10.0 / 0.0;
+	auto left = std::make_unique<LiteralExpr>();
+	left->value = 10.0;
+
+	auto right = std::make_unique<LiteralExpr>();
+	right->value = 0.0;
+
+	Token slashOp; slashOp.type = TokenType::SLASH;
+
+	auto binExpr = std::make_unique<BinaryExpr>();
+	binExpr->left  = std::move(left);
+	binExpr->op    = slashOp;
+	binExpr->right = std::move(right);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(binExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
