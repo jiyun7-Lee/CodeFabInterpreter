@@ -3,7 +3,7 @@
 
 int main(int argc, char** argv)
 {
-#if DEBUG
+#ifdef _DEBUG
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 #else

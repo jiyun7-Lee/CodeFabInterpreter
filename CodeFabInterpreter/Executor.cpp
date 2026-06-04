@@ -1,5 +1,5 @@
-#include "Executor.h"
+﻿#include "Executor.h"
 
-void Executor::execute(const std::vector<Stmt*>& statements)
+void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 {
 }

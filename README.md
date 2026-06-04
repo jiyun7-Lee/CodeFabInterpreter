@@ -1,4 +1,4 @@
-# CodeFab 프로젝트 통합 설계서 (v1)
+﻿# CodeFab 프로젝트 통합 설계서 (v1)
 
 ## 담당자 - Role
 송용길님    Tokenizer    TokenType, Token Class, Lexer, Tokenize 테스트
@@ -687,6 +687,22 @@ Claude 활용 원칙
 TDD 우선
 
 기능 구현 전 테스트 작성
+
+------------------------------------------------------------------------
+
+## Rule 5
+
+커밋 메시지 헤더 규칙
+
+TDD 사이클 및 작업 유형에 따라 아래 헤더를 붙인다.
+
+| 헤더 | 사용 단계 / 상황 | 예시 |
+|---|---|---|
+| `[unitTest]` | TDD Red 단계 — 테스트 코드 작성 | `[unitTest] Add TC-01 ParsesNumberLiteral` |
+| `[feature]` | TDD Green 단계 — 기능 구현 | `[feature] Implement Expression Parser` |
+| `[refactoring]` | TDD Refactor 단계 — 코드 개선 | `[refactoring] Extract makeBinary helper` |
+| `[doc]` | 문서 추가 / 수정 | `[doc] Add TC_ExprParser specification` |
+| `[build]` | 빌드 환경 / 설정 변경 | `[build] Add /utf-8 compiler flag` |
 
 ------------------------------------------------------------------------
 

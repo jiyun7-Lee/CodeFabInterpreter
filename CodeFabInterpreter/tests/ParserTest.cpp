@@ -38,9 +38,9 @@ static Token makeEof(int line = 1)
 class FakeExprParser : public Parser
 {
 protected:
-    Expr* parseExpression() override
+    std::unique_ptr<Expr> parseExpression() override
     {
-        auto* lit = new LiteralExpr();
+        auto lit = std::make_unique<LiteralExpr>();
         if (check(TokenType::NUMBER))
             lit->value = std::get<double>(advance().literal);
         else if (check(TokenType::STRING))
@@ -57,8 +57,8 @@ protected:
 // VarDeclareStmt
 // ================================================================
 
-// P-V-01 : var a = 3;  →  VarDeclareStmt, name="a", initializer != null
-TEST(ParserStmtTest, P_V_01_VarWithNumber)
+// P-TC-01 : var a = 3;  →  VarDeclareStmt, name="a", initializer == LiteralExpr(3.0)
+TEST(ParserStmtTest, P_TC_01_VarWithNumber)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -67,14 +67,17 @@ TEST(ParserStmtTest, P_V_01_VarWithNumber)
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
     ASSERT_EQ(stmts.size(), 1u);
-    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0]);
+    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->name.lexeme, "a");
-    EXPECT_NE(s->initializer, nullptr);
+    ASSERT_NE(s->initializer, nullptr);
+    auto* lit = dynamic_cast<LiteralExpr*>(s->initializer.get());
+    ASSERT_NE(lit, nullptr);
+    EXPECT_DOUBLE_EQ(std::get<double>(lit->value), 3.0);
 }
 
-// P-V-02 : var abc = "hello";  →  VarDeclareStmt, name="abc"
-TEST(ParserStmtTest, P_V_02_VarWithString)
+// P-TC-02 : var abc = "hello";  →  VarDeclareStmt, name="abc", initializer == LiteralExpr("hello")
+TEST(ParserStmtTest, P_TC_02_VarWithString)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -82,13 +85,17 @@ TEST(ParserStmtTest, P_V_02_VarWithString)
         makeTok(TokenType::EQUAL, "="), makeStr("hello"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
-    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0]);
+    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->name.lexeme, "abc");
+    ASSERT_NE(s->initializer, nullptr);
+    auto* lit = dynamic_cast<LiteralExpr*>(s->initializer.get());
+    ASSERT_NE(lit, nullptr);
+    EXPECT_EQ(std::get<std::string>(lit->value), "hello");
 }
 
-// P-V-03 : var flag = true;  →  VarDeclareStmt, name="flag"
-TEST(ParserStmtTest, P_V_03_VarWithBool)
+// P-TC-03 : var flag = true;  →  VarDeclareStmt, name="flag", initializer == LiteralExpr(true)
+TEST(ParserStmtTest, P_TC_03_VarWithBool)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -96,14 +103,17 @@ TEST(ParserStmtTest, P_V_03_VarWithBool)
         makeTok(TokenType::EQUAL, "="), makeBoolTok(true),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
-    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0]);
+    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->name.lexeme, "flag");
-    EXPECT_NE(s->initializer, nullptr);
+    ASSERT_NE(s->initializer, nullptr);
+    auto* lit = dynamic_cast<LiteralExpr*>(s->initializer.get());
+    ASSERT_NE(lit, nullptr);
+    EXPECT_EQ(std::get<bool>(lit->value), true);
 }
 
-// P-V-04 : var a = b + 1;  →  initializer != null  (FakeExprParser가 IDENTIFIER 소비)
-TEST(ParserStmtTest, P_V_04_VarWithExpr)
+// P-TC-04 : var a = b + 1;  →  initializer != null  (FakeExprParser가 IDENTIFIER 소비)
+TEST(ParserStmtTest, P_TC_04_VarWithExpr)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -111,13 +121,13 @@ TEST(ParserStmtTest, P_V_04_VarWithExpr)
         makeTok(TokenType::EQUAL, "="), makeId("b"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
-    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0]);
+    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(s->initializer, nullptr);
 }
 
-// P-V-05 : var a = 3  (세미콜론 없음)  →  parse 오류
-TEST(ParserStmtTest, P_V_05_VarMissingSemicolon)
+// P-TC-05 : var a = 3  (세미콜론 없음)  →  parse 오류
+TEST(ParserStmtTest, P_TC_05_VarMissingSemicolon)
 {
     FakeExprParser p;
     EXPECT_THROW(
@@ -134,8 +144,8 @@ TEST(ParserStmtTest, P_V_05_VarMissingSemicolon)
 // PrintStmt
 // ================================================================
 
-// P-P-01 : print a;  →  PrintStmt, expression != null
-TEST(ParserStmtTest, P_P_01_PrintVariable)
+// P-TC-06 : print a;  →  PrintStmt, expression != null
+TEST(ParserStmtTest, P_TC_06_PrintVariable)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -143,24 +153,26 @@ TEST(ParserStmtTest, P_P_01_PrintVariable)
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
     ASSERT_EQ(stmts.size(), 1u);
-    auto* s = dynamic_cast<PrintStmt*>(stmts[0]);
+    auto* s = dynamic_cast<PrintStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(s->expression, nullptr);
 }
 
-// P-P-02 : print a + b;  →  expression != null  (FakeExprParser가 IDENTIFIER 소비)
-TEST(ParserStmtTest, P_P_02_PrintExpression)
+// P-TC-07 : print a + b;  →  PrintStmt, expression != null
+TEST(ParserStmtTest, P_TC_07_PrintExpression)
 {
     FakeExprParser p;
     auto stmts = p.parse({
         makeTok(TokenType::PRINT, "print"), makeId("a"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
-    EXPECT_NE(dynamic_cast<PrintStmt*>(stmts[0]), nullptr);
+    auto* s = dynamic_cast<PrintStmt*>(stmts[0].get());
+    ASSERT_NE(s, nullptr);
+    EXPECT_NE(s->expression, nullptr);
 }
 
-// P-P-03 : print a  (세미콜론 없음)  →  parse 오류
-TEST(ParserStmtTest, P_P_03_PrintMissingSemicolon)
+// P-TC-08 : print a  (세미콜론 없음)  →  parse 오류
+TEST(ParserStmtTest, P_TC_08_PrintMissingSemicolon)
 {
     FakeExprParser p;
     EXPECT_THROW(
@@ -176,8 +188,8 @@ TEST(ParserStmtTest, P_P_03_PrintMissingSemicolon)
 // BlockStmt
 // ================================================================
 
-// P-B-01 : {}  →  BlockStmt, statements.size() == 0
-TEST(ParserStmtTest, P_B_01_EmptyBlock)
+// P-TC-09 : {}  →  BlockStmt, statements.size() == 0
+TEST(ParserStmtTest, P_TC_09_EmptyBlock)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -186,13 +198,13 @@ TEST(ParserStmtTest, P_B_01_EmptyBlock)
         makeEof()
     });
     ASSERT_EQ(stmts.size(), 1u);
-    auto* s = dynamic_cast<BlockStmt*>(stmts[0]);
+    auto* s = dynamic_cast<BlockStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->statements.size(), 0u);
 }
 
-// P-B-02 : { print a; }  →  statements.size() == 1
-TEST(ParserStmtTest, P_B_02_BlockOneStmt)
+// P-TC-10 : { print a; }  →  statements.size() == 1
+TEST(ParserStmtTest, P_TC_10_BlockOneStmt)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -201,13 +213,13 @@ TEST(ParserStmtTest, P_B_02_BlockOneStmt)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
-    auto* s = dynamic_cast<BlockStmt*>(stmts[0]);
+    auto* s = dynamic_cast<BlockStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->statements.size(), 1u);
 }
 
-// P-B-03 : { print a; print b; }  →  statements.size() == 2
-TEST(ParserStmtTest, P_B_03_BlockMultipleStmts)
+// P-TC-11 : { print a; print b; }  →  statements.size() == 2
+TEST(ParserStmtTest, P_TC_11_BlockMultipleStmts)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -217,13 +229,13 @@ TEST(ParserStmtTest, P_B_03_BlockMultipleStmts)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
-    auto* s = dynamic_cast<BlockStmt*>(stmts[0]);
+    auto* s = dynamic_cast<BlockStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->statements.size(), 2u);
 }
 
-// P-B-04 : { { print a; } }  →  중첩 BlockStmt
-TEST(ParserStmtTest, P_B_04_NestedBlock)
+// P-TC-12 : { { print a; } }  →  중첩 BlockStmt
+TEST(ParserStmtTest, P_TC_12_NestedBlock)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -234,14 +246,14 @@ TEST(ParserStmtTest, P_B_04_NestedBlock)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
-    auto* outer = dynamic_cast<BlockStmt*>(stmts[0]);
+    auto* outer = dynamic_cast<BlockStmt*>(stmts[0].get());
     ASSERT_NE(outer, nullptr);
     ASSERT_EQ(outer->statements.size(), 1u);
-    EXPECT_NE(dynamic_cast<BlockStmt*>(outer->statements[0]), nullptr);
+    EXPECT_NE(dynamic_cast<BlockStmt*>(outer->statements[0].get()), nullptr);
 }
 
-// P-B-05 : { print a;  (닫는 중괄호 없음)  →  parse 오류
-TEST(ParserStmtTest, P_B_05_BlockMissingClosingBrace)
+// P-TC-13 : { print a;  (닫는 중괄호 없음)  →  parse 오류
+TEST(ParserStmtTest, P_TC_13_BlockMissingClosingBrace)
 {
     FakeExprParser p;
     EXPECT_THROW(
@@ -258,8 +270,8 @@ TEST(ParserStmtTest, P_B_05_BlockMissingClosingBrace)
 // IfStmt
 // ================================================================
 
-// P-I-01 : if (a > 0) print a;  →  IfStmt, elseBranch == null
-TEST(ParserStmtTest, P_I_01_IfWithoutElse)
+// P-TC-14 : if (a > 0) print a;  →  IfStmt, elseBranch == null
+TEST(ParserStmtTest, P_TC_14_IfWithoutElse)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -269,15 +281,15 @@ TEST(ParserStmtTest, P_I_01_IfWithoutElse)
         makeEof()
     });
     ASSERT_EQ(stmts.size(), 1u);
-    auto* s = dynamic_cast<IfStmt*>(stmts[0]);
+    auto* s = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(s->condition,  nullptr);
     EXPECT_NE(s->thenBranch, nullptr);
     EXPECT_EQ(s->elseBranch, nullptr);
 }
 
-// P-I-02 : if (a > 0) print a; else print b;  →  elseBranch != null
-TEST(ParserStmtTest, P_I_02_IfWithElse)
+// P-TC-15 : if (a > 0) print a; else print b;  →  elseBranch != null
+TEST(ParserStmtTest, P_TC_15_IfWithElse)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -288,13 +300,13 @@ TEST(ParserStmtTest, P_I_02_IfWithElse)
         makeTok(TokenType::PRINT, "print"), makeId("b"), makeTok(TokenType::SEMICOLON, ";"),
         makeEof()
     });
-    auto* s = dynamic_cast<IfStmt*>(stmts[0]);
+    auto* s = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(s->elseBranch, nullptr);
 }
 
-// P-I-03 : if (a > 0) { print a; }  →  thenBranch == BlockStmt
-TEST(ParserStmtTest, P_I_03_IfWithBlockBody)
+// P-TC-16 : if (a > 0) { print a; }  →  thenBranch == BlockStmt
+TEST(ParserStmtTest, P_TC_16_IfWithBlockBody)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -305,13 +317,13 @@ TEST(ParserStmtTest, P_I_03_IfWithBlockBody)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
-    auto* s = dynamic_cast<IfStmt*>(stmts[0]);
+    auto* s = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
-    EXPECT_NE(dynamic_cast<BlockStmt*>(s->thenBranch), nullptr);
+    EXPECT_NE(dynamic_cast<BlockStmt*>(s->thenBranch.get()), nullptr);
 }
 
-// P-I-04 : if (a > 0) { } else { }  →  thenBranch, elseBranch 모두 BlockStmt
-TEST(ParserStmtTest, P_I_04_IfElseBothBlocks)
+// P-TC-17 : if (a > 0) { } else { }  →  thenBranch, elseBranch 모두 BlockStmt
+TEST(ParserStmtTest, P_TC_17_IfElseBothBlocks)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -322,14 +334,14 @@ TEST(ParserStmtTest, P_I_04_IfElseBothBlocks)
         makeTok(TokenType::LEFT_BRACE, "{"), makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
-    auto* s = dynamic_cast<IfStmt*>(stmts[0]);
+    auto* s = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
-    EXPECT_NE(dynamic_cast<BlockStmt*>(s->thenBranch), nullptr);
-    EXPECT_NE(dynamic_cast<BlockStmt*>(s->elseBranch), nullptr);
+    EXPECT_NE(dynamic_cast<BlockStmt*>(s->thenBranch.get()), nullptr);
+    EXPECT_NE(dynamic_cast<BlockStmt*>(s->elseBranch.get()), nullptr);
 }
 
-// P-I-05 : if (a > 0) if (b > 0) print b;  →  중첩 IfStmt
-TEST(ParserStmtTest, P_I_05_NestedIf)
+// P-TC-18 : if (a > 0) if (b > 0) print b;  →  중첩 IfStmt
+TEST(ParserStmtTest, P_TC_18_NestedIf)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -340,13 +352,13 @@ TEST(ParserStmtTest, P_I_05_NestedIf)
         makeTok(TokenType::PRINT, "print"), makeId("b"), makeTok(TokenType::SEMICOLON, ";"),
         makeEof()
     });
-    auto* outer = dynamic_cast<IfStmt*>(stmts[0]);
+    auto* outer = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(outer, nullptr);
-    EXPECT_NE(dynamic_cast<IfStmt*>(outer->thenBranch), nullptr);
+    EXPECT_NE(dynamic_cast<IfStmt*>(outer->thenBranch.get()), nullptr);
 }
 
-// P-I-06 : if a > 0) print a;  (여는 괄호 없음)  →  parse 오류
-TEST(ParserStmtTest, P_I_06_IfMissingLeftParen)
+// P-TC-19 : if a > 0) print a;  (여는 괄호 없음)  →  parse 오류
+TEST(ParserStmtTest, P_TC_19_IfMissingLeftParen)
 {
     FakeExprParser p;
     EXPECT_THROW(
@@ -360,8 +372,8 @@ TEST(ParserStmtTest, P_I_06_IfMissingLeftParen)
     );
 }
 
-// P-I-07 : if (a > 0 print a;  (닫는 괄호 없음)  →  parse 오류
-TEST(ParserStmtTest, P_I_07_IfMissingRightParen)
+// P-TC-20 : if (a > 0 print a;  (닫는 괄호 없음)  →  parse 오류
+TEST(ParserStmtTest, P_TC_20_IfMissingRightParen)
 {
     FakeExprParser p;
     EXPECT_THROW(
@@ -377,13 +389,10 @@ TEST(ParserStmtTest, P_I_07_IfMissingRightParen)
 
 // ================================================================
 // ForStmt
-// 토큰 구조: for ( <init_stmt> <cond_expr> ; <incr_expr> ) <body>
-//   init_stmt : var 선언 (세미콜론 포함)
-//   FakeExprParser 가 cond / incr 각각 IDENTIFIER 1개 소비
 // ================================================================
 
-// P-F-01 : for (var i = 0; i < 3; i = i+1) print i;  →  모든 필드 != null
-TEST(ParserStmtTest, P_F_01_ForAllParts)
+// P-TC-21 : for (var i = 0; i < 3; i = i+1) print i;  →  모든 필드 != null
+TEST(ParserStmtTest, P_TC_21_ForAllParts)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -392,13 +401,13 @@ TEST(ParserStmtTest, P_F_01_ForAllParts)
         makeTok(TokenType::VAR, "var"), makeId("i"),
         makeTok(TokenType::EQUAL, "="), makeNum(0.0),
         makeTok(TokenType::SEMICOLON, ";"),
-        makeId("i"), makeTok(TokenType::SEMICOLON, ";"),   // condition
-        makeId("i"), makeTok(TokenType::RIGHT_PAREN, ")"), // increment
+        makeId("i"), makeTok(TokenType::SEMICOLON, ";"),
+        makeId("i"), makeTok(TokenType::RIGHT_PAREN, ")"),
         makeTok(TokenType::PRINT, "print"), makeId("i"), makeTok(TokenType::SEMICOLON, ";"),
         makeEof()
     });
     ASSERT_EQ(stmts.size(), 1u);
-    auto* s = dynamic_cast<ForStmt*>(stmts[0]);
+    auto* s = dynamic_cast<ForStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(s->init,      nullptr);
     EXPECT_NE(s->condition, nullptr);
@@ -406,8 +415,8 @@ TEST(ParserStmtTest, P_F_01_ForAllParts)
     EXPECT_NE(s->body,      nullptr);
 }
 
-// P-F-02 : for (...) { print i; }  →  body == BlockStmt
-TEST(ParserStmtTest, P_F_02_ForWithBlockBody)
+// P-TC-22 : for (...) { print i; }  →  body == BlockStmt
+TEST(ParserStmtTest, P_TC_22_ForWithBlockBody)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -423,13 +432,13 @@ TEST(ParserStmtTest, P_F_02_ForWithBlockBody)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
-    auto* s = dynamic_cast<ForStmt*>(stmts[0]);
+    auto* s = dynamic_cast<ForStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
-    EXPECT_NE(dynamic_cast<BlockStmt*>(s->body), nullptr);
+    EXPECT_NE(dynamic_cast<BlockStmt*>(s->body.get()), nullptr);
 }
 
-// P-F-03 : condition 뒤 세미콜론 없음  →  parse 오류
-TEST(ParserStmtTest, P_F_03_ForMissingSemicolon)
+// P-TC-23 : condition 뒤 세미콜론 없음  →  parse 오류
+TEST(ParserStmtTest, P_TC_23_ForMissingSemicolon)
 {
     FakeExprParser p;
     EXPECT_THROW(
@@ -439,8 +448,7 @@ TEST(ParserStmtTest, P_F_03_ForMissingSemicolon)
             makeTok(TokenType::VAR, "var"), makeId("i"),
             makeTok(TokenType::EQUAL, "="), makeNum(0.0),
             makeTok(TokenType::SEMICOLON, ";"),
-            makeId("i"),          // condition 소비
-            // SEMICOLON 없음
+            makeId("i"),
             makeId("i"), makeTok(TokenType::RIGHT_PAREN, ")"),
             makeEof()
         }),
@@ -448,8 +456,8 @@ TEST(ParserStmtTest, P_F_03_ForMissingSemicolon)
     );
 }
 
-// P-F-04 : for (...) {}  →  body == 빈 BlockStmt
-TEST(ParserStmtTest, P_F_04_ForWithEmptyBlock)
+// P-TC-24 : for (...) {}  →  body == 빈 BlockStmt
+TEST(ParserStmtTest, P_TC_24_ForWithEmptyBlock)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -463,9 +471,9 @@ TEST(ParserStmtTest, P_F_04_ForWithEmptyBlock)
         makeTok(TokenType::LEFT_BRACE, "{"), makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
-    auto* s = dynamic_cast<ForStmt*>(stmts[0]);
+    auto* s = dynamic_cast<ForStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
-    auto* block = dynamic_cast<BlockStmt*>(s->body);
+    auto* block = dynamic_cast<BlockStmt*>(s->body.get());
     ASSERT_NE(block, nullptr);
     EXPECT_EQ(block->statements.size(), 0u);
 }
@@ -474,8 +482,8 @@ TEST(ParserStmtTest, P_F_04_ForWithEmptyBlock)
 // 복수 문장
 // ================================================================
 
-// P-M-01 : var a = 1; print a;  →  statements.size() == 2
-TEST(ParserStmtTest, P_M_01_MultipleStatements)
+// P-TC-25 : var a = 1; print a;  →  statements.size() == 2
+TEST(ParserStmtTest, P_TC_25_MultipleStatements)
 {
     FakeExprParser p;
     auto stmts = p.parse({
@@ -488,8 +496,8 @@ TEST(ParserStmtTest, P_M_01_MultipleStatements)
     EXPECT_EQ(stmts.size(), 2u);
 }
 
-// P-M-02 : EOF만 있는 경우  →  statements.size() == 0
-TEST(ParserStmtTest, P_M_02_EmptyInput)
+// P-TC-26 : EOF만 있는 경우  →  statements.size() == 0
+TEST(ParserStmtTest, P_TC_26_EmptyInput)
 {
     FakeExprParser p;
     auto stmts = p.parse({ makeEof() });

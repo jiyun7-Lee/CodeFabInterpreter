@@ -1,0 +1,13 @@
+root = true
+
+[*]
+end_of_line = crlf
+insert_final_newline = true
+
+# C++ source files: UTF-8 with BOM so MSVC reads encoding correctly
+[*.{cpp,h,hpp}]
+charset = utf-8-bom
+
+# Markdown and text documents
+[*.{md,txt}]
+charset = utf-8-bom

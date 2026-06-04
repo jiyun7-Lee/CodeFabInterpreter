@@ -3,5 +3,5 @@
     <Platform Name="x64" />
     <Platform Name="x86" />
   </Configurations>
-  <Project Path="CodeFabInterpreter/CodeFabInterpreter.vcxproj" />
+  <Project Path="CodeFabInterpreter/CodeFabInterpreter.vcxproj" Id="6a2aaca4-2f2a-4050-a573-cbcb6a0292a4" />
 </Solution>
