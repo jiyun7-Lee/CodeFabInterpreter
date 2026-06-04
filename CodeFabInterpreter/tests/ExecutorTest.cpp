@@ -235,16 +235,152 @@ TEST(ExecutorTest, ForStatement)
 }
 
 // TC7: LEFT_BRACE → 새 변수 저장소 생성, RIGHT_BRACE → 변수 저장소 소멸 (Shadowing으로 검증)
-TEST(ExecutorTest, BlockScope_ScopeLifecycle){ ASSERT_TRUE(false); }
+TEST(ExecutorTest, BlockScope_ScopeLifecycle)
+{
+	// var x = 1.0;
+	// { var x = 2.0; print x; }  → "2"
+	// print x;                    → "1"
+	Token xToken; xToken.lexeme = "x";
+
+	auto makeVarDecl = [](const Token& t, double v) {
+		auto init = std::make_unique<LiteralExpr>(); init->value = v;
+		auto decl = std::make_unique<VarDeclareStmt>();
+		decl->name = t; decl->initializer = std::move(init);
+		return decl;
+	};
+	auto makePrintVar = [](const Token& t) {
+		auto e = std::make_unique<VariableExpr>(); e->name = t;
+		auto s = std::make_unique<PrintStmt>(); s->expression = std::move(e);
+		return s;
+	};
+
+	auto block = std::make_unique<BlockStmt>();
+	block->statements.push_back(makeVarDecl(xToken, 2.0));
+	block->statements.push_back(makePrintVar(xToken));
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(makeVarDecl(xToken, 1.0));
+	stmts.push_back(std::move(block));
+	stmts.push_back(makePrintVar(xToken));
+
+	Executor executor;
+	testing::internal::CaptureStdout();
+	executor.execute(stmts);
+	ASSERT_EQ(testing::internal::GetCapturedStdout(), "2\n1\n");
+}
 
 // TC7-1: 중첩 블록마다 독립적인 로컬 저장소가 생성/소멸되는지 확인
-TEST(ExecutorTest, BlockScope_NestedScopes) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, BlockScope_NestedScopes)
+{
+	// var x = 1.0;
+	// { var x = 2.0; { var x = 3.0; print x; }  → "3"
+	//                  print x; }                → "2"
+	// print x;                                   → "1"
+	Token xToken; xToken.lexeme = "x";
+
+	auto makeVarDecl = [](const Token& t, double v) {
+		auto init = std::make_unique<LiteralExpr>(); init->value = v;
+		auto decl = std::make_unique<VarDeclareStmt>();
+		decl->name = t; decl->initializer = std::move(init);
+		return decl;
+	};
+	auto makePrintVar = [](const Token& t) {
+		auto e = std::make_unique<VariableExpr>(); e->name = t;
+		auto s = std::make_unique<PrintStmt>(); s->expression = std::move(e);
+		return s;
+	};
+
+	// inner block: { var x = 3.0; print x; }
+	auto innerBlock = std::make_unique<BlockStmt>();
+	innerBlock->statements.push_back(makeVarDecl(xToken, 3.0));
+	innerBlock->statements.push_back(makePrintVar(xToken));
+
+	// outer block: { var x = 2.0; innerBlock; print x; }
+	auto outerBlock = std::make_unique<BlockStmt>();
+	outerBlock->statements.push_back(makeVarDecl(xToken, 2.0));
+	outerBlock->statements.push_back(std::move(innerBlock));
+	outerBlock->statements.push_back(makePrintVar(xToken));
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(makeVarDecl(xToken, 1.0));
+	stmts.push_back(std::move(outerBlock));
+	stmts.push_back(makePrintVar(xToken));
+
+	Executor executor;
+	testing::internal::CaptureStdout();
+	executor.execute(stmts);
+	ASSERT_EQ(testing::internal::GetCapturedStdout(), "3\n2\n1\n");
+}
 
 // TC8: 선언되지 않은 변수 참조 시 RuntimeError가 발생하는지 확인
-TEST(ExecutorTest, UndefinedVariable) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, UndefinedVariable)
+{
+	// print abc;  // 'abc' 미선언
+	Token abcToken; abcToken.lexeme = "abc";
+
+	auto varExpr = std::make_unique<VariableExpr>();
+	varExpr->name = abcToken;
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(varExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
 
 // TC9: 타입 불일치 연산(number + string 등) 시 RuntimeError가 발생하는지 확인
-TEST(ExecutorTest, TypeError) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, TypeError)
+{
+	// print 1.0 + "HI";
+	auto left = std::make_unique<LiteralExpr>();
+	left->value = 1.0;
+
+	auto right = std::make_unique<LiteralExpr>();
+	right->value = std::string("HI");
+
+	Token plusOp; plusOp.type = TokenType::PLUS;
+
+	auto binExpr = std::make_unique<BinaryExpr>();
+	binExpr->left  = std::move(left);
+	binExpr->op    = plusOp;
+	binExpr->right = std::move(right);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(binExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
 
 // TC10: 0으로 나누기 시 RuntimeError가 발생하는지 확인
-TEST(ExecutorTest, DivideByZero) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, DivideByZero)
+{
+	// print 10.0 / 0.0;
+	auto left = std::make_unique<LiteralExpr>();
+	left->value = 10.0;
+
+	auto right = std::make_unique<LiteralExpr>();
+	right->value = 0.0;
+
+	Token slashOp; slashOp.type = TokenType::SLASH;
+
+	auto binExpr = std::make_unique<BinaryExpr>();
+	binExpr->left  = std::move(left);
+	binExpr->op    = slashOp;
+	binExpr->right = std::move(right);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(binExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
