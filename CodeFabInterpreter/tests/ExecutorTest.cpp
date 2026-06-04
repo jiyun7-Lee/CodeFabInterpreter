@@ -24,7 +24,46 @@ TEST(ExecutorTest, StmtReceivedCorrectly)
 }
 
 // TC2: PrintStmt + LiteralExpr → 숫자/문자열 값이 stdout에 출력되는지 확인
-TEST(ExecutorTest, PrintLiteral) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, PrintLiteral)
+{
+	// 숫자 케이스: 3.14 → "3.14\n"
+	{
+		auto expr = std::make_unique<LiteralExpr>();
+		expr->value = 3.14;
+
+		auto stmt = std::make_unique<PrintStmt>();
+		stmt->expression = std::move(expr);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(stmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		std::string output = testing::internal::GetCapturedStdout();
+
+		ASSERT_EQ(output, "3.14\n");
+	}
+
+	// 문자열 케이스: "hello" → "hello\n"
+	{
+		auto expr = std::make_unique<LiteralExpr>();
+		expr->value = std::string("hello");
+
+		auto stmt = std::make_unique<PrintStmt>();
+		stmt->expression = std::move(expr);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(stmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		std::string output = testing::internal::GetCapturedStdout();
+
+		ASSERT_EQ(output, "hello\n");
+	}
+}
 
 // TC3: BinaryExpr 사칙연산 결과가 올바르게 계산되는지 확인
 TEST(ExecutorTest, ArithmeticExpr) { ASSERT_TRUE(false); }
