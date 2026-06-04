@@ -2,10 +2,10 @@
 #include "../Executor.h"
 
 
-// TC0: ExpressionStmt 평가 — 순수 계산은 예외 없이 실행, AssignExpr 사이드 이펙트 반영 확인
+// TC0: ExpressionStmt 평가 — 결과 자동 출력, UnaryExpr/GroupingExpr, AssignExpr 사이드 이펙트 확인
 TEST(ExecutorTest, ExpressionStatement)
 {
-	// 순수 계산 케이스: 1.0 + 2.0 → 예외 없이 실행, stdout 출력 없음
+	// 순수 계산 케이스: 1.0 + 2.0 → stdout "3\n" 자동 출력
 	{
 		auto left  = std::make_unique<LiteralExpr>(); left->value  = 1.0;
 		auto right = std::make_unique<LiteralExpr>(); right->value = 2.0;
@@ -23,10 +23,49 @@ TEST(ExecutorTest, ExpressionStatement)
 		Executor executor;
 		testing::internal::CaptureStdout();
 		ASSERT_NO_THROW(executor.execute(stmts));
-		ASSERT_EQ(testing::internal::GetCapturedStdout(), "");
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "3\n");
 	}
 
-	// 사이드 이펙트 케이스: var x = 1.0; x = 5.0; print x; → "5\n"
+	// UnaryExpr 케이스: -3.0 → "-3\n", !true → "false\n"
+	{
+		Token minusOp; minusOp.type = TokenType::MINUS;
+		auto lit = std::make_unique<LiteralExpr>(); lit->value = 3.0;
+		auto unary = std::make_unique<UnaryExpr>();
+		unary->op = minusOp; unary->right = std::move(lit);
+		auto exprStmt = std::make_unique<ExpressionStmt>();
+		exprStmt->expression = std::move(unary);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(exprStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "-3\n");
+	}
+
+	// GroupingExpr 케이스: (1.0 + 2.0) → "3\n"
+	{
+		auto left  = std::make_unique<LiteralExpr>(); left->value  = 1.0;
+		auto right = std::make_unique<LiteralExpr>(); right->value = 2.0;
+		Token plusOp; plusOp.type = TokenType::PLUS;
+		auto binExpr = std::make_unique<BinaryExpr>();
+		binExpr->left = std::move(left); binExpr->op = plusOp; binExpr->right = std::move(right);
+		auto group = std::make_unique<GroupingExpr>();
+		group->expression = std::move(binExpr);
+		auto exprStmt = std::make_unique<ExpressionStmt>();
+		exprStmt->expression = std::move(group);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(exprStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "3\n");
+	}
+
+	// 사이드 이펙트 케이스: var x = 1.0; x = 5.0 (출력 "5\n"); print x → "5\n"
 	{
 		Token xToken; xToken.lexeme = "x";
 
@@ -39,7 +78,6 @@ TEST(ExecutorTest, ExpressionStatement)
 		auto assignExpr = std::make_unique<AssignExpr>();
 		assignExpr->name  = xToken;
 		assignExpr->value = std::move(assignVal);
-
 		auto exprStmt = std::make_unique<ExpressionStmt>();
 		exprStmt->expression = std::move(assignExpr);
 
@@ -55,7 +93,7 @@ TEST(ExecutorTest, ExpressionStatement)
 		Executor executor;
 		testing::internal::CaptureStdout();
 		executor.execute(stmts);
-		ASSERT_EQ(testing::internal::GetCapturedStdout(), "5\n");
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "5\n5\n");
 	}
 }
 
