@@ -106,15 +106,12 @@ TEST_F(TokenizerFixture, WhitespaceIsSkipped)
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, SingleCharTokensHaveCorrectLexeme)
 {
-    // R8: 하드코딩 인덱스 제거 — 입력/기댓값 쌍 루프로 각 케이스를 독립 검증
-    const std::vector<std::pair<std::string, std::string>> cases = {
-        {"(", "("}, {")", ")"}, {"+", "+"}, {"-", "-"}, {"*", "*"}, {"/", "/"}
-    };
-    for (const auto& [src, expected] : cases)
+    const std::vector<std::string> cases = {"(", ")", "+", "-", "*", "/"};
+    for (const auto& src : cases)
     {
         const auto tokens = tokenizer.tokenize(src);
         ASSERT_GE(tokens.size(), 1u) << "input: " << src;
-        EXPECT_EQ(tokens[0].lexeme, expected) << "input: " << src;
+        EXPECT_EQ(tokens[0].lexeme, src) << "input: " << src;
     }
 }
 
