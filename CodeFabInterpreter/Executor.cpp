@@ -97,22 +97,31 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         Value lv = evaluateExpr(e->left.get(), env);
         Value rv = evaluateExpr(e->right.get(), env);
 
-        if (!std::holds_alternative<double>(lv) || !std::holds_alternative<double>(rv))
-            throw std::runtime_error("Type error: operands must be numbers");
-
-        double l = std::get<double>(lv);
-        double r = std::get<double>(rv);
-
         switch (e->op.type)
         {
-            case TokenType::PLUS:  return l + r;
-            case TokenType::MINUS: return l - r;
-            case TokenType::STAR:  return l * r;
+            case TokenType::PLUS:
+            case TokenType::MINUS:
+            case TokenType::STAR:
             case TokenType::SLASH:
-                if (r == 0.0) throw std::runtime_error("Division by zero");
-                return l / r;
-            case TokenType::LESS:  return l < r;
-            default:               return std::monostate{};
+            case TokenType::LESS:
+            case TokenType::GREATER:
+            {
+                if (!std::holds_alternative<double>(lv) || !std::holds_alternative<double>(rv))
+                    throw std::runtime_error("Type error: operands must be numbers");
+                double l = std::get<double>(lv);
+                double r = std::get<double>(rv);
+                if (e->op.type == TokenType::PLUS)    return l + r;
+                if (e->op.type == TokenType::MINUS)   return l - r;
+                if (e->op.type == TokenType::STAR)    return l * r;
+                if (e->op.type == TokenType::SLASH)
+                {
+                    if (r == 0.0) throw std::runtime_error("Division by zero");
+                    return l / r;
+                }
+                if (e->op.type == TokenType::LESS)    return l < r;
+                if (e->op.type == TokenType::GREATER) return l > r;
+            }
+            default: return std::monostate{};
         }
     }
 
