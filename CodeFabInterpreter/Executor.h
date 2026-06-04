@@ -11,4 +11,7 @@ public:
 
 private:
     Environment globalEnv;
+
+    void executeStatement(Stmt* stmt, Environment* env);
+    Value evaluateExpr(Expr* expr, Environment* env);
 };

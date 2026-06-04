@@ -1,26 +1,26 @@
 ﻿#include <gtest/gtest.h>
 #include "../Executor.h"
 
+
 // TC1: execute()에 Stmt* 벡터가 정상적으로 전달되는지 확인
-TEST(ExecutorTest, StmtReceivedCorrectly) 
+TEST(ExecutorTest, StmtReceivedCorrectly)
 {
-    LiteralExpr* expr = new LiteralExpr();
-    expr->value = 42.0;
+	auto expr = std::make_unique<LiteralExpr>();
+	expr->value = 42.0;
+	LiteralExpr * exprPtr = expr.get();
 
-    PrintStmt* stmt = new PrintStmt();
-    stmt->expression = expr;
+	auto stmt = std::make_unique<PrintStmt>();
+	stmt->expression = std::move(expr);
 
-    std::vector<Stmt*> stmts = { stmt };
-
-    Executor executor;
-    ASSERT_NO_THROW(executor.execute(stmts));
-
-    ASSERT_EQ(stmts.size(), 1u);
-    ASSERT_NE(dynamic_cast<PrintStmt*>(stmts[0]), nullptr);
-    ASSERT_EQ(dynamic_cast<PrintStmt*>(stmts[0])->expression, expr);
-
-    delete expr;
-    delete stmt;
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(stmt));
+	
+	Executor executor;
+	ASSERT_NO_THROW(executor.execute(stmts));
+	ASSERT_EQ(stmts.size(), 1u);
+	
+	ASSERT_NE(dynamic_cast<PrintStmt*>(stmts[0].get()), nullptr);
+	ASSERT_EQ(dynamic_cast<PrintStmt*>(stmts[0].get())->expression.get(), exprPtr);
 }
 
 // TC2: PrintStmt + LiteralExpr → 숫자/문자열 값이 stdout에 출력되는지 확인
