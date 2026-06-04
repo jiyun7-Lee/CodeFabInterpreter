@@ -10,12 +10,12 @@
 
 | TC ID  | 테스트 함수명                   | 구현 상태 |
 |--------|-------------------------------|---------|
-| TC1    | StmtReceivedCorrectly         | 🔴 Green  |
-| TC2    | PrintLiteral                  | 🔴 Green  |
-| TC3    | ArithmeticExpr                | 🔴 Green  |
-| TC4    | VarDeclareAndUse              | 🔴 Green  |
-| TC5    | IfStatement                   | 🔴 Green  |
-| TC6    | ForStatement                  | 🔴 Green  |
+| TC1    | StmtReceivedCorrectly         | 🟢 Green  |
+| TC2    | PrintLiteral                  | 🟢 Green  |
+| TC3    | ArithmeticExpr                | 🟢 Green  |
+| TC4    | VarDeclareAndUse              | 🟢 Green  |
+| TC5    | IfStatement                   | 🟢 Green  |
+| TC6    | ForStatement                  | 🟢 Green  |
 | TC7    | BlockScope_ScopeLifecycle     | 🔴 Red  |
 | TC7-1  | BlockScope_NestedScopes       | 🔴 Red  |
 | TC8    | UndefinedVariable             | 🔴 Red  |
@@ -72,7 +72,7 @@ executor.execute({ printStmt });
 - 숫자 케이스 : stdout = `"3.14\n"` (또는 정수면 `"3\n"`)
 - 문자열 케이스 : stdout = `"hello\n"`
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -98,7 +98,7 @@ executor.execute({ printStmt });  // BinaryExpr를 expression으로 갖는 Print
 **기대 결과**
 - 각 케이스별 stdout에 계산 결과 출력
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -123,7 +123,7 @@ executor.execute({ varDeclareStmt, printStmt });
 **기대 결과**
 - stdout = `"10\n"`
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -148,7 +148,7 @@ executor.execute({ ifStmt });
 - true 케이스 : `thenBranch` 내 `PrintStmt` 실행, stdout = `"then\n"`
 - false 케이스 : `elseBranch` 내 `PrintStmt` 실행, stdout = `"else\n"`
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -174,7 +174,7 @@ executor.execute({ forStmt });
 **기대 결과**
 - stdout = `"0\n1\n2\n"`
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -201,7 +201,7 @@ executor.execute({ globalVar, block, printOuter });
 **기대 결과**
 - stdout = `"2\n1\n"`
 
-**구현 상태** : 완료
+**구현 상태** : 미구현
 
 ---
 
@@ -232,7 +232,7 @@ executor.execute({ decl1, outerBlock, print1 });
 **기대 결과**
 - stdout = `"3\n2\n1\n"`
 
-**구현 상태** : 완료
+**구현 상태** : 미구현
 
 ---
 

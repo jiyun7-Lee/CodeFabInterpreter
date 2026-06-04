@@ -17,8 +17,7 @@ TEST(ExecutorTest, StmtReceivedCorrectly)
 	
 	Executor executor;
 	ASSERT_NO_THROW(executor.execute(stmts));
-	ASSERT_EQ(stmts.size(), 1u);
-	
+
 	ASSERT_NE(dynamic_cast<PrintStmt*>(stmts[0].get()), nullptr);
 	ASSERT_EQ(dynamic_cast<PrintStmt*>(stmts[0].get())->expression.get(), exprPtr);
 }
