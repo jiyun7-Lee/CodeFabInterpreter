@@ -690,6 +690,22 @@ TDD 우선
 
 ------------------------------------------------------------------------
 
+## Rule 5
+
+커밋 메시지 헤더 규칙
+
+TDD 사이클 및 작업 유형에 따라 아래 헤더를 붙인다.
+
+| 헤더 | 사용 단계 / 상황 | 예시 |
+|---|---|---|
+| `[unitTest]` | TDD Red 단계 — 테스트 코드 작성 | `[unitTest] Add TC-01 ParsesNumberLiteral` |
+| `[feature]` | TDD Green 단계 — 기능 구현 | `[feature] Implement Expression Parser` |
+| `[refactoring]` | TDD Refactor 단계 — 코드 개선 | `[refactoring] Extract makeBinary helper` |
+| `[doc]` | 문서 추가 / 수정 | `[doc] Add TC_ExprParser specification` |
+| `[build]` | 빌드 환경 / 설정 변경 | `[build] Add /utf-8 compiler flag` |
+
+------------------------------------------------------------------------
+
 # 15. 일정
 
 ## Day1 오전
