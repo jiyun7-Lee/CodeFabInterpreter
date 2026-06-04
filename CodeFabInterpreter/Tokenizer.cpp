@@ -100,7 +100,8 @@ std::vector<Token> Tokenizer::tokenize(const std::string& source)
         if (isDigit(c))  { tokens.push_back(scanNumber(source, pos, line)); continue; }
         if (isAlpha(c) || c == '_') { tokens.push_back(scanWord(source, pos, line)); continue; }
 
-        ++pos;
+        throw std::runtime_error(
+            std::string("[") + std::to_string(line) + "번째 줄] 알 수 없는 문자: '" + c + "'");
     }
 
     tokens.push_back({TokenType::EOF_TOKEN, "", line, {}});
