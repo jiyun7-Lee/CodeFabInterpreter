@@ -108,7 +108,9 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
             case TokenType::PLUS:  return l + r;
             case TokenType::MINUS: return l - r;
             case TokenType::STAR:  return l * r;
-            case TokenType::SLASH: return l / r;
+            case TokenType::SLASH:
+                if (r == 0.0) throw std::runtime_error("Division by zero");
+                return l / r;
             case TokenType::LESS:  return l < r;
             default:               return std::monostate{};
         }
