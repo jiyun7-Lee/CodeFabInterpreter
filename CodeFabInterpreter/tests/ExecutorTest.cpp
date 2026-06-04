@@ -235,7 +235,39 @@ TEST(ExecutorTest, ForStatement)
 }
 
 // TC7: LEFT_BRACE → 새 변수 저장소 생성, RIGHT_BRACE → 변수 저장소 소멸 (Shadowing으로 검증)
-TEST(ExecutorTest, BlockScope_ScopeLifecycle){ ASSERT_TRUE(false); }
+TEST(ExecutorTest, BlockScope_ScopeLifecycle)
+{
+	// var x = 1.0;
+	// { var x = 2.0; print x; }  → "2"
+	// print x;                    → "1"
+	Token xToken; xToken.lexeme = "x";
+
+	auto makeVarDecl = [](const Token& t, double v) {
+		auto init = std::make_unique<LiteralExpr>(); init->value = v;
+		auto decl = std::make_unique<VarDeclareStmt>();
+		decl->name = t; decl->initializer = std::move(init);
+		return decl;
+	};
+	auto makePrintVar = [](const Token& t) {
+		auto e = std::make_unique<VariableExpr>(); e->name = t;
+		auto s = std::make_unique<PrintStmt>(); s->expression = std::move(e);
+		return s;
+	};
+
+	auto block = std::make_unique<BlockStmt>();
+	block->statements.push_back(makeVarDecl(xToken, 2.0));
+	block->statements.push_back(makePrintVar(xToken));
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(makeVarDecl(xToken, 1.0));
+	stmts.push_back(std::move(block));
+	stmts.push_back(makePrintVar(xToken));
+
+	Executor executor;
+	testing::internal::CaptureStdout();
+	executor.execute(stmts);
+	ASSERT_EQ(testing::internal::GetCapturedStdout(), "2\n1\n");
+}
 
 // TC7-1: 중첩 블록마다 독립적인 로컬 저장소가 생성/소멸되는지 확인
 TEST(ExecutorTest, BlockScope_NestedScopes) { ASSERT_TRUE(false); }
