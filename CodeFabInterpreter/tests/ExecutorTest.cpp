@@ -66,7 +66,46 @@ TEST(ExecutorTest, PrintLiteral)
 }
 
 // TC3: BinaryExpr 사칙연산 결과가 올바르게 계산되는지 확인
-TEST(ExecutorTest, ArithmeticExpr) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, ArithmeticExpr)
+{
+	struct Case { double l; TokenType op; double r; std::string expected; };
+	std::vector<Case> cases = {
+		{ 3.0,  TokenType::PLUS,  4.0, "7\n"  },
+		{ 10.0, TokenType::MINUS, 3.0, "7\n"  },
+		{ 2.0,  TokenType::STAR,  5.0, "10\n" },
+		{ 9.0,  TokenType::SLASH, 3.0, "3\n"  },
+	};
+
+	for (const auto& c : cases)
+	{
+		auto left = std::make_unique<LiteralExpr>();
+		left->value = c.l;
+
+		auto right = std::make_unique<LiteralExpr>();
+		right->value = c.r;
+
+		Token op;
+		op.type = c.op;
+
+		auto binExpr = std::make_unique<BinaryExpr>();
+		binExpr->left  = std::move(left);
+		binExpr->op    = op;
+		binExpr->right = std::move(right);
+
+		auto stmt = std::make_unique<PrintStmt>();
+		stmt->expression = std::move(binExpr);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(stmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		std::string output = testing::internal::GetCapturedStdout();
+
+		ASSERT_EQ(output, c.expected);
+	}
+}
 
 // TC4: VarDeclareStmt로 선언한 변수를 VariableExpr로 참조할 수 있는지 확인
 TEST(ExecutorTest, VarDeclareAndUse) { ASSERT_TRUE(false); }
