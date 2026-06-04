@@ -42,7 +42,8 @@ Token Tokenizer::scanString(const std::string& source, size_t& pos, int& line)
         ++pos;
     }
     if (pos >= source.size())
-        throw std::runtime_error("Unterminated string literal");
+        throw std::runtime_error(
+            std::string("[") + std::to_string(startLine) + "번째 줄] 종결되지 않은 문자열 리터럴");
     std::string value  = source.substr(start, pos - start);
     std::string lexeme = "\"" + value + "\"";
     ++pos; // closing "

@@ -270,10 +270,14 @@ TEST_F(TokenizerFixture, MultilineSourceHasCorrectTypeAndLine)
     const auto tokens = tokenizer.tokenize("var\nx\n=\n1");
 
     ASSERT_GE(tokens.size(), 4u);
-    EXPECT_EQ(tokens[0].type, TokenType::VAR);        EXPECT_EQ(tokens[0].line, 1);
-    EXPECT_EQ(tokens[1].type, TokenType::IDENTIFIER);  EXPECT_EQ(tokens[1].line, 2);
-    EXPECT_EQ(tokens[2].type, TokenType::EQUAL);       EXPECT_EQ(tokens[2].line, 3);
-    EXPECT_EQ(tokens[3].type, TokenType::NUMBER);      EXPECT_EQ(tokens[3].line, 4);
+    EXPECT_EQ(tokens[0].type, TokenType::VAR);
+    EXPECT_EQ(tokens[0].line, 1);
+    EXPECT_EQ(tokens[1].type, TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[1].line, 2);
+    EXPECT_EQ(tokens[2].type, TokenType::EQUAL);
+    EXPECT_EQ(tokens[2].line, 3);
+    EXPECT_EQ(tokens[3].type, TokenType::NUMBER);
+    EXPECT_EQ(tokens[3].line, 4);
 }
 
 // ──────────────────────────────────────────────
