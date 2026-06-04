@@ -108,7 +108,37 @@ TEST(ExecutorTest, ArithmeticExpr)
 }
 
 // TC4: VarDeclareStmt로 선언한 변수를 VariableExpr로 참조할 수 있는지 확인
-TEST(ExecutorTest, VarDeclareAndUse) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, VarDeclareAndUse)
+{
+	// var x = 10.0;
+	Token nameToken;
+	nameToken.lexeme = "x";
+
+	auto init = std::make_unique<LiteralExpr>();
+	init->value = 10.0;
+
+	auto varDecl = std::make_unique<VarDeclareStmt>();
+	varDecl->name        = nameToken;
+	varDecl->initializer = std::move(init);
+
+	// print x;
+	auto varExpr = std::make_unique<VariableExpr>();
+	varExpr->name = nameToken;
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(varExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(varDecl));
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	testing::internal::CaptureStdout();
+	executor.execute(stmts);
+	std::string output = testing::internal::GetCapturedStdout();
+
+	ASSERT_EQ(output, "10\n");
+}
 
 // TC5: IfStmt의 condition 결과에 따라 thenBranch/elseBranch가 선택 실행되는지 확인
 TEST(ExecutorTest, IfStatement) { ASSERT_TRUE(false); }
