@@ -1,7 +1,6 @@
 ﻿#include "Parser.h"
 #include "Expr.h"
 #include <stdexcept>
-#include <iostream>
 
 // -----------------------------------------------------------------------
 // [재귀 하강 파서 (Recursive Descent Parser) 개요]
@@ -37,45 +36,140 @@ std::vector<std::unique_ptr<Stmt>> Parser::parse(const std::vector<Token>& token
     m_tokens  = tokens;
     m_current = 0;
 
-    // EOF 토큰을 만날 때까지 Statement 를 반복 파싱하여 AST 목록을 구성한다.
+    // EOF 토큰을 만날 때까지 Declaration 을 반복 파싱하여 AST 목록을 구성한다.
     std::vector<std::unique_ptr<Stmt>> statements;
     while (!isAtEnd())
-        statements.push_back(parseStatement());
+        statements.push_back(parseDeclaration());
 
     return statements;
 }
 
 // -----------------------------------------------------------------------
-// Statement
+// Statement  (C파트)
 // -----------------------------------------------------------------------
+
+std::unique_ptr<Stmt> Parser::parseDeclaration()
+{
+    // var 선언은 Statement 가 아닌 Declaration 계층에서 처리한다.
+    // 블록 내부에서도 var 를 쓸 수 있도록 parseBlock() 도 이 함수를 호출한다.
+    if (match({ TokenType::VAR }))
+        return parseVarDeclaration();
+    return parseStatement();
+}
 
 std::unique_ptr<Stmt> Parser::parseStatement()
 {
-    // 현재는 ExpressionStmt 만 지원한다.
-    // PrintStmt, VarDeclareStmt, IfStmt, ForStmt 등은 심민구 담당 (Statement Parser).
+    // 첫 토큰으로 문장 종류를 판별하는 디스패치 테이블
+    if (match({ TokenType::PRINT }))       return parsePrintStatement();
+    if (match({ TokenType::IF }))          return parseIfStatement();
+    if (match({ TokenType::FOR }))         return parseForStatement();
+    if (match({ TokenType::LEFT_BRACE }))  return parseBlock();
     return parseExpressionStatement();
+}
+
+std::unique_ptr<Stmt> Parser::parseVarDeclaration()
+{
+    // VAR 는 이미 소비된 상태로 진입. 문법: var IDENTIFIER = expr ;
+    Token name = consume(TokenType::IDENTIFIER, "변수 이름이 필요합니다.");
+    consume(TokenType::EQUAL, "'=' 가 필요합니다.");
+    auto initializer = parseExpression();
+    consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
+
+    auto stmt         = std::make_unique<VarDeclareStmt>();
+    stmt->name        = name;
+    stmt->initializer = std::move(initializer);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parsePrintStatement()
+{
+    // PRINT 는 이미 소비된 상태로 진입. 문법: print expr ;
+    auto expr = parseExpression();
+    consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
+
+    auto stmt        = std::make_unique<PrintStmt>();
+    stmt->expression = std::move(expr);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parseIfStatement()
+{
+    // IF 는 이미 소비된 상태로 진입. 문법: if ( expr ) stmt ( else stmt )?
+    consume(TokenType::LEFT_PAREN, "'(' 가 필요합니다.");
+    auto condition = parseExpression();
+    consume(TokenType::RIGHT_PAREN, "')' 가 필요합니다.");
+
+    auto thenBranch = parseStatement();
+
+    // else 는 발견 즉시 소비한다 — 가장 가까운 if 에 결합 (dangling-else 해소)
+    std::unique_ptr<Stmt> elseBranch;
+    if (match({ TokenType::ELSE }))
+        elseBranch = parseStatement();
+
+    auto stmt        = std::make_unique<IfStmt>();
+    stmt->condition  = std::move(condition);
+    stmt->thenBranch = std::move(thenBranch);
+    stmt->elseBranch = std::move(elseBranch);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parseForStatement()
+{
+    // FOR 는 이미 소비된 상태로 진입. 문법: for ( init cond ; incr ) stmt
+    // init 은 VarDeclareStmt 또는 ExpressionStmt — 각 함수가 세미콜론까지 소비한다.
+    consume(TokenType::LEFT_PAREN, "'(' 가 필요합니다.");
+
+    std::unique_ptr<Stmt> init;
+    if (match({ TokenType::VAR }))
+        init = parseVarDeclaration();       // var i = 0;  (세미콜론 포함)
+    else
+        init = parseExpressionStatement();  // i = 0;      (세미콜론 포함)
+
+    auto condition = parseExpression();
+    consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
+
+    auto increment = parseExpression();
+    consume(TokenType::RIGHT_PAREN, "')' 가 필요합니다.");
+
+    auto body = parseStatement();
+
+    auto stmt       = std::make_unique<ForStmt>();
+    stmt->init      = std::move(init);
+    stmt->condition = std::move(condition);
+    stmt->increment = std::move(increment);
+    stmt->body      = std::move(body);
+    return stmt;
+}
+
+std::unique_ptr<Stmt> Parser::parseBlock()
+{
+    // LEFT_BRACE 는 이미 소비된 상태로 진입.
+    // isAtEnd() 검사는 닫는 중괄호 없이 EOF 에 도달했을 때 무한루프를 방지한다.
+    // 실제 오류는 consume(RIGHT_BRACE) 에서 던진다.
+    auto stmt = std::make_unique<BlockStmt>();
+    while (!check(TokenType::RIGHT_BRACE) && !isAtEnd())
+        stmt->statements.push_back(parseDeclaration());
+    consume(TokenType::RIGHT_BRACE, "'}' 가 필요합니다.");
+    return stmt;
 }
 
 std::unique_ptr<Stmt> Parser::parseExpressionStatement()
 {
     // Expression 을 파싱한 뒤 반드시 세미콜론(;) 으로 닫혀야 한다.
-    // ExpressionStmt 는 Expr 을 Stmt 로 감싸는 래퍼 역할을 한다.
     auto expr = parseExpression();
-    consume(TokenType::SEMICOLON);
+    consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
-    auto stmt = std::make_unique<ExpressionStmt>();
+    auto stmt        = std::make_unique<ExpressionStmt>();
     stmt->expression = std::move(expr);
     return stmt;
 }
 
 // -----------------------------------------------------------------------
-// Expression — 우선순위 낮은 순서대로 호출
+// Expression — 우선순위 낮은 순서대로 호출  (B파트 구현)
 // -----------------------------------------------------------------------
 
 std::unique_ptr<Expr> Parser::parseExpression()
 {
-    // 모든 Expression 파싱의 진입점.
-    // 가장 우선순위가 낮은 parseAssignment 부터 시작한다.
     return parseAssignment();
 }
 
@@ -91,17 +185,15 @@ std::unique_ptr<Expr> Parser::parseAssignment()
 
     if (match({ TokenType::EQUAL }))
     {
-        Token op = previous(); // 연산자를 재귀 호출 이전에 캡처 (인자 평가 순서 보장)
-        auto value = parseAssignment(); // 우결합: 재귀 호출
+        Token op    = previous(); // 연산자를 재귀 호출 이전에 캡처 (인자 평가 순서 보장)
+        auto  value = parseAssignment(); // 우결합: 재귀 호출
 
         // 대입의 좌변은 반드시 변수(VariableExpr) 여야 한다.
-        // 예) 3 = 5 는 문법 오류 — Checker 단계에서 추가 검증 예정.
         if (auto* var = dynamic_cast<VariableExpr*>(expr.get()))
         {
             auto assign   = std::make_unique<AssignExpr>();
             assign->name  = var->name;
             assign->value = std::move(value);
-            // expr(unique_ptr) 는 스코프 종료 시 자동 해제됨
             return assign;
         }
     }
@@ -111,11 +203,10 @@ std::unique_ptr<Expr> Parser::parseAssignment()
 std::unique_ptr<Expr> Parser::parseOr()
 {
     // or 연산자는 좌결합이므로 while 로 반복 처리한다.
-    // 예) a or b or c → BinaryExpr(or, BinaryExpr(or, a, b), c)
     auto expr = parseAnd();
     while (match({ TokenType::OR }))
     {
-        Token op = previous(); // 연산자를 재귀 호출 이전에 캡처
+        Token op = previous();
         expr = makeBinary(std::move(expr), op, parseAnd());
     }
     return expr;
@@ -123,7 +214,6 @@ std::unique_ptr<Expr> Parser::parseOr()
 
 std::unique_ptr<Expr> Parser::parseAnd()
 {
-    // and 연산자도 좌결합.
     auto expr = parseComparison();
     while (match({ TokenType::AND }))
     {
@@ -135,8 +225,6 @@ std::unique_ptr<Expr> Parser::parseAnd()
 
 std::unique_ptr<Expr> Parser::parseComparison()
 {
-    // 비교 연산자 > < 처리.
-    // 예) a > b → BinaryExpr(>, VariableExpr(a), VariableExpr(b))
     auto expr = parseTerm();
     while (match({ TokenType::GREATER, TokenType::LESS }))
     {
@@ -148,8 +236,6 @@ std::unique_ptr<Expr> Parser::parseComparison()
 
 std::unique_ptr<Expr> Parser::parseTerm()
 {
-    // 덧셈·뺄셈 처리.
-    // parseFactor 를 먼저 호출하므로 * / 가 + - 보다 높은 우선순위를 갖는다.
     auto expr = parseFactor();
     while (match({ TokenType::PLUS, TokenType::MINUS }))
     {
@@ -161,8 +247,6 @@ std::unique_ptr<Expr> Parser::parseTerm()
 
 std::unique_ptr<Expr> Parser::parseFactor()
 {
-    // 곱셈·나눗셈 처리.
-    // parseUnary 를 먼저 호출하므로 단항 연산자가 * / 보다 높은 우선순위를 갖는다.
     auto expr = parseUnary();
     while (match({ TokenType::STAR, TokenType::SLASH }))
     {
@@ -174,12 +258,10 @@ std::unique_ptr<Expr> Parser::parseFactor()
 
 std::unique_ptr<Expr> Parser::parseUnary()
 {
-    // 단항 연산자 처리: - (음수), ! (논리 부정)
-    // 재귀 호출로 !!a 같은 중첩 단항 연산도 처리된다.
     if (match({ TokenType::MINUS, TokenType::BANG }))
     {
         Token op    = previous();
-        auto  right = parseUnary(); // 재귀: --a → UnaryExpr(-, UnaryExpr(-, a))
+        auto  right = parseUnary();
         auto  unary = std::make_unique<UnaryExpr>();
         unary->op    = op;
         unary->right = std::move(right);
@@ -190,32 +272,27 @@ std::unique_ptr<Expr> Parser::parseUnary()
 
 std::unique_ptr<Expr> Parser::parsePrimary()
 {
-    // 가장 기본 단위(원자) 파싱. 더 이상 분해되지 않는 토큰들을 처리한다.
-
-    // 숫자·문자열 리터럴: 토큰의 literal 필드에 값이 담겨있다.
     if (match({ TokenType::NUMBER, TokenType::STRING }))
     {
-        auto lit  = std::make_unique<LiteralExpr>();
+        auto lit   = std::make_unique<LiteralExpr>();
         lit->value = previous().literal;
         return lit;
     }
 
-    // 불리언 리터럴: TRUE/FALSE 토큰을 bool 값으로 변환
     if (match({ TokenType::TRUE }))
     {
-        auto lit  = std::make_unique<LiteralExpr>();
+        auto lit   = std::make_unique<LiteralExpr>();
         lit->value = true;
         return lit;
     }
 
     if (match({ TokenType::FALSE }))
     {
-        auto lit  = std::make_unique<LiteralExpr>();
+        auto lit   = std::make_unique<LiteralExpr>();
         lit->value = false;
         return lit;
     }
 
-    // 식별자(변수명): lexeme 을 그대로 보관하고 Executor 가 실행 시 값을 조회한다.
     if (match({ TokenType::IDENTIFIER }))
     {
         auto var  = std::make_unique<VariableExpr>();
@@ -223,20 +300,15 @@ std::unique_ptr<Expr> Parser::parsePrimary()
         return var;
     }
 
-    // 괄호 묶음: 내부 표현식을 GroupingExpr 로 감싸서 우선순위를 명시적으로 높인다.
-    // 예) (1 + 2) * 3 → parseFactor 가 GroupingExpr 를 하나의 단위로 인식
     if (match({ TokenType::LEFT_PAREN }))
     {
-        auto expr = parseExpression(); // 괄호 안은 다시 최상위부터 파싱
-        consume(TokenType::RIGHT_PAREN);
+        auto expr       = parseExpression();
+        consume(TokenType::RIGHT_PAREN, "')' 가 필요합니다.");
         auto grp        = std::make_unique<GroupingExpr>();
         grp->expression = std::move(expr);
         return grp;
     }
 
-    // 매칭되는 토큰 없음 — 파싱 불가능한 토큰이므로 예외를 던진다.
-    // nullptr 을 반환하면 상위 호출자(parseUnary, makeBinary 등)에서
-    // 역참조 크래시가 발생하므로 즉시 중단한다.
     throw std::runtime_error(
         "[" + std::to_string(peek().line) + "번째 줄] "
         "예상치 못한 토큰: '" + peek().lexeme + "'");
@@ -246,11 +318,9 @@ std::unique_ptr<Expr> Parser::parsePrimary()
 // 노드 생성 헬퍼
 // -----------------------------------------------------------------------
 
-std::unique_ptr<BinaryExpr> Parser::makeBinary(std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
+std::unique_ptr<BinaryExpr> Parser::makeBinary(
+    std::unique_ptr<Expr> left, Token op, std::unique_ptr<Expr> right)
 {
-    // parseOr/And/Comparison/Term/Factor 에서 공통으로 사용하는 BinaryExpr 생성.
-    // parsePrimary 가 throw 로 막혀있더라도, 향후 호출 경로가 추가될 경우를 대비해
-    // nullptr 피연산자가 Executor 에 전달되지 않도록 진입 시점에서 한 번 더 검사한다.
     if (!left || !right)
         throw std::runtime_error(
             "[" + std::to_string(op.line) + "번째 줄] "
@@ -269,7 +339,6 @@ std::unique_ptr<BinaryExpr> Parser::makeBinary(std::unique_ptr<Expr> left, Token
 
 bool Parser::match(std::initializer_list<TokenType> types)
 {
-    // 현재 토큰이 주어진 타입 중 하나이면 소비(advance) 하고 true 를 반환한다.
     for (TokenType type : types)
     {
         if (check(type))
@@ -281,43 +350,35 @@ bool Parser::match(std::initializer_list<TokenType> types)
     return false;
 }
 
-bool Parser::check(TokenType type)
+bool Parser::check(TokenType type) const
 {
-    // 현재 토큰 타입을 확인만 하고 소비하지 않는다 (peek 와 같은 역할).
     if (isAtEnd()) return false;
     return peek().type == type;
 }
 
-bool Parser::isAtEnd()
+bool Parser::isAtEnd() const
 {
     return peek().type == TokenType::EOF_TOKEN;
 }
 
 Token Parser::advance()
 {
-    // 현재 토큰을 소비하고 이전 토큰을 반환한다.
     if (!isAtEnd()) m_current++;
     return previous();
 }
 
-Token Parser::peek()
+Token Parser::peek() const
 {
-    // 현재 위치의 토큰을 소비하지 않고 반환한다.
     return m_tokens[m_current];
 }
 
-Token Parser::previous()
+Token Parser::previous() const
 {
-    // 가장 최근에 소비한 토큰을 반환한다. match() 직후 연산자 확인에 사용.
     return m_tokens[m_current - 1];
 }
 
-Token Parser::consume(TokenType type)
+Token Parser::consume(TokenType type, const std::string& msg)
 {
-    // 기대하는 토큰이 맞으면 소비하고 반환한다.
-    // 틀린 경우 stderr 에 경고를 출력하고 현재 토큰을 반환한다.
     if (check(type)) return advance();
-    std::cerr << "[" << peek().line << "번째 줄] "
-              << "예상치 못한 토큰: '" << peek().lexeme << "'\n";
-    return peek();
+    throw std::runtime_error("[" + std::to_string(peek().line) + "번째 줄] " + msg);
 }
