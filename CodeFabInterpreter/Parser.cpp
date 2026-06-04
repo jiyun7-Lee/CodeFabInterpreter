@@ -248,6 +248,13 @@ Expr* Parser::parsePrimary()
 BinaryExpr* Parser::makeBinary(Expr* left, Token op, Expr* right)
 {
     // parseOr/And/Comparison/Term/Factor 에서 공통으로 사용하는 BinaryExpr 생성.
+    // parsePrimary 가 throw 로 막혀있더라도, 향후 호출 경로가 추가될 경우를 대비해
+    // nullptr 피연산자가 Executor 에 전달되지 않도록 진입 시점에서 한 번 더 검사한다.
+    if (left == nullptr || right == nullptr)
+        throw std::runtime_error(
+            "[" + std::to_string(op.line) + "번째 줄] "
+            "'" + op.lexeme + "' 연산자의 피연산자가 없습니다.");
+
     auto* bin  = new BinaryExpr();
     bin->left  = left;
     bin->op    = op;
