@@ -30,7 +30,7 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"or",    TokenType::OR},
 };
 
-Token Tokenizer::scanString(const std::string& source, size_t& pos, int line)
+Token Tokenizer::scanString(const std::string& source, size_t& pos, int& line)
 {
     ++pos; // opening "
     size_t start = pos;
