@@ -33,8 +33,8 @@
 
 std::vector<std::unique_ptr<Stmt>> Parser::parse(const std::vector<Token>& tokens)
 {
-    tokens_  = tokens;
-    current_ = 0;
+    m_tokens  = tokens;
+    m_current = 0;
 
     // EOF 토큰을 만날 때까지 Declaration 을 반복 파싱하여 AST 목록을 구성한다.
     std::vector<std::unique_ptr<Stmt>> statements;
@@ -363,22 +363,22 @@ bool Parser::isAtEnd() const
 
 Token Parser::advance()
 {
-    if (!isAtEnd()) current_++;
+    if (!isAtEnd()) m_current++;
     return previous();
 }
 
 Token Parser::peek() const
 {
-    return tokens_[current_];
+    return m_tokens[m_current];
 }
 
 Token Parser::previous() const
 {
-    return tokens_[current_ - 1];
+    return m_tokens[m_current - 1];
 }
 
 Token Parser::consume(TokenType type, const std::string& msg)
 {
     if (check(type)) return advance();
-    throw std::runtime_error(msg);
+    throw std::runtime_error("[" + std::to_string(peek().line) + "번째 줄] " + msg);
 }

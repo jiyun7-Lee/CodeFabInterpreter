@@ -16,8 +16,8 @@ protected:
     // B파트 구현. 테스트에서 FakeExprParser로 override 가능
     virtual std::unique_ptr<Expr> parseExpression();
 
-    std::vector<Token> tokens_;
-    int current_ = 0;
+    std::vector<Token> m_tokens;
+    int m_current = 0;
 
     bool  isAtEnd()  const;
     Token peek()     const;
@@ -25,7 +25,7 @@ protected:
     Token advance();
     bool  check(TokenType type) const;
     bool  match(std::initializer_list<TokenType> types);
-    Token consume(TokenType type, const std::string& msg);
+    Token consume(TokenType type, const std::string& msg = "");
 
 private:
     // Statement (C파트)
