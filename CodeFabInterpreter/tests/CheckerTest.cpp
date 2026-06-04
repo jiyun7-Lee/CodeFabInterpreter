@@ -80,6 +80,7 @@ TEST(CheckerTest, C_TC_01_DuplicateVarSameBlock)
             makeVarDecl("a", makeLit(2.0))
         ))
     )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
 }
 
 // C-TC-02 : var a = 1; var a = 2;  (글로벌)  →  Error
@@ -90,6 +91,7 @@ TEST(CheckerTest, C_TC_02_DuplicateVarGlobal)
         makeVarDecl("a", makeLit(1.0)),
         makeVarDecl("a", makeLit(2.0))
     )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
 }
 
 // C-TC-03 : var a = 1; { var a = 2; }  (shadowing)  →  OK
@@ -135,6 +137,7 @@ TEST(CheckerTest, C_TC_06_SelfReference)
     EXPECT_FALSE(checker.check(S(
         makeVarDecl("a", makeVar("a"))
     )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
 }
 
 // C-TC-07 : var a = a + 1;  →  Error
@@ -144,6 +147,7 @@ TEST(CheckerTest, C_TC_07_SelfReferenceInBinary)
     EXPECT_FALSE(checker.check(S(
         makeVarDecl("a", makeBin(makeVar("a"), TokenType::PLUS, makeLit(1.0)))
     )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
 }
 
 // C-TC-08 : var a = 1; var b = a;  →  OK  (이미 선언된 변수 참조)

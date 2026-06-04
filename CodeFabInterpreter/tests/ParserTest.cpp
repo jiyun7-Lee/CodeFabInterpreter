@@ -1,4 +1,4 @@
-#include <gtest/gtest.h>
+﻿#include <gtest/gtest.h>
 #include "../Parser.h"
 
 // ================================================================
@@ -85,6 +85,7 @@ TEST(ParserStmtTest, P_TC_02_VarWithString)
         makeTok(TokenType::EQUAL, "="), makeStr("hello"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->name.lexeme, "abc");
@@ -103,6 +104,7 @@ TEST(ParserStmtTest, P_TC_03_VarWithBool)
         makeTok(TokenType::EQUAL, "="), makeBoolTok(true),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->name.lexeme, "flag");
@@ -121,6 +123,7 @@ TEST(ParserStmtTest, P_TC_04_VarWithExpr)
         makeTok(TokenType::EQUAL, "="), makeId("b"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(s->initializer, nullptr);
@@ -166,6 +169,7 @@ TEST(ParserStmtTest, P_TC_07_PrintExpression)
         makeTok(TokenType::PRINT, "print"), makeId("a"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<PrintStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(s->expression, nullptr);
@@ -213,6 +217,7 @@ TEST(ParserStmtTest, P_TC_10_BlockOneStmt)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<BlockStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->statements.size(), 1u);
@@ -229,6 +234,7 @@ TEST(ParserStmtTest, P_TC_11_BlockMultipleStmts)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<BlockStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_EQ(s->statements.size(), 2u);
@@ -246,6 +252,7 @@ TEST(ParserStmtTest, P_TC_12_NestedBlock)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* outer = dynamic_cast<BlockStmt*>(stmts[0].get());
     ASSERT_NE(outer, nullptr);
     ASSERT_EQ(outer->statements.size(), 1u);
@@ -300,6 +307,7 @@ TEST(ParserStmtTest, P_TC_15_IfWithElse)
         makeTok(TokenType::PRINT, "print"), makeId("b"), makeTok(TokenType::SEMICOLON, ";"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(s->elseBranch, nullptr);
@@ -317,6 +325,7 @@ TEST(ParserStmtTest, P_TC_16_IfWithBlockBody)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(dynamic_cast<BlockStmt*>(s->thenBranch.get()), nullptr);
@@ -334,6 +343,7 @@ TEST(ParserStmtTest, P_TC_17_IfElseBothBlocks)
         makeTok(TokenType::LEFT_BRACE, "{"), makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(dynamic_cast<BlockStmt*>(s->thenBranch.get()), nullptr);
@@ -352,6 +362,7 @@ TEST(ParserStmtTest, P_TC_18_NestedIf)
         makeTok(TokenType::PRINT, "print"), makeId("b"), makeTok(TokenType::SEMICOLON, ";"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* outer = dynamic_cast<IfStmt*>(stmts[0].get());
     ASSERT_NE(outer, nullptr);
     EXPECT_NE(dynamic_cast<IfStmt*>(outer->thenBranch.get()), nullptr);
@@ -432,6 +443,7 @@ TEST(ParserStmtTest, P_TC_22_ForWithBlockBody)
         makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<ForStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     EXPECT_NE(dynamic_cast<BlockStmt*>(s->body.get()), nullptr);
@@ -471,6 +483,7 @@ TEST(ParserStmtTest, P_TC_24_ForWithEmptyBlock)
         makeTok(TokenType::LEFT_BRACE, "{"), makeTok(TokenType::RIGHT_BRACE, "}"),
         makeEof()
     });
+    ASSERT_EQ(stmts.size(), 1u);
     auto* s = dynamic_cast<ForStmt*>(stmts[0].get());
     ASSERT_NE(s, nullptr);
     auto* block = dynamic_cast<BlockStmt*>(s->body.get());
