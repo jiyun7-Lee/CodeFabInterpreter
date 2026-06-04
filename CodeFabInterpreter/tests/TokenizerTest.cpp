@@ -5,22 +5,31 @@
 #include <vector>
 
 // ──────────────────────────────────────────────
-// 통합: 모든 TokenType이 올바른 순서로 인식된다
+// Fixture (R6: Tokenizer 인스턴스 공유, R7: extractTypes 헬퍼)
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, TokenizesAllTokenTypes)
+class TokenizerFixture : public ::testing::Test
 {
+protected:
     Tokenizer tokenizer;
 
+    std::vector<TokenType> extractTypes(const std::vector<Token>& tokens)
+    {
+        std::vector<TokenType> types(tokens.size());
+        std::transform(tokens.begin(), tokens.end(), types.begin(),
+            [](const Token& t) { return t.type; });
+        return types;
+    }
+};
+
+// ──────────────────────────────────────────────
+// 통합: 지원하는 모든 TokenType이 올바른 순서로 인식된다 (literal 검증은 TC-07~09 참조)
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, TokenizesAllTokenTypesInOrder)
+{
     const std::string source =
         "( ) { } , . ; + - * / ! = > < "
         "identifier \"hello\" 123 "
         "var print if else for true false and or";
-
-    const std::vector<Token> tokens = tokenizer.tokenize(source);
-
-    std::vector<TokenType> actualTypes(tokens.size());
-    std::transform(tokens.begin(), tokens.end(), actualTypes.begin(),
-        [](const Token& t) { return t.type; });
 
     const std::vector<TokenType> expectedTypes = {
         TokenType::LEFT_PAREN,
@@ -53,15 +62,14 @@ TEST(TokenizerTest, TokenizesAllTokenTypes)
         TokenType::EOF_TOKEN
     };
 
-    EXPECT_EQ(actualTypes, expectedTypes);
+    EXPECT_EQ(extractTypes(tokenizer.tokenize(source)), expectedTypes);
 }
 
 // ──────────────────────────────────────────────
 // 경계: 빈 소스를 입력하면 EOF_TOKEN 하나만 반환한다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, EmptySourceReturnsOnlyEof)
+TEST_F(TokenizerFixture, EmptySourceReturnsOnlyEof)
 {
-    Tokenizer tokenizer;
     const auto tokens = tokenizer.tokenize("");
 
     ASSERT_EQ(tokens.size(), 1u);
@@ -71,10 +79,9 @@ TEST(TokenizerTest, EmptySourceReturnsOnlyEof)
 // ──────────────────────────────────────────────
 // 경계: 소스가 무엇이든 마지막 토큰은 항상 EOF_TOKEN이다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, LastTokenIsAlwaysEof)
+TEST_F(TokenizerFixture, LastTokenIsAlwaysEof)
 {
-    Tokenizer tokenizer;
-    const auto tokens = tokenizer.tokenize("var x = 1;");
+    const auto tokens = tokenizer.tokenize("x");
 
     ASSERT_FALSE(tokens.empty());
     EXPECT_EQ(tokens.back().type, TokenType::EOF_TOKEN);
@@ -83,9 +90,8 @@ TEST(TokenizerTest, LastTokenIsAlwaysEof)
 // ──────────────────────────────────────────────
 // 공백: 스페이스와 탭은 토큰을 생성하지 않는다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, WhitespaceIsSkipped)
+TEST_F(TokenizerFixture, WhitespaceIsSkipped)
 {
-    Tokenizer tokenizer;
     const auto tokens = tokenizer.tokenize("  +  \t  -  ");
 
     // PLUS, MINUS, EOF 총 3개
@@ -98,25 +104,25 @@ TEST(TokenizerTest, WhitespaceIsSkipped)
 // ──────────────────────────────────────────────
 // lexeme: 단일 문자 토큰의 lexeme이 소스 문자와 일치한다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, SingleCharTokensHaveCorrectLexeme)
+TEST_F(TokenizerFixture, SingleCharTokensHaveCorrectLexeme)
 {
-    Tokenizer tokenizer;
-    const auto tokens = tokenizer.tokenize("( ) + - * /");
-
-    EXPECT_EQ(tokens[0].lexeme, "(");
-    EXPECT_EQ(tokens[1].lexeme, ")");
-    EXPECT_EQ(tokens[2].lexeme, "+");
-    EXPECT_EQ(tokens[3].lexeme, "-");
-    EXPECT_EQ(tokens[4].lexeme, "*");
-    EXPECT_EQ(tokens[5].lexeme, "/");
+    // R8: 하드코딩 인덱스 제거 — 입력/기댓값 쌍 루프로 각 케이스를 독립 검증
+    const std::vector<std::pair<std::string, std::string>> cases = {
+        {"(", "("}, {")", ")"}, {"+", "+"}, {"-", "-"}, {"*", "*"}, {"/", "/"}
+    };
+    for (const auto& [src, expected] : cases)
+    {
+        const auto tokens = tokenizer.tokenize(src);
+        ASSERT_GE(tokens.size(), 1u) << "input: " << src;
+        EXPECT_EQ(tokens[0].lexeme, expected) << "input: " << src;
+    }
 }
 
 // ──────────────────────────────────────────────
 // lexeme: 식별자 토큰의 lexeme이 소스 단어와 일치한다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, IdentifierHasCorrectLexeme)
+TEST_F(TokenizerFixture, IdentifierHasCorrectLexeme)
 {
-    Tokenizer tokenizer;
     const auto tokens = tokenizer.tokenize("myVar");
 
     ASSERT_GE(tokens.size(), 1u);
@@ -127,9 +133,8 @@ TEST(TokenizerTest, IdentifierHasCorrectLexeme)
 // ──────────────────────────────────────────────
 // literal: 문자열 리터럴의 literal 값이 따옴표를 제외한 내용이다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, StringLiteralHasCorrectValue)
+TEST_F(TokenizerFixture, StringLiteralHasCorrectValue)
 {
-    Tokenizer tokenizer;
     const auto tokens = tokenizer.tokenize("\"hello\"");
 
     ASSERT_GE(tokens.size(), 1u);
@@ -140,9 +145,8 @@ TEST(TokenizerTest, StringLiteralHasCorrectValue)
 // ──────────────────────────────────────────────
 // literal: 정수 숫자 리터럴의 literal 값이 double로 저장된다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, IntegerLiteralHasCorrectValue)
+TEST_F(TokenizerFixture, IntegerLiteralHasCorrectValue)
 {
-    Tokenizer tokenizer;
     const auto tokens = tokenizer.tokenize("123");
 
     ASSERT_GE(tokens.size(), 1u);
@@ -153,9 +157,8 @@ TEST(TokenizerTest, IntegerLiteralHasCorrectValue)
 // ──────────────────────────────────────────────
 // literal: 소수점 숫자 리터럴의 literal 값이 double로 정확히 저장된다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, FloatLiteralHasCorrectValue)
+TEST_F(TokenizerFixture, FloatLiteralHasCorrectValue)
 {
-    Tokenizer tokenizer;
     const auto tokens = tokenizer.tokenize("3.14");
 
     ASSERT_GE(tokens.size(), 1u);
@@ -166,15 +169,8 @@ TEST(TokenizerTest, FloatLiteralHasCorrectValue)
 // ──────────────────────────────────────────────
 // 예약어: 모든 키워드가 IDENTIFIER가 아닌 고유 TokenType으로 인식된다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, KeywordsAreNotIdentifiers)
+TEST_F(TokenizerFixture, KeywordsAreNotIdentifiers)
 {
-    Tokenizer tokenizer;
-    const auto tokens = tokenizer.tokenize("var print if else for true false and or");
-
-    std::vector<TokenType> actualTypes(tokens.size());
-    std::transform(tokens.begin(), tokens.end(), actualTypes.begin(),
-        [](const Token& t) { return t.type; });
-
     const std::vector<TokenType> expectedTypes = {
         TokenType::VAR,
         TokenType::PRINT,
@@ -188,15 +184,17 @@ TEST(TokenizerTest, KeywordsAreNotIdentifiers)
         TokenType::EOF_TOKEN
     };
 
-    EXPECT_EQ(actualTypes, expectedTypes);
+    EXPECT_EQ(
+        extractTypes(tokenizer.tokenize("var print if else for true false and or")),
+        expectedTypes
+    );
 }
 
 // ──────────────────────────────────────────────
 // 예약어: 예약어로 시작하지만 더 긴 단어는 IDENTIFIER로 인식된다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, IdentifierStartingWithKeywordIsIdentifier)
+TEST_F(TokenizerFixture, IdentifierStartingWithKeywordIsIdentifier)
 {
-    Tokenizer tokenizer;
     // "variable" ⊃ "var", "iffy" ⊃ "if", "forge" ⊃ "for"
     const auto tokens = tokenizer.tokenize("variable iffy forge");
 
@@ -212,9 +210,8 @@ TEST(TokenizerTest, IdentifierStartingWithKeywordIsIdentifier)
 // ──────────────────────────────────────────────
 // lexeme: ! 는 BANG 타입으로 인식되고 lexeme이 "!"이다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, BangTokenHasCorrectLexeme)
+TEST_F(TokenizerFixture, BangTokenHasCorrectLexeme)
 {
-    Tokenizer tokenizer;
     const auto tokens = tokenizer.tokenize("!");
 
     ASSERT_GE(tokens.size(), 1u);
@@ -225,9 +222,8 @@ TEST(TokenizerTest, BangTokenHasCorrectLexeme)
 // ──────────────────────────────────────────────
 // line: 개행 문자를 만날 때마다 line 번호가 1씩 증가한다
 // ──────────────────────────────────────────────
-TEST(TokenizerTest, NewlineIncrementsLineNumber)
+TEST_F(TokenizerFixture, NewlineIncrementsLineNumber)
 {
-    Tokenizer tokenizer;
     // +는 1번 줄, -는 2번 줄, *는 3번 줄에 위치한다
     const auto tokens = tokenizer.tokenize("+\n-\n*");
 
