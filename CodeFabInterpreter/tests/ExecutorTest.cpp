@@ -332,7 +332,31 @@ TEST(ExecutorTest, UndefinedVariable)
 }
 
 // TC9: 타입 불일치 연산(number + string 등) 시 RuntimeError가 발생하는지 확인
-TEST(ExecutorTest, TypeError) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, TypeError)
+{
+	// print 1.0 + "HI";
+	auto left = std::make_unique<LiteralExpr>();
+	left->value = 1.0;
+
+	auto right = std::make_unique<LiteralExpr>();
+	right->value = std::string("HI");
+
+	Token plusOp; plusOp.type = TokenType::PLUS;
+
+	auto binExpr = std::make_unique<BinaryExpr>();
+	binExpr->left  = std::move(left);
+	binExpr->op    = plusOp;
+	binExpr->right = std::move(right);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(binExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
 
 // TC10: 0으로 나누기 시 RuntimeError가 발생하는지 확인
 TEST(ExecutorTest, DivideByZero) { ASSERT_TRUE(false); }
