@@ -1,4 +1,4 @@
-# Executor 테스트 케이스 명세서
+﻿# Executor 테스트 케이스 명세서
 
 ## 대상 파일
 
@@ -10,12 +10,12 @@
 
 | TC ID  | 테스트 함수명                   | 구현 상태 |
 |--------|-------------------------------|---------|
-| TC1    | StmtReceivedCorrectly         | 🔴 Red  |
-| TC2    | PrintLiteral                  | 🔴 Red  |
-| TC3    | ArithmeticExpr                | 🔴 Red  |
-| TC4    | VarDeclareAndUse              | 🔴 Red  |
-| TC5    | IfStatement                   | 🔴 Red  |
-| TC6    | ForStatement                  | 🔴 Red  |
+| TC1    | StmtReceivedCorrectly         | 🔴 Green  |
+| TC2    | PrintLiteral                  | 🔴 Green  |
+| TC3    | ArithmeticExpr                | 🔴 Green  |
+| TC4    | VarDeclareAndUse              | 🔴 Green  |
+| TC5    | IfStatement                   | 🔴 Green  |
+| TC6    | ForStatement                  | 🔴 Green  |
 | TC7    | BlockScope_ScopeLifecycle     | 🔴 Red  |
 | TC7-1  | BlockScope_NestedScopes       | 🔴 Red  |
 | TC8    | UndefinedVariable             | 🔴 Red  |
