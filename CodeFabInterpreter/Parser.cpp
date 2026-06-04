@@ -19,7 +19,8 @@
 //             parseTerm      (+ -)
 //               parseFactor  (* /)
 //                 parseUnary   (단항 -, !)
-//                   parsePrimary  (리터럴, 변수, 괄호)
+//                   parsePostfix  (배열 접근 arr[i], 중첩 가능)
+//                     parsePrimary  (리터럴, 변수, 괄호, 함수호출, 배열 리터럴)
 //
 // 예) 1 + 2 * 3 을 파싱하면:
 //   parseTerm 이 parseFactor 를 두 번 호출하는데,

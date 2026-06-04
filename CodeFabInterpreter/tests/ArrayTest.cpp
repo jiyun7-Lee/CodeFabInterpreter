@@ -1,24 +1,9 @@
 ﻿#include "gtest/gtest.h"
+#include "TestHelpers.h"
 #include "../Parser.h"
 #include "../Executor.h"
 #include "../Stmt.h"
 #include "../Expr.h"
-
-// -----------------------------------------------------------------------
-// 헬퍼
-// -----------------------------------------------------------------------
-static Token tok(TokenType type, const std::string& lexeme = "")
-{
-    Token t; t.type = type; t.lexeme = lexeme; t.line = 1; t.literal = {};
-    return t;
-}
-static Token numTok(double val)
-{
-    Token t; t.type = TokenType::NUMBER; t.lexeme = std::to_string(val);
-    t.line = 1; t.literal = val;
-    return t;
-}
-static Token eof() { return tok(TokenType::EOF_TOKEN); }
 
 // -----------------------------------------------------------------------
 // TC-AR-01: 배열 리터럴 파싱
