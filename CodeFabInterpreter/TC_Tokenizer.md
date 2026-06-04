@@ -20,9 +20,9 @@
 
 | ID | 테스트 이름 | 입력 소스 | 검증 항목 | 상태 |
 |---|---|---|---|---|
-| TC-01 | TokenizesAllTokenTypes | 전체 토큰 나열 문자열 | 모든 type 순서 | 🟢 Green |
+| TC-01 | TokenizesAllTokenTypesInOrder | 전체 토큰 나열 문자열 | 모든 type 순서 | 🟢 Green |
 | TC-02 | EmptySourceReturnsOnlyEof | `""` | size == 1, EOF_TOKEN | 🟢 Green |
-| TC-03 | LastTokenIsAlwaysEof | `"var x = 1;"` | tokens.back() == EOF | 🟢 Green |
+| TC-03 | LastTokenIsAlwaysEof | `"x"` | tokens.back() == EOF | 🟢 Green |
 | TC-04 | WhitespaceIsSkipped | `"  +  \t  -  "` | PLUS, MINUS, EOF 만 존재 | 🟢 Green |
 | TC-05 | SingleCharTokensHaveCorrectLexeme | `"( ) + - * /"` | lexeme 문자열 일치 | 🟢 Green |
 | TC-06 | IdentifierHasCorrectLexeme | `"myVar"` | lexeme == "myVar" | 🟢 Green |
@@ -38,9 +38,9 @@
 
 ## TC 상세
 
-### TC-01 TokenizesAllTokenTypes
+### TC-01 TokenizesAllTokenTypesInOrder
 
-**목적**: 지원하는 모든 TokenType이 올바른 순서로 인식되는지 통합 검증
+**목적**: 지원하는 모든 TokenType이 올바른 순서로 인식되는지 통합 검증 (literal 검증은 TC-07~09 참조)
 
 **입력 소스**
 ```
@@ -92,19 +92,19 @@ LEFT_PAREN → RIGHT_PAREN → LEFT_BRACE → RIGHT_BRACE → COMMA → DOT → 
 
 **입력 소스**
 ```
-var x = 1;
+x
 ```
 
 **기대 결과**
 ```
-VAR → IDENTIFIER → EQUAL → NUMBER → SEMICOLON → EOF_TOKEN
-                                                  ↑ back()
+IDENTIFIER → EOF_TOKEN
+             ↑ back()
 ```
 
 | 단계 | 내용 |
 |---|---|
-| Arrange | 일반적인 선언문 소스 구성 |
-| Act | `tokenizer.tokenize(source)` 호출 |
+| Arrange | 공백 없는 단순 소스 구성 (TC-04 공백 처리에 의존하지 않음) |
+| Act | `tokenizer.tokenize("x")` 호출 |
 | Assert | `tokens.empty()` == false, `tokens.back().type` == EOF_TOKEN |
 
 ---
