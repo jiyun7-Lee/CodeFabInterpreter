@@ -195,50 +195,34 @@ TEST(ExecutorTest, ForStatement)
 {
 	// for (var i = 0; i < 3; i = i + 1) { print i; }
 	// expected: "0\n1\n2\n"
-	Token iToken;
-	iToken.lexeme = "i";
+	auto makeLit = [](double v) -> std::unique_ptr<Expr> {
+		auto e = std::make_unique<LiteralExpr>(); e->value = v; return e;
+	};
+	auto makeVar = [](const Token& t) -> std::unique_ptr<Expr> {
+		auto e = std::make_unique<VariableExpr>(); e->name = t; return e;
+	};
+	auto makeBin = [](std::unique_ptr<Expr> l, TokenType op, std::unique_ptr<Expr> r) -> std::unique_ptr<Expr> {
+		Token t; t.type = op;
+		auto e = std::make_unique<BinaryExpr>();
+		e->left = std::move(l); e->op = t; e->right = std::move(r);
+		return e;
+	};
 
-	// init: var i = 0.0
-	auto initVal = std::make_unique<LiteralExpr>();
-	initVal->value = 0.0;
+	Token iToken; iToken.lexeme = "i";
+
 	auto init = std::make_unique<VarDeclareStmt>();
-	init->name        = iToken;
-	init->initializer = std::move(initVal);
+	init->name = iToken; init->initializer = makeLit(0.0);
 
-	// condition: i < 3.0
-	auto condLeft = std::make_unique<VariableExpr>();
-	condLeft->name = iToken;
-	auto condRight = std::make_unique<LiteralExpr>();
-	condRight->value = 3.0;
-	Token lessOp; lessOp.type = TokenType::LESS;
-	auto condition = std::make_unique<BinaryExpr>();
-	condition->left  = std::move(condLeft);
-	condition->op    = lessOp;
-	condition->right = std::move(condRight);
-
-	// increment: i = i + 1.0
-	auto incLeft = std::make_unique<VariableExpr>();
-	incLeft->name = iToken;
-	auto incRight = std::make_unique<LiteralExpr>();
-	incRight->value = 1.0;
-	Token plusOp; plusOp.type = TokenType::PLUS;
-	auto addExpr = std::make_unique<BinaryExpr>();
-	addExpr->left  = std::move(incLeft);
-	addExpr->op    = plusOp;
-	addExpr->right = std::move(incRight);
 	auto increment = std::make_unique<AssignExpr>();
 	increment->name  = iToken;
-	increment->value = std::move(addExpr);
+	increment->value = makeBin(makeVar(iToken), TokenType::PLUS, makeLit(1.0));
 
-	// body: print i
-	auto bodyVar = std::make_unique<VariableExpr>();
-	bodyVar->name = iToken;
 	auto body = std::make_unique<PrintStmt>();
-	body->expression = std::move(bodyVar);
+	body->expression = makeVar(iToken);
 
 	auto forStmt = std::make_unique<ForStmt>();
 	forStmt->init      = std::move(init);
-	forStmt->condition = std::move(condition);
+	forStmt->condition = makeBin(makeVar(iToken), TokenType::LESS, makeLit(3.0));
 	forStmt->increment = std::move(increment);
 	forStmt->body      = std::move(body);
 
