@@ -16,11 +16,11 @@
 | TC4    | VarDeclareAndUse              | 🟢 Green  |
 | TC5    | IfStatement                   | 🟢 Green  |
 | TC6    | ForStatement                  | 🟢 Green  |
-| TC7    | BlockScope_ScopeLifecycle     | 🔴 Red  |
-| TC7-1  | BlockScope_NestedScopes       | 🔴 Red  |
-| TC8    | UndefinedVariable             | 🔴 Red  |
-| TC9    | TypeError                     | 🔴 Red  |
-| TC10   | DivideByZero                  | 🔴 Red  |
+| TC7    | BlockScope_ScopeLifecycle     | 🟢 Green  |
+| TC7-1  | BlockScope_NestedScopes       | 🟢 Green  |
+| TC8    | UndefinedVariable             | 🟢 Green  |
+| TC9    | TypeError                     | 🟢 Green  |
+| TC10   | DivideByZero                  | 🟢 Green  |
 
 ---
 
@@ -201,7 +201,7 @@ executor.execute({ globalVar, block, printOuter });
 **기대 결과**
 - stdout = `"2\n1\n"`
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -232,7 +232,7 @@ executor.execute({ decl1, outerBlock, print1 });
 **기대 결과**
 - stdout = `"3\n2\n1\n"`
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -257,7 +257,7 @@ executor.execute({ printStmt });
 - `RuntimeError` (또는 `std::runtime_error`) 예외 발생
 - 정상 종료 안 됨
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -280,7 +280,7 @@ executor.execute({ printStmt });
 **기대 결과**
 - `RuntimeError` 예외 발생
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
 
 ---
 
@@ -303,4 +303,4 @@ executor.execute({ printStmt });
 **기대 결과**
 - `RuntimeError` 예외 발생
 
-**구현 상태** : 미구현
+**구현 상태** : 완료
