@@ -1,5 +1,6 @@
 ﻿#include "Executor.h"
 #include <iostream>
+#include <stdexcept>
 
 static bool isTruthy(const Value& val)
 {
@@ -93,8 +94,14 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
 
     if (auto* e = dynamic_cast<BinaryExpr*>(expr))
     {
-        double l = std::get<double>(evaluateExpr(e->left.get(), env));
-        double r = std::get<double>(evaluateExpr(e->right.get(), env));
+        Value lv = evaluateExpr(e->left.get(), env);
+        Value rv = evaluateExpr(e->right.get(), env);
+
+        if (!std::holds_alternative<double>(lv) || !std::holds_alternative<double>(rv))
+            throw std::runtime_error("Type error: operands must be numbers");
+
+        double l = std::get<double>(lv);
+        double r = std::get<double>(rv);
 
         switch (e->op.type)
         {
