@@ -21,6 +21,12 @@ void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 
 void Executor::executeStatement(Stmt* stmt, Environment* env)
 {
+    if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
+    {
+        evaluateExpr(s->expression.get(), env);
+        return;
+    }
+
     if (auto* s = dynamic_cast<PrintStmt*>(stmt))
     {
         printValue(evaluateExpr(s->expression.get(), env));
