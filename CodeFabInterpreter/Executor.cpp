@@ -54,6 +54,15 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
         }
         return;
     }
+
+    if (auto* s = dynamic_cast<BlockStmt*>(stmt))
+    {
+        Environment blockEnv;
+        blockEnv.parent = env;
+        for (const auto& st : s->statements)
+            executeStatement(st.get(), &blockEnv);
+        return;
+    }
 }
 
 void Executor::printValue(const Value& val)
