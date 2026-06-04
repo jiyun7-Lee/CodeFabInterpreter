@@ -9,3 +9,7 @@
 void Shell::run()
 {
 }
+
+void Shell::runLine(const std::string& source)
+{
+}
