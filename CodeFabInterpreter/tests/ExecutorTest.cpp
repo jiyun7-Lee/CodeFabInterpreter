@@ -313,7 +313,23 @@ TEST(ExecutorTest, BlockScope_NestedScopes)
 }
 
 // TC8: 선언되지 않은 변수 참조 시 RuntimeError가 발생하는지 확인
-TEST(ExecutorTest, UndefinedVariable) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, UndefinedVariable)
+{
+	// print abc;  // 'abc' 미선언
+	Token abcToken; abcToken.lexeme = "abc";
+
+	auto varExpr = std::make_unique<VariableExpr>();
+	varExpr->name = abcToken;
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(varExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
 
 // TC9: 타입 불일치 연산(number + string 등) 시 RuntimeError가 발생하는지 확인
 TEST(ExecutorTest, TypeError) { ASSERT_TRUE(false); }
