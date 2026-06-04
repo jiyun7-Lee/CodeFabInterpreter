@@ -2,6 +2,7 @@
 #include "Tokenizer.h"
 #include <unordered_map>
 #include <cctype>
+#include <stdexcept>
 
 static bool isDigit(char c) { return std::isdigit(static_cast<unsigned char>(c)); }
 static bool isAlpha(char c) { return std::isalpha(static_cast<unsigned char>(c)); }
@@ -39,6 +40,8 @@ Token Tokenizer::scanString(const std::string& source, size_t& pos, int& line)
         if (source[pos] == '\n') ++line;
         ++pos;
     }
+    if (pos >= source.size())
+        throw std::runtime_error("Unterminated string literal");
     std::string value  = source.substr(start, pos - start);
     std::string lexeme = "\"" + value + "\"";
     ++pos; // closing "
