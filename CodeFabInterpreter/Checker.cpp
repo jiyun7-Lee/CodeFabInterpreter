@@ -43,7 +43,11 @@ static void checkStmt(const Stmt* stmt,
     if (const auto* varDecl = dynamic_cast<const VarDeclareStmt*>(stmt))
     {
         // initializer를 먼저 검사 (선언 전이므로 자기 참조 감지)
+        // 같은 변수가 initializer에 여러 번 등장해도 에러는 1개만 유지
+        const size_t errorsBefore = errors.size();
         checkExpr(varDecl->initializer.get(), varDecl->name.lexeme, errors);
+        if (errors.size() > errorsBefore + 1)
+            errors.resize(errorsBefore + 1);
 
         // 현재 스코프에서 중복 선언 검사
         if (scopes.back().count(varDecl->name.lexeme))
