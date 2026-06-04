@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 #include <vector>
+#include <memory>
 #include "Expr.h"
 
 class Stmt
@@ -11,41 +12,41 @@ public:
 class ExpressionStmt : public Stmt
 {
 public:
-    Expr* expression;
+    std::unique_ptr<Expr>  expression;
 };
 
 class PrintStmt : public Stmt
 {
 public:
-    Expr* expression;
+    std::unique_ptr<Expr>  expression;
 };
 
 class VarDeclareStmt : public Stmt
 {
 public:
-    Token name;
-    Expr* initializer;
+    Token                  name;
+    std::unique_ptr<Expr>  initializer;
 };
 
 class BlockStmt : public Stmt
 {
 public:
-    std::vector<Stmt*> statements;
+    std::vector<std::unique_ptr<Stmt>>  statements;
 };
 
 class IfStmt : public Stmt
 {
 public:
-    Expr* condition;
-    Stmt* thenBranch;
-    Stmt* elseBranch;
+    std::unique_ptr<Expr>  condition;
+    std::unique_ptr<Stmt>  thenBranch;
+    std::unique_ptr<Stmt>  elseBranch;
 };
 
 class ForStmt : public Stmt
 {
 public:
-    Stmt* init;
-    Expr* condition;
-    Expr* increment;
-    Stmt* body;
+    std::unique_ptr<Stmt>  init;
+    std::unique_ptr<Expr>  condition;
+    std::unique_ptr<Expr>  increment;
+    std::unique_ptr<Stmt>  body;
 };
