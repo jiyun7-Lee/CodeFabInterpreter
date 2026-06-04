@@ -100,20 +100,20 @@ TEST(ExprParser, RespectsMulBeforeAdd)
     ASSERT_NE(add, nullptr);
     EXPECT_EQ(add->op.type, TokenType::PLUS);
 
-    auto* lhs = dynamic_cast<LiteralExpr*>(add->left);
-    ASSERT_NE(lhs, nullptr);
-    EXPECT_EQ(std::get<double>(lhs->value), 1.0);
+    auto* addLeft = dynamic_cast<LiteralExpr*>(add->left);
+    ASSERT_NE(addLeft, nullptr);
+    EXPECT_EQ(std::get<double>(addLeft->value), 1.0);
 
     auto* mul = dynamic_cast<BinaryExpr*>(add->right);
     ASSERT_NE(mul, nullptr);
     EXPECT_EQ(mul->op.type, TokenType::STAR);
 
-    auto* mulL = dynamic_cast<LiteralExpr*>(mul->left);
-    auto* mulR = dynamic_cast<LiteralExpr*>(mul->right);
-    ASSERT_NE(mulL, nullptr);
-    ASSERT_NE(mulR, nullptr);
-    EXPECT_EQ(std::get<double>(mulL->value), 2.0);
-    EXPECT_EQ(std::get<double>(mulR->value), 3.0);
+    auto* mulLeft  = dynamic_cast<LiteralExpr*>(mul->left);
+    auto* mulRight = dynamic_cast<LiteralExpr*>(mul->right);
+    ASSERT_NE(mulLeft, nullptr);
+    ASSERT_NE(mulRight, nullptr);
+    EXPECT_EQ(std::get<double>(mulLeft->value), 2.0);
+    EXPECT_EQ(std::get<double>(mulRight->value), 3.0);
 }
 
 // -----------------------------------------------------------------------
@@ -152,9 +152,9 @@ TEST(ExprParser, GroupingOverridesPrecedence)
     ASSERT_NE(add, nullptr);
     EXPECT_EQ(add->op.type, TokenType::PLUS);
 
-    auto* rhs = dynamic_cast<LiteralExpr*>(mul->right);
-    ASSERT_NE(rhs, nullptr);
-    EXPECT_EQ(std::get<double>(rhs->value), 3.0);
+    auto* mulRight = dynamic_cast<LiteralExpr*>(mul->right);
+    ASSERT_NE(mulRight, nullptr);
+    EXPECT_EQ(std::get<double>(mulRight->value), 3.0);
 }
 
 // -----------------------------------------------------------------------
@@ -313,13 +313,13 @@ TEST(ExprParser, ParsesComparisonGreater)
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::GREATER);
 
-    auto* lhs = dynamic_cast<VariableExpr*>(bin->left);
-    ASSERT_NE(lhs, nullptr);
-    EXPECT_EQ(lhs->name.lexeme, "a");
+    auto* left = dynamic_cast<VariableExpr*>(bin->left);
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(left->name.lexeme, "a");
 
-    auto* rhs = dynamic_cast<LiteralExpr*>(bin->right);
-    ASSERT_NE(rhs, nullptr);
-    EXPECT_EQ(std::get<double>(rhs->value), 3.0);
+    auto* right = dynamic_cast<LiteralExpr*>(bin->right);
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(std::get<double>(right->value), 3.0);
 }
 
 // -----------------------------------------------------------------------
@@ -347,13 +347,13 @@ TEST(ExprParser, ParsesSubtraction)
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::MINUS);
 
-    auto* lhs = dynamic_cast<LiteralExpr*>(bin->left);
-    ASSERT_NE(lhs, nullptr);
-    EXPECT_EQ(std::get<double>(lhs->value), 5.0);
+    auto* left = dynamic_cast<LiteralExpr*>(bin->left);
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(std::get<double>(left->value), 5.0);
 
-    auto* rhs = dynamic_cast<LiteralExpr*>(bin->right);
-    ASSERT_NE(rhs, nullptr);
-    EXPECT_EQ(std::get<double>(rhs->value), 3.0);
+    auto* right = dynamic_cast<LiteralExpr*>(bin->right);
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(std::get<double>(right->value), 3.0);
 }
 
 // -----------------------------------------------------------------------
@@ -381,13 +381,13 @@ TEST(ExprParser, ParsesLogicalAnd)
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::AND);
 
-    auto* lhs = dynamic_cast<VariableExpr*>(bin->left);
-    ASSERT_NE(lhs, nullptr);
-    EXPECT_EQ(lhs->name.lexeme, "a");
+    auto* left = dynamic_cast<VariableExpr*>(bin->left);
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(left->name.lexeme, "a");
 
-    auto* rhs = dynamic_cast<VariableExpr*>(bin->right);
-    ASSERT_NE(rhs, nullptr);
-    EXPECT_EQ(rhs->name.lexeme, "b");
+    auto* right = dynamic_cast<VariableExpr*>(bin->right);
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(right->name.lexeme, "b");
 }
 
 // -----------------------------------------------------------------------

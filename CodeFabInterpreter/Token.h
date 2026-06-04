@@ -22,7 +22,7 @@ enum class TokenType
 struct Token
 {
     TokenType   type;
-    std::string lexeme;
+    std::string lexeme;   // 소스코드 원문 텍스트 (예: 변수명 "age", 연산자 "+", 숫자 "37")
     int         line;
-    Value       literal;
+    Value       literal;  // 계산된 값 — 숫자/문자열/bool 리터럴에만 사용 (그 외 monostate)
 };
