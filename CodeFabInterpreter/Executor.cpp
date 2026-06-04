@@ -41,6 +41,19 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
             executeStatement(s->elseBranch.get(), env);
         return;
     }
+
+    if (auto* s = dynamic_cast<ForStmt*>(stmt))
+    {
+        if (s->init)
+            executeStatement(s->init.get(), env);
+        while (!s->condition || isTruthy(evaluateExpr(s->condition.get(), env)))
+        {
+            executeStatement(s->body.get(), env);
+            if (s->increment)
+                evaluateExpr(s->increment.get(), env);
+        }
+        return;
+    }
 }
 
 void Executor::printValue(const Value& val)
@@ -62,6 +75,13 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
     if (auto* e = dynamic_cast<VariableExpr*>(expr))
         return env->get(e->name.lexeme);
 
+    if (auto* e = dynamic_cast<AssignExpr*>(expr))
+    {
+        Value val = evaluateExpr(e->value.get(), env);
+        env->assign(e->name.lexeme, val);
+        return val;
+    }
+
     if (auto* e = dynamic_cast<BinaryExpr*>(expr))
     {
         double l = std::get<double>(evaluateExpr(e->left.get(), env));
@@ -73,6 +93,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
             case TokenType::MINUS: return l - r;
             case TokenType::STAR:  return l * r;
             case TokenType::SLASH: return l / r;
+            case TokenType::LESS:  return l < r;
             default:               return std::monostate{};
         }
     }
