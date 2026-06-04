@@ -2,6 +2,7 @@
 #include "../Tokenizer.h"
 
 #include <algorithm>
+#include <stdexcept>
 #include <vector>
 
 // ──────────────────────────────────────────────
@@ -231,15 +232,11 @@ TEST_F(TokenizerFixture, NewlineIncrementsLineNumber)
 }
 
 // ──────────────────────────────────────────────
-// 에러: 종결되지 않은 문자열 리터럴은 stderr에 오류를 출력한다
+// 에러: 종결되지 않은 문자열 리터럴은 runtime_error를 throw한다
 // ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, UnterminatedStringLiteralOutputsError)
+TEST_F(TokenizerFixture, UnterminatedStringLiteralThrows)
 {
-    testing::internal::CaptureStderr();
-    tokenizer.tokenize("\"hello");
-    const std::string err = testing::internal::GetCapturedStderr();
-
-    EXPECT_FALSE(err.empty());
+    ASSERT_THROW(tokenizer.tokenize("\"hello"), std::runtime_error);
 }
 
 // ──────────────────────────────────────────────
@@ -257,15 +254,11 @@ TEST_F(TokenizerFixture, MultilineStringHasStartLineNumber)
 }
 
 // ──────────────────────────────────────────────
-// 에러: 알 수 없는 문자는 stderr에 오류를 출력한다
+// 에러: 알 수 없는 문자는 runtime_error를 throw한다
 // ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, UnknownCharacterOutputsError)
+TEST_F(TokenizerFixture, UnknownCharacterThrows)
 {
-    testing::internal::CaptureStderr();
-    tokenizer.tokenize("@");
-    const std::string err = testing::internal::GetCapturedStderr();
-
-    EXPECT_FALSE(err.empty());
+    ASSERT_THROW(tokenizer.tokenize("@"), std::runtime_error);
 }
 
 // ──────────────────────────────────────────────

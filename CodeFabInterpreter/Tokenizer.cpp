@@ -33,6 +33,7 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
 
 Token Tokenizer::scanString(const std::string& source, size_t& pos, int& line)
 {
+    int startLine = line;
     ++pos; // opening "
     size_t start = pos;
     while (pos < source.size() && source[pos] != '"')
@@ -45,7 +46,7 @@ Token Tokenizer::scanString(const std::string& source, size_t& pos, int& line)
     std::string value  = source.substr(start, pos - start);
     std::string lexeme = "\"" + value + "\"";
     ++pos; // closing "
-    return {TokenType::STRING, lexeme, line, value};
+    return {TokenType::STRING, lexeme, startLine, value};
 }
 
 Token Tokenizer::scanNumber(const std::string& source, size_t& pos, int line)
