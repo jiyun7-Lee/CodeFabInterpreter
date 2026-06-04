@@ -21,6 +21,7 @@
 | TC8    | UndefinedVariable             | 🟢 Green  |
 | TC9    | TypeError                     | 🟢 Green  |
 | TC10   | DivideByZero                  | 🟢 Green  |
+| TC11   | UnaryExpr                     | 🟢 Green  |
 
 ---
 
@@ -302,5 +303,32 @@ executor.execute({ printStmt });
 
 **기대 결과**
 - `RuntimeError` 예외 발생
+
+**구현 상태** : 완료
+
+---
+
+### TC11 — UnaryExpr
+
+**목적**
+`UnaryExpr`의 MINUS(부호 반전), BANG(논리 반전) 연산이 올바르게 동작하는지 확인
+
+**사전 조건**
+
+| 케이스 | 입력 | 기대 결과 |
+|--------|------|---------|
+| MINUS  | `UnaryExpr { MINUS, LiteralExpr(3.0) }` | `"-3\n"` |
+| BANG   | `UnaryExpr { BANG, LiteralExpr(true) }` | `"false\n"` |
+| 타입 불일치 | `UnaryExpr { MINUS, LiteralExpr("hello") }` | `RuntimeError` |
+
+**실행**
+```cpp
+executor.execute({ printStmt });
+```
+
+**기대 결과**
+- MINUS 케이스 : stdout = `"-3\n"`
+- BANG 케이스 : stdout = `"false\n"`
+- 타입 불일치 케이스 : `RuntimeError` 예외 발생
 
 **구현 상태** : 완료

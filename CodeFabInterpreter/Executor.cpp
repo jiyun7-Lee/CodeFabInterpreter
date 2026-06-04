@@ -91,6 +91,20 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
     if (auto* e = dynamic_cast<VariableExpr*>(expr))
         return env->get(e->name.lexeme);
 
+    if (auto* e = dynamic_cast<UnaryExpr*>(expr))
+    {
+        Value val = evaluateExpr(e->right.get(), env);
+        if (e->op.type == TokenType::MINUS)
+        {
+            if (!std::holds_alternative<double>(val))
+                throw std::runtime_error("Type error: unary '-' requires a number");
+            return -std::get<double>(val);
+        }
+        if (e->op.type == TokenType::BANG)
+            return !isTruthy(val);
+        return std::monostate{};
+    }
+
     if (auto* e = dynamic_cast<AssignExpr*>(expr))
     {
         Value val = evaluateExpr(e->value.get(), env);
