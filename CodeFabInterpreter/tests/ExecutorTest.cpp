@@ -441,3 +441,62 @@ TEST(ExecutorTest, DivideByZero)
 	Executor executor;
 	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
 }
+
+// TC11: UnaryExpr — MINUS 부호 반전, BANG 논리 반전, 타입 불일치 시 RuntimeError 확인
+TEST(ExecutorTest, UnaryExpr)
+{
+	// MINUS 케이스: print -3.0 → "-3\n"
+	{
+		Token minusOp; minusOp.type = TokenType::MINUS;
+		auto lit = std::make_unique<LiteralExpr>(); lit->value = 3.0;
+		auto unary = std::make_unique<UnaryExpr>();
+		unary->op = minusOp; unary->right = std::move(lit);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = std::move(unary);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "-3\n");
+	}
+
+	// BANG 케이스: print !true → "false\n"
+	{
+		Token bangOp; bangOp.type = TokenType::BANG;
+		auto lit = std::make_unique<LiteralExpr>(); lit->value = true;
+		auto unary = std::make_unique<UnaryExpr>();
+		unary->op = bangOp; unary->right = std::move(lit);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = std::move(unary);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "false\n");
+	}
+
+	// 타입 불일치 케이스: print -"hello" → RuntimeError
+	{
+		Token minusOp; minusOp.type = TokenType::MINUS;
+		auto lit = std::make_unique<LiteralExpr>(); lit->value = std::string("hello");
+		auto unary = std::make_unique<UnaryExpr>();
+		unary->op = minusOp; unary->right = std::move(lit);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = std::move(unary);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+	}
+}
