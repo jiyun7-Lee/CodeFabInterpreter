@@ -141,7 +141,54 @@ TEST(ExecutorTest, VarDeclareAndUse)
 }
 
 // TC5: IfStmt의 condition 결과에 따라 thenBranch/elseBranch가 선택 실행되는지 확인
-TEST(ExecutorTest, IfStatement) { ASSERT_TRUE(false); }
+TEST(ExecutorTest, IfStatement)
+{
+	auto makePrintStr = [](const std::string& s) {
+		auto expr = std::make_unique<LiteralExpr>();
+		expr->value = s;
+		auto stmt = std::make_unique<PrintStmt>();
+		stmt->expression = std::move(expr);
+		return stmt;
+	};
+
+	// true 케이스: condition=true → thenBranch 실행 → "then\n"
+	{
+		auto cond = std::make_unique<LiteralExpr>();
+		cond->value = true;
+
+		auto ifStmt = std::make_unique<IfStmt>();
+		ifStmt->condition  = std::move(cond);
+		ifStmt->thenBranch = makePrintStr("then");
+		ifStmt->elseBranch = makePrintStr("else");
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(ifStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "then\n");
+	}
+
+	// false 케이스: condition=false → elseBranch 실행 → "else\n"
+	{
+		auto cond = std::make_unique<LiteralExpr>();
+		cond->value = false;
+
+		auto ifStmt = std::make_unique<IfStmt>();
+		ifStmt->condition  = std::move(cond);
+		ifStmt->thenBranch = makePrintStr("then");
+		ifStmt->elseBranch = makePrintStr("else");
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(ifStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "else\n");
+	}
+}
 
 // TC6: ForStmt의 init/condition/increment/body가 순서대로 반복 실행되는지 확인
 TEST(ExecutorTest, ForStatement) { ASSERT_TRUE(false); }
