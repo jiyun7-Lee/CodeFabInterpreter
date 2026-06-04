@@ -2,6 +2,7 @@
 #include "../Tokenizer.h"
 
 #include <algorithm>
+#include <stdexcept>
 #include <vector>
 
 // ──────────────────────────────────────────────
@@ -228,4 +229,89 @@ TEST_F(TokenizerFixture, NewlineIncrementsLineNumber)
     EXPECT_EQ(tokens[0].line, 1); // +
     EXPECT_EQ(tokens[1].line, 2); // -
     EXPECT_EQ(tokens[2].line, 3); // *
+}
+
+// ──────────────────────────────────────────────
+// 에러: 종결되지 않은 문자열 리터럴은 runtime_error를 throw한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, UnterminatedStringLiteralThrows)
+{
+    ASSERT_THROW(tokenizer.tokenize("\"hello"), std::runtime_error);
+}
+
+// ──────────────────────────────────────────────
+// line: 멀티라인 문자열 토큰의 line은 닫는 " 줄이 아닌 시작 줄이다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, MultilineStringHasStartLineNumber)
+{
+    // "line1\nline2" → 1번 줄에서 시작, 2번 줄에서 닫힘
+    // token.line == 1 (시작 줄)
+    const auto tokens = tokenizer.tokenize("\"line1\nline2\"");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type, TokenType::STRING);
+    EXPECT_EQ(tokens[0].line, 1);
+}
+
+// ──────────────────────────────────────────────
+// 에러: 알 수 없는 문자는 runtime_error를 throw한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, UnknownCharacterThrows)
+{
+    ASSERT_THROW(tokenizer.tokenize("@"), std::runtime_error);
+}
+
+// ──────────────────────────────────────────────
+// 복합: 여러 줄 소스의 type과 line이 동시에 올바르다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, MultilineSourceHasCorrectTypeAndLine)
+{
+    // var\nx\n=\n1 → VAR(1) IDENTIFIER(2) EQUAL(3) NUMBER(4)
+    const auto tokens = tokenizer.tokenize("var\nx\n=\n1");
+
+    ASSERT_GE(tokens.size(), 4u);
+    EXPECT_EQ(tokens[0].type, TokenType::VAR);
+    EXPECT_EQ(tokens[0].line, 1);
+    EXPECT_EQ(tokens[1].type, TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[1].line, 2);
+    EXPECT_EQ(tokens[2].type, TokenType::EQUAL);
+    EXPECT_EQ(tokens[2].line, 3);
+    EXPECT_EQ(tokens[3].type, TokenType::NUMBER);
+    EXPECT_EQ(tokens[3].line, 4);
+}
+
+// ──────────────────────────────────────────────
+// lexeme: 문자열 토큰의 lexeme은 따옴표를 포함한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, StringLexemeIncludesQuotes)
+{
+    const auto tokens = tokenizer.tokenize("\"hello\"");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::STRING);
+    EXPECT_EQ(tokens[0].lexeme, "\"hello\"");
+}
+
+// ──────────────────────────────────────────────
+// lexeme: 숫자 토큰의 lexeme은 소스 문자열과 일치한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, NumberLexemeMatchesSource)
+{
+    const auto tokens = tokenizer.tokenize("3.14");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::NUMBER);
+    EXPECT_EQ(tokens[0].lexeme, "3.14");
+}
+
+// ──────────────────────────────────────────────
+// lexeme: 밑줄(_)로 시작하는 식별자를 IDENTIFIER로 인식한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, UnderscoreIdentifierIsRecognized)
+{
+    const auto tokens = tokenizer.tokenize("_count");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[0].lexeme, "_count");
 }
