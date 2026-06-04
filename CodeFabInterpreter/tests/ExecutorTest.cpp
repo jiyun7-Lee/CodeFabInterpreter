@@ -2,6 +2,63 @@
 #include "../Executor.h"
 
 
+// TC0: ExpressionStmt 평가 — 순수 계산은 예외 없이 실행, AssignExpr 사이드 이펙트 반영 확인
+TEST(ExecutorTest, ExpressionStatement)
+{
+	// 순수 계산 케이스: 1.0 + 2.0 → 예외 없이 실행, stdout 출력 없음
+	{
+		auto left  = std::make_unique<LiteralExpr>(); left->value  = 1.0;
+		auto right = std::make_unique<LiteralExpr>(); right->value = 2.0;
+		Token plusOp; plusOp.type = TokenType::PLUS;
+
+		auto binExpr = std::make_unique<BinaryExpr>();
+		binExpr->left = std::move(left); binExpr->op = plusOp; binExpr->right = std::move(right);
+
+		auto exprStmt = std::make_unique<ExpressionStmt>();
+		exprStmt->expression = std::move(binExpr);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(exprStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		ASSERT_NO_THROW(executor.execute(stmts));
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "");
+	}
+
+	// 사이드 이펙트 케이스: var x = 1.0; x = 5.0; print x; → "5\n"
+	{
+		Token xToken; xToken.lexeme = "x";
+
+		auto varDecl = std::make_unique<VarDeclareStmt>();
+		varDecl->name = xToken;
+		auto initVal = std::make_unique<LiteralExpr>(); initVal->value = 1.0;
+		varDecl->initializer = std::move(initVal);
+
+		auto assignVal = std::make_unique<LiteralExpr>(); assignVal->value = 5.0;
+		auto assignExpr = std::make_unique<AssignExpr>();
+		assignExpr->name  = xToken;
+		assignExpr->value = std::move(assignVal);
+
+		auto exprStmt = std::make_unique<ExpressionStmt>();
+		exprStmt->expression = std::move(assignExpr);
+
+		auto varExpr = std::make_unique<VariableExpr>(); varExpr->name = xToken;
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = std::move(varExpr);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(varDecl));
+		stmts.push_back(std::move(exprStmt));
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "5\n");
+	}
+}
+
 // TC1: execute()에 Stmt* 벡터가 정상적으로 전달되는지 확인
 TEST(ExecutorTest, StmtReceivedCorrectly)
 {
