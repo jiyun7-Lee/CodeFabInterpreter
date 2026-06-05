@@ -297,3 +297,49 @@ TEST(FunctionTest, CheckerArgumentCountMismatch)
     ASSERT_FALSE(errors.empty());
     EXPECT_NE(errors[0].find("불일치"), std::string::npos);
 }
+
+// -----------------------------------------------------------------------
+// Negative UT
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// TC-FN-12: Executor — 미선언 함수 호출 → runtime_error
+// foo();
+// -----------------------------------------------------------------------
+TEST(FunctionTest, UndefinedFunctionCallThrows)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("foo();");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-13: Executor — 인자 개수 초과 호출 → runtime_error (Checker 우회 시에도 독립 검증)
+// func f(a) { return a; } f(1, 2);
+// -----------------------------------------------------------------------
+TEST(FunctionTest, CallWithTooManyArgsThrows)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("func f(a) { return a; } f(1, 2);");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-14: Executor — null 반환 함수 결과를 산술 연산에 사용 → runtime_error
+// func f() {} var r = f() + 1;
+// -----------------------------------------------------------------------
+TEST(FunctionTest, NullReturnUsedInExprThrows)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("func f() {} var r = f() + 1;");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}

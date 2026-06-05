@@ -531,3 +531,109 @@ TEST_F(ParserStmtTest, P_TC_26_EmptyInput)
     auto stmts = p.parse({ makeEof() });
     EXPECT_EQ(stmts.size(), 0u);
 }
+
+// ================================================================
+// Negative UT
+// ================================================================
+
+// P-TC-27 : var = 1;  (이름 누락)  →  parse 오류
+TEST_F(ParserStmtTest, VarMissingNameThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::VAR,       "var"),
+            makeTok(TokenType::EQUAL,     "="),
+            makeNum(1.0),
+            makeTok(TokenType::SEMICOLON, ";"),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-28 : for var i ...  (여는 괄호 없음)  →  parse 오류
+TEST_F(ParserStmtTest, ForMissingLeftParenThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FOR, "for"),
+            makeTok(TokenType::VAR, "var"),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-29 : for(var i=0; 1; 2  EOF  (닫는 괄호 없음)  →  parse 오류
+TEST_F(ParserStmtTest, ForMissingRightParenThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FOR,       "for"),
+            makeTok(TokenType::LEFT_PAREN,"("),
+            makeTok(TokenType::VAR,       "var"), makeId("i"),
+            makeTok(TokenType::EQUAL,     "="), makeNum(0.0),
+            makeTok(TokenType::SEMICOLON, ";"),
+            makeNum(1.0), makeTok(TokenType::SEMICOLON, ";"),
+            makeNum(2.0),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-30 : func (a) {}  (이름 누락)  →  parse 오류
+TEST_F(ParserStmtTest, FuncMissingNameThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FUNC,      "func"),
+            makeTok(TokenType::LEFT_PAREN,"("),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-31 : func foo a) {}  (여는 괄호 없음)  →  parse 오류
+TEST_F(ParserStmtTest, FuncMissingLeftParenThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FUNC, "func"),
+            makeId("foo"),
+            makeId("a"),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-32 : func foo(a)  EOF  (본문 없음)  →  parse 오류
+TEST_F(ParserStmtTest, FuncMissingBodyThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FUNC,       "func"),
+            makeId("foo"),
+            makeTok(TokenType::LEFT_PAREN, "("),
+            makeId("a"),
+            makeTok(TokenType::RIGHT_PAREN,")"),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-33 : return 1  EOF  (세미콜론 없음)  →  parse 오류
+TEST_F(ParserStmtTest, ReturnMissingSemicolonThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::RETURN, "return"),
+            makeNum(1.0),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}

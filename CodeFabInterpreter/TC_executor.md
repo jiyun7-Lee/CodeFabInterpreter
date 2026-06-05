@@ -8,23 +8,32 @@
 
 ## TC 목록
 
-| TC ID  | 테스트 함수명                   | 구현 상태 |
-|--------|-------------------------------|---------|
-| TC1    | StmtReceivedCorrectly         | 🟢 Green  |
-| TC2    | PrintLiteral                  | 🟢 Green  |
-| TC3    | ArithmeticExpr                | 🟢 Green  |
-| TC4    | VarDeclareAndUse              | 🟢 Green  |
-| TC5    | IfStatement                   | 🟢 Green  |
-| TC6    | ForStatement                  | 🟢 Green  |
-| TC7    | BlockScope_ScopeLifecycle     | 🟢 Green  |
-| TC7-1  | BlockScope_NestedScopes       | 🟢 Green  |
-| TC8    | UndefinedVariable             | 🟢 Green  |
-| TC9    | TypeError                     | 🟢 Green  |
-| TC10   | DivideByZero                  | 🟢 Green  |
-| TC11   | UnaryExpr                     | 🟢 Green  |
-| TC12   | GroupingExpr                  | 🟢 Green  |
-| TC13   | LogicalAnd                    | 🟢 Green  |
-| TC14   | LogicalOr                     | 🟢 Green  |
+| TC ID  | 테스트 함수명                   | 구분     | 구현 상태 |
+|--------|-------------------------------|---------|---------|
+| TC0    | ExpressionStatement           | Positive | 🟢 Green  |
+| TC1    | StmtReceivedCorrectly         | Positive | 🟢 Green  |
+| TC2    | PrintLiteral                  | Positive | 🟢 Green  |
+| TC3    | ArithmeticExpr                | Positive | 🟢 Green  |
+| TC4    | VarDeclareAndUse              | Positive | 🟢 Green  |
+| TC5    | IfStatement                   | Positive | 🟢 Green  |
+| TC6    | ForStatement                  | Positive | 🟢 Green  |
+| TC7    | BlockScope_ScopeLifecycle     | Positive | 🟢 Green  |
+| TC7-1  | BlockScope_NestedScopes       | Positive | 🟢 Green  |
+| TC8    | UndefinedVariable             | Negative | 🟢 Green  |
+| TC9    | TypeError                     | Negative | 🟢 Green  |
+| TC10   | DivideByZero                  | Negative | 🟢 Green  |
+| TC11-1 | UnaryExpr_Minus               | Positive | 🟢 Green  |
+| TC11-2 | UnaryExpr_Bang                | Positive | 🟢 Green  |
+| TC11-3 | UnaryExpr_TypeMismatch        | Negative | 🟢 Green  |
+| TC12   | GroupingExpr                  | Positive | 🟢 Green  |
+| TC13   | LogicalAnd                    | Positive | 🟢 Green  |
+| TC14   | LogicalOr                     | Positive | 🟢 Green  |
+| TC15   | StringPlusNumberThrows        | Negative | 🟢 Green  |
+| TC16   | StringComparisonThrows        | Negative | 🟢 Green  |
+| TC17   | BoolArithmeticThrows          | Negative | 🟢 Green  |
+| TC18   | NullArithmeticThrows          | Negative | 🟢 Green  |
+| TC19   | AssignUndeclaredVarThrows     | Negative | 🟢 Green  |
+| TC20   | NullReturnArithmeticThrows    | Negative | 🟢 Green  |
 
 ---
 
@@ -414,5 +423,134 @@ executor.execute({ printStmt });
 **기대 결과**
 - 4가지 bool 조합 결과 정확히 출력
 - 왼쪽이 true일 때 오른쪽 평가 없이 반환 (단락 평가)
+
+**구현 상태** : 완료
+
+---
+
+### TC15 — StringPlusNumberThrows _(global: E-17)_
+
+**목적**
+문자열(lhs) + 숫자 연산 시 `std::runtime_error` 가 발생하는지 확인
+
+**사전 조건**
+- `BinaryExpr { LiteralExpr("hello") PLUS LiteralExpr(1.0) }`
+
+**기대 결과**
+- `std::runtime_error("Type error: operands must be numbers")` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | LiteralExpr("hello"), LiteralExpr(1.0), BinaryExpr(PLUS) 수동 구성 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC16 — StringComparisonThrows _(global: E-18)_
+
+**목적**
+문자열끼리 대소 비교(`>`) 시 `std::runtime_error` 가 발생하는지 확인
+
+**사전 조건**
+- `BinaryExpr { LiteralExpr("a") GREATER LiteralExpr("b") }`
+
+**기대 결과**
+- `std::runtime_error` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | LiteralExpr("a"), LiteralExpr("b"), BinaryExpr(GREATER) 수동 구성 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC17 — BoolArithmeticThrows _(global: E-19)_
+
+**목적**
+bool + 숫자 산술 연산 시 `std::runtime_error` 가 발생하는지 확인
+
+**사전 조건**
+- `BinaryExpr { LiteralExpr(true) PLUS LiteralExpr(1.0) }`
+
+**기대 결과**
+- `std::runtime_error` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | LiteralExpr(true), LiteralExpr(1.0), BinaryExpr(PLUS) 수동 구성 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC18 — NullArithmeticThrows _(global: E-20)_
+
+**목적**
+null(monostate) + 숫자 산술 연산 시 `std::runtime_error` 가 발생하는지 확인
+
+**사전 조건**
+- `BinaryExpr { LiteralExpr(monostate) PLUS LiteralExpr(1.0) }`
+
+**기대 결과**
+- `std::runtime_error` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | LiteralExpr(std::monostate{}), LiteralExpr(1.0), BinaryExpr(PLUS) 수동 구성 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC19 — AssignUndeclaredVarThrows _(global: E-21)_
+
+**목적**
+`var` 선언 없이 변수에 대입 시 `std::runtime_error` 가 발생하는지 확인
+
+**사전 조건**
+- `AssignExpr { name = "x", value = LiteralExpr(5.0) }` (환경에 `x` 없음)
+
+**기대 결과**
+- `std::runtime_error("Undefined variable 'x'")` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | AssignExpr(x, 5.0) → ExpressionStmt 수동 구성 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC20 — NullReturnArithmeticThrows _(global: E-22)_
+
+**목적**
+`null` 을 반환하는 함수 결과를 산술 연산에 사용하면 `std::runtime_error` 가 발생하는지 확인
+
+**사전 조건**
+```
+func f() {}
+print f() + 1;
+```
+
+**기대 결과**
+- `std::runtime_error` 발생 (monostate + double)
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | FunctionDeclareStmt(f, [], BlockStmt{}), PrintStmt(BinaryExpr(FunctionCallExpr(f), PLUS, 1.0)) 수동 구성 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
 
 **구현 상태** : 완료

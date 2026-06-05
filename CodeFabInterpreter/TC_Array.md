@@ -8,12 +8,20 @@
 
 ## TC 목록
 
-| TC ID   | 테스트 함수명            | 구현 상태  |
-|---------|------------------------|----------|
-| TC-AR-01 | ParsesArrayLiteral     | 🟢 Green  |
-| TC-AR-02 | ParsesArrayAccess      | 🟢 Green  |
-| TC-AR-03 | ExecutesArrayAccess    | 🟢 Green  |
-| TC-AR-04 | ArrayAccessOutOfBounds | 🟢 Green  |
+| TC ID    | 테스트 함수명              | 구분     | 구현 상태  |
+|----------|--------------------------|---------|----------|
+| TC-AR-01 | ParsesArrayLiteral       | Positive | 🟢 Green  |
+| TC-AR-02 | ParsesArrayAccess        | Positive | 🟢 Green  |
+| TC-AR-03 | ExecutesArrayAccess      | Positive | 🟢 Green  |
+| TC-AR-04 | ArrayAccessOutOfBounds   | Negative | 🟢 Green  |
+| TC-AR-05 | ArrayCreation            | Positive | 🟢 Green  |
+| TC-AR-06 | ArrayWrite               | Positive | 🟢 Green  |
+| TC-AR-07 | ArrayIndexNotNumber      | Negative | 🟢 Green  |
+| TC-AR-08 | IndexOnNonArray          | Negative | 🟢 Green  |
+| TC-AR-09 | ArraySizeNotNumber       | Negative | 🟢 Green  |
+| TC-AR-10 | NegativeIndexThrows      | Negative | 🟢 Green  |
+| TC-AR-11 | NegativeArraySizeThrows  | Negative | 🟢 Green  |
+| TC-AR-12 | ZeroSizeArrayAccessThrows| Negative | 🟢 Green  |
 
 ---
 
@@ -119,6 +127,197 @@ print arr[5];
 | 단계 | 내용 |
 |------|------|
 | Arrange | VarDeclareStmt(arr, ArrayLiteralExpr([1,2])), PrintStmt(ArrayAccessExpr(arr, 5)) 수동 구성 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC-AR-05 — ArrayCreation
+
+**목적**
+`Array(n)` 으로 고정 크기 배열을 생성하면 초기값이 `null` 이고 인덱스 접근이 가능한지 확인
+
+**시나리오**
+```
+var arr = Array(3);
+print arr[0];
+```
+
+**기대 결과**
+- stdout == `"null\n"`
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | `runSource("var arr = Array(3); print arr[0];")` |
+| Act | 소스 문자열 파싱·실행 |
+| Assert | stdout == `"null\n"` |
+
+**구현 상태** : 완료
+
+---
+
+### TC-AR-06 — ArrayWrite
+
+**목적**
+`arr[i] = val` 로 요소를 쓴 뒤 읽으면 올바른 값이 반환되는지 확인
+
+**시나리오**
+```
+var arr = Array(3);
+arr[1] = 20;
+print arr[1];
+```
+
+**기대 결과**
+- stdout == `"20\n"`
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | `runSource(...)` |
+| Act | 소스 문자열 파싱·실행 |
+| Assert | stdout == `"20\n"` |
+
+**구현 상태** : 완료
+
+---
+
+### TC-AR-07 — ArrayIndexNotNumber
+
+**목적**
+배열 인덱스에 숫자가 아닌 값을 전달하면 `std::runtime_error` 가 발생하는지 확인
+
+**시나리오**
+```
+var arr = Array(3);
+print arr["hello"];
+```
+
+**기대 결과**
+- `std::runtime_error` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | 소스 문자열 토크나이즈·파싱 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC-AR-08 — IndexOnNonArray
+
+**목적**
+배열이 아닌 변수에 `[]` 접근 시 `std::runtime_error` 가 발생하는지 확인
+
+**시나리오**
+```
+var x = 10;
+print x[0];
+```
+
+**기대 결과**
+- `std::runtime_error` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | 소스 문자열 토크나이즈·파싱 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC-AR-09 — ArraySizeNotNumber
+
+**목적**
+`Array()` 크기 인자에 숫자가 아닌 값을 전달하면 `std::runtime_error` 가 발생하는지 확인
+
+**시나리오**
+```
+var arr = Array("hi");
+```
+
+**기대 결과**
+- `std::runtime_error` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | 소스 문자열 토크나이즈·파싱 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC-AR-10 — NegativeIndexThrows _(global: A-23)_
+
+**목적**
+음수 인덱스로 배열 접근 시 `std::runtime_error` 가 발생하는지 확인
+
+**시나리오**
+```
+var arr = Array(3);
+print arr[-1];
+```
+
+**기대 결과**
+- `std::runtime_error` 발생 (`idx < 0` 조건)
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | 소스 문자열 토크나이즈·파싱 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC-AR-11 — NegativeArraySizeThrows _(global: A-24)_
+
+**목적**
+`Array()` 크기에 음수를 전달하면 `std::runtime_error` 가 발생하는지 확인
+
+**시나리오**
+```
+var arr = Array(-1);
+```
+
+**기대 결과**
+- `std::runtime_error` 발생 (`size < 0` 조건)
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | 소스 문자열 토크나이즈·파싱 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+### TC-AR-12 — ZeroSizeArrayAccessThrows _(global: A-25)_
+
+**목적**
+크기 0 배열의 첫 번째 요소에 접근하면 `std::runtime_error` 가 발생하는지 확인
+
+**시나리오**
+```
+var arr = Array(0);
+print arr[0];
+```
+
+**기대 결과**
+- `std::runtime_error` 발생 (`idx >= elements.size()` 조건)
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | 소스 문자열 토크나이즈·파싱 |
 | Act | `executor.execute(stmts)` 호출 |
 | Assert | `ASSERT_THROW(..., std::runtime_error)` |
 
