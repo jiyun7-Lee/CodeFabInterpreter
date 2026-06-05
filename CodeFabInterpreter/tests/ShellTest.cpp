@@ -99,18 +99,17 @@ TEST(ShellTest, IncompleteIfShellContinues)
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "5\n");
 }
 
-// TC-PS-08: exit / quit 입력 시 에러 없이 조용히 처리
-// Arrange: exit 또는 quit 입력
+// TC-PS-08: exit / quit 입력 시 에러 없이 조용히 처리 (대소문자 무관)
+// Arrange: exit / EXIT / quit / QUIT 입력
 // Act    : runLine() 호출
 // Assert : stdout 출력 없음 (에러 메시지 출력 안 됨)
 TEST(ShellTest, ExitQuitCommand)
 {
     Shell shell;
-    testing::internal::CaptureStdout();
-    shell.runLine("exit");
-    EXPECT_EQ(testing::internal::GetCapturedStdout(), "");
-
-    testing::internal::CaptureStdout();
-    shell.runLine("quit");
-    EXPECT_EQ(testing::internal::GetCapturedStdout(), "");
+    for (const auto& cmd : {"exit", "EXIT", "Exit", "quit", "QUIT", "Quit"})
+    {
+        testing::internal::CaptureStdout();
+        shell.runLine(cmd);
+        EXPECT_EQ(testing::internal::GetCapturedStdout(), "") << "input: " << cmd;
+    }
 }

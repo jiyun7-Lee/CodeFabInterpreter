@@ -1,8 +1,16 @@
 #include "Shell.h"
 #include <iostream>
 #include <string>
+#include <algorithm>
+#include <cctype>
 #include "Tokenizer.h"
 #include "Parser.h"
+
+static std::string toLower(std::string s)
+{
+    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
 
 void Shell::run()
 {
@@ -16,7 +24,7 @@ void Shell::run()
         std::string trimmed = line;
         while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
             trimmed.pop_back();
-        if (trimmed == "exit" || trimmed == "quit") break;
+        if (toLower(trimmed) == "exit" || toLower(trimmed) == "quit") break;
 
         runLine(line);
     }
@@ -30,8 +38,8 @@ void Shell::runLine(const std::string& source)
     while (!src.empty() && std::isspace(static_cast<unsigned char>(src.back())))
         src.pop_back();
 
-    // exit / quit: REPL 종료 신호 — 에러 없이 조용히 반환
-    if (src == "exit" || src == "quit") return;
+    // exit / quit: REPL 종료 신호 — 대소문자 무관, 에러 없이 조용히 반환
+    if (toLower(src) == "exit" || toLower(src) == "quit") return;
 
     try
     {
