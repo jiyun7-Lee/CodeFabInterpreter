@@ -280,12 +280,75 @@ TEST(CheckerTest, ReturnInNestedBlockOutsideFunc)
     EXPECT_GE(checker.getErrors().size(), 1u);
 }
 
+static std::unique_ptr<Stmt> makeFor(
+    std::unique_ptr<Stmt> init,
+    std::unique_ptr<Expr> cond,
+    std::unique_ptr<Expr> inc,
+    std::unique_ptr<Stmt> body)
+{
+    auto s        = std::make_unique<ForStmt>();
+    s->init       = std::move(init);
+    s->condition  = std::move(cond);
+    s->increment  = std::move(inc);
+    s->body       = std::move(body);
+    return s;
+}
+
 // C-TC-16 : func foo(a, b, a) {}  (비연속 파라미터 중복)  →  Error
 TEST(CheckerTest, DuplicateParamInFuncExtended)
 {
     Checker checker;
     EXPECT_FALSE(checker.check(S(
         makeFuncDecl("foo", {"a", "b", "a"}, makeBlock(S()))
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-17 : if 블록 내부 중복 var  →  Error
+TEST(CheckerTest, C_TC_17_DuplicateVarInsideIf)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeIf(
+            makeLit(1.0),
+            makeBlock(S(
+                makeVarDecl("x", makeLit(1.0)),
+                makeVarDecl("x", makeLit(2.0))
+            ))
+        )
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-18 : for 바디 블록 내부 중복 var  →  Error
+TEST(CheckerTest, C_TC_18_DuplicateVarInsideFor)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeFor(
+            makeVarDecl("i", makeLit(0.0)),
+            makeLit(1.0),
+            makeLit(0.0),
+            makeBlock(S(
+                makeVarDecl("x", makeLit(1.0)),
+                makeVarDecl("x", makeLit(2.0))
+            ))
+        )
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-19 : for init 에서 자기 참조 var  →  Error
+TEST(CheckerTest, C_TC_19_ForInitSelfReference)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeFor(
+            makeVarDecl("i", makeVar("i")),
+            makeLit(1.0),
+            makeLit(0.0),
+            makeBlock(S())
+        )
     )));
     EXPECT_GE(checker.getErrors().size(), 1u);
 }

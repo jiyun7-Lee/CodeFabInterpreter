@@ -63,5 +63,6 @@ public:
 class ReturnStmt : public Stmt
 {
 public:
+    Token                  keyword;
     std::unique_ptr<Expr>  value;
 };

@@ -172,7 +172,8 @@ static void checkStmt(Stmt* stmt,
     {
         // 함수 외부 return 검사
         if (!insideFunction)
-            errors.push_back("함수 외부에서 return 을 사용할 수 없습니다.");
+            errors.push_back("[" + std::to_string(s->keyword.line) + "번째 줄] "
+                             "함수 외부에서 return 을 사용할 수 없습니다.");
 
         if (s->value)
         {

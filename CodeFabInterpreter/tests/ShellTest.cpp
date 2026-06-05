@@ -153,6 +153,19 @@ TEST(ShellTest, DuplicateVarAcrossRunLine)
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "1\n");
 }
 
+// TC-PS-12: 파서 에러 발생 시 [Error] prefix가 출력된다
+// Arrange: 불완전한 if 문 입력 → 파싱 에러
+// Act    : runLine() 호출
+// Assert : stdout 에 "[Error]" 포함
+TEST(ShellTest, ParserErrorOutputsErrorPrefix)
+{
+    Shell shell;
+    testing::internal::CaptureStdout();
+    shell.runLine("if (true)"); // 불완전 — 파싱 에러
+    std::string out = testing::internal::GetCapturedStdout();
+    EXPECT_NE(out.find("[Error]"), std::string::npos);
+}
+
 // TC-PS-09: 함수 선언과 호출이 별도 runLine() 호출에 걸쳐 동작해야 함
 // Arrange: 첫 번째 runLine()에서 func 선언 (파싱된 AST는 runLine 종료 시 소멸)
 // Act    : 두 번째 runLine()에서 함수 호출

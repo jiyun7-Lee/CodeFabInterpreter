@@ -233,6 +233,38 @@ TEST(ArrayTest, ArraySizeNotNumber)
 // -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
+// TC-AR-13: 배열 쓰기 파싱
+// arr[0] = 10;
+// → ExpressionStmt → ArrayWriteExpr
+// -----------------------------------------------------------------------
+TEST(ArrayTest, ParsesArrayWrite)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::IDENTIFIER,    "arr"),
+        tok(TokenType::LEFT_BRACKET,  "["),
+        numTok(0.0),
+        tok(TokenType::RIGHT_BRACKET, "]"),
+        tok(TokenType::EQUAL,         "="),
+        numTok(10.0),
+        tok(TokenType::SEMICOLON,     ";"),
+        eof()
+    };
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    ASSERT_EQ(stmts.size(), 1u);
+    auto* exprStmt = dynamic_cast<ExpressionStmt*>(stmts[0].get());
+    ASSERT_NE(exprStmt, nullptr);
+    auto* write = dynamic_cast<ArrayWriteExpr*>(exprStmt->expression.get());
+    ASSERT_NE(write, nullptr);
+    auto* arrVar = dynamic_cast<VariableExpr*>(write->array.get());
+    ASSERT_NE(arrVar, nullptr);
+    EXPECT_EQ(arrVar->name.lexeme, "arr");
+    auto* idx = dynamic_cast<LiteralExpr*>(write->index.get());
+    ASSERT_NE(idx, nullptr);
+    EXPECT_EQ(std::get<double>(idx->value), 0.0);
+}
+
+// -----------------------------------------------------------------------
 // TC-AR-10: 음수 인덱스로 배열 접근 → RuntimeError
 // var arr = Array(3); print arr[-1];
 // -----------------------------------------------------------------------

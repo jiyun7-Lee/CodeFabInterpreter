@@ -179,11 +179,14 @@ TEST_F(TokenizerFixture, KeywordsAreNotIdentifiers)
         TokenType::FALSE,
         TokenType::AND,
         TokenType::OR,
+        TokenType::FUNC,
+        TokenType::RETURN,
+        TokenType::FUNC,
         TokenType::EOF_TOKEN
     };
 
     EXPECT_EQ(
-        extractTypes(tokenizer.tokenize("var print if else for true false and or")),
+        extractTypes(tokenizer.tokenize("var print if else for true false and or func return Func")),
         expectedTypes
     );
 }
@@ -311,6 +314,54 @@ TEST_F(TokenizerFixture, NumberLexemeMatchesSource)
     ASSERT_GE(tokens.size(), 1u);
     EXPECT_EQ(tokens[0].type,   TokenType::NUMBER);
     EXPECT_EQ(tokens[0].lexeme, "3.14");
+}
+
+// ──────────────────────────────────────────────
+// 예약어: func 키워드가 FUNC 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, FuncKeywordIsRecognized)
+{
+    const auto tokens = tokenizer.tokenize("func");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::FUNC);
+    EXPECT_EQ(tokens[0].lexeme, "func");
+}
+
+// ──────────────────────────────────────────────
+// 예약어: return 키워드가 RETURN 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, ReturnKeywordIsRecognized)
+{
+    const auto tokens = tokenizer.tokenize("return");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::RETURN);
+    EXPECT_EQ(tokens[0].lexeme, "return");
+}
+
+// ──────────────────────────────────────────────
+// 연산자: '[' 가 LEFT_BRACKET 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, LeftBracketIsRecognized)
+{
+    const auto tokens = tokenizer.tokenize("[");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::LEFT_BRACKET);
+    EXPECT_EQ(tokens[0].lexeme, "[");
+}
+
+// ──────────────────────────────────────────────
+// 연산자: ']' 가 RIGHT_BRACKET 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, RightBracketIsRecognized)
+{
+    const auto tokens = tokenizer.tokenize("]");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::RIGHT_BRACKET);
+    EXPECT_EQ(tokens[0].lexeme, "]");
 }
 
 // ──────────────────────────────────────────────
