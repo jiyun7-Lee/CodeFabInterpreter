@@ -155,6 +155,7 @@
     <ClCompile Include="tests\ExpressionParserTest.cpp" />
     <ClCompile Include="tests\FunctionTest.cpp" />
     <ClCompile Include="tests\ParserTest.cpp" />
+    <ClCompile Include="tests\FactoryShellTest.cpp" />
     <ClCompile Include="tests\ShellTest.cpp" />
     <ClCompile Include="tests\TokenizerTest.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
