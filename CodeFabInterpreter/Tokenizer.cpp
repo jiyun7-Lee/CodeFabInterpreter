@@ -30,8 +30,8 @@ static const std::unordered_map<std::string, TokenType> KEYWORDS = {
     {"false", TokenType::FALSE},
     {"and",    TokenType::AND},
     {"or",     TokenType::OR},
-    {"func",   TokenType::FUNC},
-    {"Func",   TokenType::FUNC},
+    {"func",   TokenType::FUNC},   // 소문자 표기 — 코드 내 권장 표기
+    {"Func",   TokenType::FUNC},   // 대문자 표기 — 스펙 문서(PLAN_DAY3.md) 호환성을 위해 동시 지원
     {"return", TokenType::RETURN},
 };
 

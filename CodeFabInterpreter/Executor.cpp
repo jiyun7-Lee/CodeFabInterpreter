@@ -199,6 +199,9 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
     if (auto* e = dynamic_cast<FunctionCallExpr*>(expr))
     {
         // 빌트인 Array(n) — 고정 크기 배열 생성, 초기값 null
+        // 사용자가 `func Array(n) { ... }` 를 선언하면 functions_ 에 등록되어
+        // 해당 조건이 false 가 되므로 사용자 정의 함수가 빌트인을 오버라이드한다.
+        // 이는 의도된 동작이다 — 사용자 정의가 항상 빌트인보다 우선한다.
         if (e->callee.lexeme == "Array" && functions_.find("Array") == functions_.end())
         {
             if (e->args.size() != 1)

@@ -59,6 +59,13 @@ static void checkExpr(const Expr* expr,
     {
         checkExpr(e->value.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
     }
+    else if (const auto* e = dynamic_cast<const ArrayWriteExpr*>(expr))
+    {
+        // arr[i] = val — ArrayAccessExpr(읽기)와 구분되는 쓰기 전용 노드.
+        // 동일한 arr[i] 문법이 대입 좌변이면 ArrayWriteExpr, 우변이면 ArrayAccessExpr 로 파싱된다.
+        checkExpr(e->index.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
+        checkExpr(e->value.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
+    }
     else if (const auto* e = dynamic_cast<const FunctionCallExpr*>(expr))
     {
         const std::string& callee = e->callee.lexeme;
@@ -74,6 +81,10 @@ static void checkExpr(const Expr* expr,
         if (!isFunc && isDeclaredVar)
             errors.push_back("[" + std::to_string(line) + "번째 줄] "
                              "'" + callee + "' 는 함수가 아닙니다.");
+
+        // isFunc=false, isDeclaredVar=false 인 경우(아예 선언되지 않은 이름 호출)는
+        // 의도적으로 Checker 에서 잡지 않는다. Executor 가 런타임에
+        // "Undefined function '...'" 오류를 발생시킨다.
 
         // 인자 개수 불일치
         if (isFunc && e->args.size() != funcs.at(callee))
