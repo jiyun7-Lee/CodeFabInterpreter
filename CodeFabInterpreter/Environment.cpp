@@ -16,6 +16,22 @@ Value Environment::get(const std::string& name) const
     throw std::runtime_error("Undefined variable '" + name + "'");
 }
 
+Value Environment::getAt(int distance, const std::string& name) const
+{
+    const Environment* env = this;
+    for (int i = 0; i < distance; i++)
+        env = env->parent;
+    return env->values.at(name);
+}
+
+void Environment::assignAt(int distance, const std::string& name, Value value)
+{
+    Environment* env = this;
+    for (int i = 0; i < distance; i++)
+        env = env->parent;
+    env->values.at(name) = value;
+}
+
 void Environment::assign(const std::string& name, Value value)
 {
     auto it = values.find(name);
