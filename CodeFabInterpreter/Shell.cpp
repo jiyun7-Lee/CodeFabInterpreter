@@ -35,9 +35,6 @@ void Shell::runLine(const std::string& source)
     // exit / quit: REPL 종료 신호 — 에러 없이 조용히 반환
     if (src == "exit" || src == "quit") return;
 
-    if (!src.empty() && src.back() != ';' && src.back() != '}')
-        src += ';';
-
     try
     {
         Tokenizer tokenizer;

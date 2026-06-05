@@ -71,13 +71,13 @@ TEST(ShellTest, RuntimeError)
 }
 
 // TC-PS-06: if 문 정상 실행 — if (x > 0) { print x; } → stdout "5\n"
-// Arrange: var x = 5 선언 후 if 문 입력
+// Arrange: var x = 5; 선언 후 if 문 입력
 // Act    : runLine() 두 번 순차 호출
 // Assert : if 조건 참일 때 본문 실행
 TEST(ShellTest, IfStatementInShell)
 {
     Shell shell;
-    shell.runLine("var x = 5");
+    shell.runLine("var x = 5;");
 
     testing::internal::CaptureStdout();
     shell.runLine("if (x > 0) { print x; }");
@@ -85,17 +85,17 @@ TEST(ShellTest, IfStatementInShell)
 }
 
 // TC-PS-07: 불완전한 if 문 → 파싱 에러 후 Shell 계속 동작
-// Arrange: if (x > 0) 만 입력 (세미콜론 자동 추가 → if (x > 0); → 파싱 에러)
+// Arrange: if (x > 0) 만 입력 → EOF 에서 파싱 에러
 // Act    : runLine() 두 번 순차 호출
 // Assert : 파싱 에러 후에도 Shell 이 살아있어 다음 명령이 정상 동작
 TEST(ShellTest, IncompleteIfShellContinues)
 {
     Shell shell;
-    shell.runLine("var x = 5");
+    shell.runLine("var x = 5;");
     shell.runLine("if (x > 0)"); // 불완전 — 파싱 에러 발생, Shell 은 계속 동작해야 함
 
     testing::internal::CaptureStdout();
-    shell.runLine("print x");
+    shell.runLine("print x;");
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "5\n");
 }
 
