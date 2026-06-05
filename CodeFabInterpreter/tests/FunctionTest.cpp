@@ -1,9 +1,23 @@
 ﻿#include "gtest/gtest.h"
 #include "TestHelpers.h"
 #include "../Parser.h"
+#include "../Checker.h"
 #include "../Executor.h"
 #include "../Stmt.h"
 #include "../Expr.h"
+#include "../Tokenizer.h"
+
+// Checker 오류 검사용 헬퍼 — 소스 문자열을 파싱 후 Checker 오류 목록 반환
+static std::vector<std::string> checkerErrors(const std::string& source)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize(source);
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Checker checker;
+    checker.check(stmts);
+    return checker.getErrors();
+}
 
 // -----------------------------------------------------------------------
 // TC-FN-01: func 선언 파싱
@@ -201,4 +215,85 @@ TEST(FunctionTest, FunctionScopeIsolation)
     testing::internal::CaptureStdout();
     executor.execute(stmts);
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "10\n");
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-06: 재귀 호출 실행 — fact(5) → stdout "120\n"
+// -----------------------------------------------------------------------
+TEST(FunctionTest, RecursiveFunctionCall)
+{
+    // func fact(n) { if (n <= 1) return 1; return n * fact(n - 1); }
+    // print fact(5);
+    Tokenizer tz;
+    auto tokens = tz.tokenize(
+        "func fact(n) { if (n < 2) { return 1; } return n * fact(n - 1); }"
+        "print fact(5);");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+
+    Executor executor;
+    testing::internal::CaptureStdout();
+    executor.execute(stmts);
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "120\n");
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-07: 반환값을 변수에 대입 — ret = add(3, 7); print ret; → "10\n"
+// -----------------------------------------------------------------------
+TEST(FunctionTest, ReturnValueAssignment)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize(
+        "func add(a, b) { return a + b; }"
+        "var ret = add(3, 7);"
+        "print ret;");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+
+    Executor executor;
+    testing::internal::CaptureStdout();
+    executor.execute(stmts);
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "10\n");
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-08: Checker — 함수 외부 return → 오류 감지
+// -----------------------------------------------------------------------
+TEST(FunctionTest, CheckerReturnOutsideFunction)
+{
+    auto errors = checkerErrors("return 5;");
+    ASSERT_FALSE(errors.empty());
+    EXPECT_NE(errors[0].find("함수 외부"), std::string::npos);
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-09: Checker — 파라미터 이름 중복 → 오류 감지
+// -----------------------------------------------------------------------
+TEST(FunctionTest, CheckerDuplicateParameters)
+{
+    auto errors = checkerErrors("func foo(a, a) { return a; }");
+    ASSERT_FALSE(errors.empty());
+    EXPECT_NE(errors[0].find("중복"), std::string::npos);
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-10: Checker — 함수가 아닌 대상 호출 → 오류 감지
+// -----------------------------------------------------------------------
+TEST(FunctionTest, CheckerCallingNonFunction)
+{
+    auto errors = checkerErrors("var x = 10; x();");
+    ASSERT_FALSE(errors.empty());
+    EXPECT_NE(errors[0].find("함수가 아닙니다"), std::string::npos);
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-11: Checker — 인자 개수 불일치 → 오류 감지
+// -----------------------------------------------------------------------
+TEST(FunctionTest, CheckerArgumentCountMismatch)
+{
+    auto errors = checkerErrors(
+        "func foo(a, b, c) { return a; }"
+        "foo(1, 2);");
+    ASSERT_FALSE(errors.empty());
+    EXPECT_NE(errors[0].find("불일치"), std::string::npos);
 }
