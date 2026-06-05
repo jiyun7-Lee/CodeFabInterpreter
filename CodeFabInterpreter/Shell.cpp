@@ -3,8 +3,6 @@
 #include <string>
 #include "Tokenizer.h"
 #include "Parser.h"
-#include "Checker.h"
-#include "Executor.h"
 
 void Shell::run()
 {
@@ -43,7 +41,6 @@ void Shell::runLine(const std::string& source)
         Parser parser;
         auto stmts = parser.parse(tokens);
 
-        Checker checker;
         if (!checker.check(stmts))
         {
             for (const auto& err : checker.getErrors())
@@ -51,7 +48,7 @@ void Shell::runLine(const std::string& source)
             return;
         }
 
-        executor_.execute(stmts);
+        executor.execute(stmts);
     }
     catch (const std::exception& e)
     {
