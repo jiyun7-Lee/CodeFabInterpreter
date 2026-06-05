@@ -20,8 +20,9 @@ public:
     void execute(const std::vector<std::unique_ptr<Stmt>>& statements);
 
 private:
-    Environment                                  globalEnv;
+    Environment                                    globalEnv;
     std::unordered_map<std::string, FunctionValue> functions_;
+    int                                            currentLine_ = 0;
 
     void  executeStatement(Stmt* stmt, Environment* env);
     Value evaluateExpr(Expr* expr, Environment* env);

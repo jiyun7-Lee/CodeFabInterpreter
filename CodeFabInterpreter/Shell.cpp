@@ -1,10 +1,14 @@
 ﻿#include "Shell.h"
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <algorithm>
 #include <cctype>
 #include "Tokenizer.h"
 #include "Parser.h"
+#include "Checker.h"
+#include "Executor.h"
 
 static std::string toLower(std::string s)
 {
@@ -12,15 +16,18 @@ static std::string toLower(std::string s)
     return s;
 }
 
+// -----------------------------------------------------------------------
+// Shell
+// -----------------------------------------------------------------------
+
 void Shell::run()
 {
     std::string line;
     while (true)
     {
-        std::cout << ">>> " << std::flush;
+        std::cout << "> " << std::flush;
         if (!std::getline(std::cin, line)) break;
 
-        // exit / quit 입력 시 루프 종료
         std::string trimmed = line;
         while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
             trimmed.pop_back();
@@ -32,13 +39,10 @@ void Shell::run()
 
 void Shell::runLine(const std::string& source)
 {
-    // Trim trailing whitespace and auto-append ';' for REPL convenience.
-    // Blocks ending with '}' and already-terminated lines are left as-is.
     std::string src = source;
     while (!src.empty() && std::isspace(static_cast<unsigned char>(src.back())))
         src.pop_back();
 
-    // exit / quit: REPL 종료 신호 — 대소문자 무관, 에러 없이 조용히 반환
     if (toLower(src) == "exit" || toLower(src) == "quit") return;
 
     try
@@ -61,5 +65,92 @@ void Shell::runLine(const std::string& source)
     catch (const std::exception& e)
     {
         std::cout << "[Error] " << e.what() << "\n";
+    }
+}
+
+// -----------------------------------------------------------------------
+// FileRunner
+// -----------------------------------------------------------------------
+
+void FileRunner::run(const std::string& filepath)
+{
+    std::ifstream file(filepath);
+    if (!file.is_open())
+    {
+        std::cout << "Error: File Not Found '" << filepath << "'\n";
+        return;
+    }
+    std::string source((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+    runSource(source);
+}
+
+void FileRunner::runSource(const std::string& source)
+{
+    try
+    {
+        Tokenizer tokenizer;
+        auto tokens = tokenizer.tokenize(source);
+
+        Parser parser;
+        auto stmts = parser.parse(tokens);
+
+        Checker checker;
+        if (!checker.check(stmts))
+        {
+            for (const auto& err : checker.getErrors())
+                std::cout << "[Checker] " << err << "\n";
+            return;
+        }
+
+        Executor executor;
+        executor.execute(stmts);
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << "[Error] " << e.what() << "\n";
+    }
+}
+
+// -----------------------------------------------------------------------
+// FactoryShell
+// -----------------------------------------------------------------------
+
+ShellMode FactoryShell::detectMode(int argc, char** argv) const
+{
+    if (argc >= 2)
+    {
+        std::string cmd(argv[1]);
+        if (cmd == "run")   return ShellMode::FILE;
+        if (cmd == "debug") return ShellMode::DEBUG;
+    }
+    return ShellMode::REPL;
+}
+
+void FactoryShell::run(int argc, char** argv)
+{
+    switch (detectMode(argc, argv))
+    {
+        case ShellMode::REPL:
+        {
+            Shell shell;
+            shell.run();
+            break;
+        }
+        case ShellMode::FILE:
+        {
+            if (argc < 3)
+            {
+                std::cout << "Error: 파일 경로가 필요합니다. 사용법: run <파일경로>\n";
+                break;
+            }
+            FileRunner runner;
+            runner.run(argv[2]);
+            break;
+        }
+        case ShellMode::DEBUG:
+            // Phase 4~7에서 구현
+            std::cout << "[Debug Mode] Not implemented yet\n";
+            break;
     }
 }

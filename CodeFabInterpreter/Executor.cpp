@@ -16,11 +16,20 @@ static bool isTruthy(const Value& val)
 void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 {
     for (const auto& stmt : statements)
-        executeStatement(stmt.get(), &globalEnv);
+    {
+        try { executeStatement(stmt.get(), &globalEnv); }
+        catch (const std::runtime_error& e)
+        {
+            throw std::runtime_error(
+                "[" + std::to_string(currentLine_) + "번째 줄] " + e.what());
+        }
+    }
 }
 
 void Executor::executeStatement(Stmt* stmt, Environment* env)
 {
+    if (stmt->line != 0) currentLine_ = stmt->line;
+
     if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
     {
         evaluateExpr(s->expression.get(), env);
