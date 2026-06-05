@@ -1,4 +1,4 @@
-// ShellTest.cpp — UTF-8 BOM
+﻿// ShellTest.cpp — UTF-8 BOM
 #include "gtest/gtest.h"
 #include "../Shell.h"
 

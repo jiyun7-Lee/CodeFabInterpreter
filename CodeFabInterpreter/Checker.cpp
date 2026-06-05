@@ -187,14 +187,20 @@ static void checkStmt(const Stmt* stmt,
 bool Checker::check(const std::vector<std::unique_ptr<Stmt>>& statements)
 {
     errors_.clear();
-    std::vector<Scope> scopes;
-    scopes.push_back({}); // global scope
-    FuncMap funcs;
+    // scopes_·funcs_ 는 초기화하지 않음 — REPL 세션 전반의 선언 정보를 누적하기 위해 유지
+    // 스코프를 초기화해야 하는 경우 reset() 을 먼저 호출할 것
 
     for (const auto& s : statements)
-        checkStmt(s.get(), scopes, errors_, funcs, false);
+        checkStmt(s.get(), scopes_, errors_, funcs_, false);
 
     return errors_.empty();
+}
+
+void Checker::reset()
+{
+    errors_.clear();
+    scopes_ = {{}};
+    funcs_.clear();
 }
 
 const std::vector<std::string>& Checker::getErrors() const

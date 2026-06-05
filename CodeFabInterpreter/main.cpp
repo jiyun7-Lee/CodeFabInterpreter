@@ -1,5 +1,6 @@
 ﻿#include "Shell.h"
 #include "gmock/gmock.h"
+#include <windows.h>
 
 int main(int argc, char** argv)
 {
@@ -7,6 +8,7 @@ int main(int argc, char** argv)
     ::testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
 #else
+    SetConsoleOutputCP(CP_UTF8);
     Shell shell;
     shell.run();
     return 0;
