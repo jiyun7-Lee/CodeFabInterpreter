@@ -31,12 +31,40 @@ static Token makeEof(int line = 1)
 }
 
 // ================================================================
+// FakeExprParser
+// B파트 미구현 상태에서 Stmt 파싱 테스트용.
+// parseExpression() 호출 시 현재 토큰 1개 소비 후 LiteralExpr 반환.
+// ================================================================
+class FakeExprParser : public Parser
+{
+protected:
+    std::unique_ptr<Expr> parseExpression() override
+    {
+        auto lit = std::make_unique<LiteralExpr>();
+        if (check(TokenType::NUMBER))
+            lit->value = std::get<double>(advance().literal);
+        else if (check(TokenType::STRING))
+            lit->value = std::get<std::string>(advance().literal);
+        else if (check(TokenType::TRUE) || check(TokenType::FALSE))
+            lit->value = (advance().type == TokenType::TRUE);
+        else if (check(TokenType::IDENTIFIER))
+            advance();
+        while (!isAtEnd()                         &&
+               !check(TokenType::SEMICOLON)       &&
+               !check(TokenType::RIGHT_PAREN)     &&
+               !check(TokenType::RIGHT_BRACE))
+            advance();
+        return lit;
+    }
+};
+
+// ================================================================
 // Test Fixture
 // ================================================================
 class ParserStmtTest : public ::testing::Test
 {
 protected:
-    Parser p;
+    FakeExprParser p;
 };
 
 // ================================================================
