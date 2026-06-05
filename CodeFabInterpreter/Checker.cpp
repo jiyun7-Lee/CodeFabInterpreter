@@ -97,11 +97,9 @@ static void checkStmt(const Stmt* stmt,
 bool Checker::check(const std::vector<std::unique_ptr<Stmt>>& statements)
 {
     errors_.clear();
-    std::vector<Scope> scopes;
-    scopes.push_back({}); // global scope
 
     for (const auto& s : statements)
-        checkStmt(s.get(), scopes, errors_);
+        checkStmt(s.get(), scopes_, errors_);
 
     return errors_.empty();
 }

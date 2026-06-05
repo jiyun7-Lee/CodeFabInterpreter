@@ -2,6 +2,7 @@
 #include <vector>
 #include <memory>
 #include <string>
+#include <unordered_set>
 #include "Stmt.h"
 
 class Checker
@@ -12,4 +13,5 @@ public:
 
 private:
     std::vector<std::string> errors_;
+    std::vector<std::unordered_set<std::string>> scopes_ = {{}};
 };
