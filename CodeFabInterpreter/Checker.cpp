@@ -1,4 +1,4 @@
-#include "Checker.h"
+﻿#include "Checker.h"
 #include <unordered_set>
 
 using Scope = std::unordered_set<std::string>;

@@ -1,4 +1,4 @@
-
+﻿
 #include "Tokenizer.h"
 #include <unordered_map>
 #include <cctype>
