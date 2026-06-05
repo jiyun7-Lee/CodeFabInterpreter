@@ -82,6 +82,7 @@ std::unique_ptr<Stmt> Parser::parseVarDeclaration()
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
     auto stmt         = std::make_unique<VarDeclareStmt>();
+    stmt->line        = name.line;
     stmt->name        = name;
     stmt->initializer = std::move(initializer);
     return stmt;
@@ -90,10 +91,12 @@ std::unique_ptr<Stmt> Parser::parseVarDeclaration()
 std::unique_ptr<Stmt> Parser::parsePrintStatement()
 {
     // PRINT 는 이미 소비된 상태로 진입. 문법: print expr ;
+    int stmtLine = previous().line;
     auto expr = parseExpression();
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
     auto stmt        = std::make_unique<PrintStmt>();
+    stmt->line       = stmtLine;
     stmt->expression = std::move(expr);
     return stmt;
 }
@@ -101,6 +104,7 @@ std::unique_ptr<Stmt> Parser::parsePrintStatement()
 std::unique_ptr<Stmt> Parser::parseIfStatement()
 {
     // IF 는 이미 소비된 상태로 진입. 문법: if ( expr ) stmt ( else stmt )?
+    int stmtLine = previous().line;
     consume(TokenType::LEFT_PAREN, "'(' 가 필요합니다.");
     auto condition = parseExpression();
     consume(TokenType::RIGHT_PAREN, "')' 가 필요합니다.");
@@ -113,6 +117,7 @@ std::unique_ptr<Stmt> Parser::parseIfStatement()
         elseBranch = parseStatement();
 
     auto ifStmt        = std::make_unique<IfStmt>();
+    ifStmt->line       = stmtLine;
     ifStmt->condition  = std::move(condition);
     ifStmt->thenBranch = std::move(thenBranch);
     ifStmt->elseBranch = std::move(elseBranch);
@@ -123,6 +128,7 @@ std::unique_ptr<Stmt> Parser::parseForStatement()
 {
     // FOR 는 이미 소비된 상태로 진입. 문법: for ( init cond ; incr ) stmt
     // init 은 VarDeclareStmt 또는 ExpressionStmt — 각 함수가 세미콜론까지 소비한다.
+    int stmtLine = previous().line;
     consume(TokenType::LEFT_PAREN, "'(' 가 필요합니다.");
 
     std::unique_ptr<Stmt> init;
@@ -140,6 +146,7 @@ std::unique_ptr<Stmt> Parser::parseForStatement()
     auto body = parseStatement();
 
     auto forStmt       = std::make_unique<ForStmt>();
+    forStmt->line      = stmtLine;
     forStmt->init      = std::move(init);
     forStmt->condition = std::move(condition);
     forStmt->increment = std::move(increment);
@@ -153,6 +160,7 @@ std::unique_ptr<Stmt> Parser::parseBlock()
     // isAtEnd() 검사는 닫는 중괄호 없이 EOF 에 도달했을 때 무한루프를 방지한다.
     // 실제 오류는 consume(RIGHT_BRACE) 에서 던진다.
     auto block = std::make_unique<BlockStmt>();
+    block->line = previous().line;
     while (!check(TokenType::RIGHT_BRACE) && !isAtEnd())
         block->statements.push_back(parseDeclaration());
     consume(TokenType::RIGHT_BRACE, "'}' 가 필요합니다.");
@@ -162,10 +170,12 @@ std::unique_ptr<Stmt> Parser::parseBlock()
 std::unique_ptr<Stmt> Parser::parseExpressionStatement()
 {
     // Expression 을 파싱한 뒤 반드시 세미콜론(;) 으로 닫혀야 한다.
+    int stmtLine = peek().line;
     auto expr = parseExpression();
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
     auto stmt        = std::make_unique<ExpressionStmt>();
+    stmt->line       = stmtLine;
     stmt->expression = std::move(expr);
     return stmt;
 }
@@ -173,6 +183,7 @@ std::unique_ptr<Stmt> Parser::parseExpressionStatement()
 std::unique_ptr<Stmt> Parser::parseFunctionDeclaration()
 {
     // FUNC 는 이미 소비된 상태로 진입. 문법: func name(p1, p2) { body }
+    int stmtLine = previous().line;
     Token name = consume(TokenType::IDENTIFIER, "함수 이름이 필요합니다.");
     consume(TokenType::LEFT_PAREN, "'(' 가 필요합니다.");
 
@@ -187,6 +198,7 @@ std::unique_ptr<Stmt> Parser::parseFunctionDeclaration()
 
     auto body         = parseBlock(); // LEFT_BRACE 이미 소비된 상태로 호출
     auto stmt         = std::make_unique<FunctionDeclareStmt>();
+    stmt->line        = stmtLine;
     stmt->name        = name;
     stmt->params      = std::move(params);
     stmt->body        = std::move(body);
@@ -197,12 +209,14 @@ std::unique_ptr<Stmt> Parser::parseReturnStatement()
 {
     // RETURN 은 이미 소비된 상태로 진입. 문법: return expr? ;
     // 다음 토큰이 ; 이면 값 없는 return (null 반환)
+    int stmtLine = previous().line;
     std::unique_ptr<Expr> value;
     if (!check(TokenType::SEMICOLON))
         value = parseExpression();
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
     auto stmt   = std::make_unique<ReturnStmt>();
+    stmt->line  = stmtLine;
     stmt->value = std::move(value);
     return stmt;
 }
