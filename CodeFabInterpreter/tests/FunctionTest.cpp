@@ -92,6 +92,26 @@ TEST(FunctionTest, ParsesReturnStatement)
 }
 
 // -----------------------------------------------------------------------
+// TC-FN-03b: 빈 return 문 파싱
+// return;
+// → ReturnStmt, value == nullptr (null 반환)
+// -----------------------------------------------------------------------
+TEST(FunctionTest, ParsesEmptyReturnStatement)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::RETURN,    "return"),
+        tok(TokenType::SEMICOLON, ";"),
+        eof()
+    };
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    ASSERT_EQ(stmts.size(), 1u);
+    auto* ret = dynamic_cast<ReturnStmt*>(stmts[0].get());
+    ASSERT_NE(ret, nullptr);
+    EXPECT_EQ(ret->value.get(), nullptr); // 값 없는 return
+}
+
+// -----------------------------------------------------------------------
 // TC-FN-04: 함수 실행 — add(3, 4) → stdout "7\n"
 // -----------------------------------------------------------------------
 TEST(FunctionTest, ExecutesFunctionCall)

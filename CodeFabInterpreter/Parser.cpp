@@ -195,8 +195,11 @@ std::unique_ptr<Stmt> Parser::parseFunctionDeclaration()
 
 std::unique_ptr<Stmt> Parser::parseReturnStatement()
 {
-    // RETURN 은 이미 소비된 상태로 진입. 문법: return expr ;
-    auto value = parseExpression();
+    // RETURN 은 이미 소비된 상태로 진입. 문법: return expr? ;
+    // 다음 토큰이 ; 이면 값 없는 return (null 반환)
+    std::unique_ptr<Expr> value;
+    if (!check(TokenType::SEMICOLON))
+        value = parseExpression();
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
     auto stmt   = std::make_unique<ReturnStmt>();
