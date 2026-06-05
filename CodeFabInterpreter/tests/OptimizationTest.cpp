@@ -1,4 +1,4 @@
-// OptimizationTest.cpp — Chapter 4: 정적 바인딩(SB) 테스트
+﻿// OptimizationTest.cpp — Chapter 4: 정적 바인딩(SB) 테스트
 #include <gtest/gtest.h>
 #include "../Checker.h"
 #include "../Shell.h"
