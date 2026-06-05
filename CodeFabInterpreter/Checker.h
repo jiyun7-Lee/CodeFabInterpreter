@@ -10,6 +10,7 @@ class Checker
 public:
     bool check(const std::vector<std::unique_ptr<Stmt>>& statements);
     const std::vector<std::string>& getErrors() const;
+    void reset();
 
 private:
     std::vector<std::string> errors_;
