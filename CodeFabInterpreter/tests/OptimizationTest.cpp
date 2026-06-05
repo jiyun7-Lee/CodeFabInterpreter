@@ -251,3 +251,460 @@ TEST(OptimizationTest, SB_TC_09_ForLoop_OuterVarInCondition)
     shell.runLine("for (var i = 0; i < limit; i = i + 1) { print i; }");
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "0\n1\n2\n");
 }
+
+// ================================================================
+// 상수 폴딩 헬퍼
+// ================================================================
+static std::unique_ptr<Expr> makeBin(std::unique_ptr<Expr> left, TokenType op, std::unique_ptr<Expr> right)
+{
+    auto e   = std::make_unique<BinaryExpr>();
+    e->left  = std::move(left);
+    e->op    = Token{op, "", 1, std::monostate{}};
+    e->right = std::move(right);
+    return e;
+}
+
+static std::unique_ptr<Expr> makeUnary(TokenType op, std::unique_ptr<Expr> right)
+{
+    auto e   = std::make_unique<UnaryExpr>();
+    e->op    = Token{op, "", 1, std::monostate{}};
+    e->right = std::move(right);
+    return e;
+}
+
+static std::unique_ptr<Expr> makeGrouping(std::unique_ptr<Expr> inner)
+{
+    auto e        = std::make_unique<GroupingExpr>();
+    e->expression = std::move(inner);
+    return e;
+}
+
+static bool isLiteralDouble(const std::unique_ptr<Expr>& e, double expected)
+{
+    auto* lit = dynamic_cast<LiteralExpr*>(e.get());
+    return lit && std::holds_alternative<double>(lit->value)
+               && std::get<double>(lit->value) == expected;
+}
+
+static bool isLiteralBool(const std::unique_ptr<Expr>& e, bool expected)
+{
+    auto* lit = dynamic_cast<LiteralExpr*>(e.get());
+    return lit && std::holds_alternative<bool>(lit->value)
+               && std::get<bool>(lit->value) == expected;
+}
+
+// ================================================================
+// 상수 폴딩 — foldExpr 동작 검증 (Test Double: AST 직접 검사)
+//
+// check() 호출 후 AST 노드가 LiteralExpr 로 교체되거나
+// 항등식에 의해 단순화됐는지 확인한다.
+// ================================================================
+
+// CF-TC-01 : var x = 1.0 + 2.0;  →  initializer = LiteralExpr{3.0}  (패턴 A: +)
+TEST(OptimizationTest, CF_TC_01_BinaryPlus_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(1.0), TokenType::PLUS, makeLit(2.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 3.0));
+}
+
+// CF-TC-02 : var x = 10.0 - 3.0;  →  LiteralExpr{7.0}  (패턴 A: -)
+TEST(OptimizationTest, CF_TC_02_BinaryMinus_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(10.0), TokenType::MINUS, makeLit(3.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 7.0));
+}
+
+// CF-TC-03 : var x = 4.0 * 5.0;  →  LiteralExpr{20.0}  (패턴 A: *)
+TEST(OptimizationTest, CF_TC_03_BinaryStar_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(4.0), TokenType::STAR, makeLit(5.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 20.0));
+}
+
+// CF-TC-04 : var x = 10.0 / 2.0;  →  LiteralExpr{5.0}  (패턴 A: /)
+TEST(OptimizationTest, CF_TC_04_BinarySlash_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(10.0), TokenType::SLASH, makeLit(2.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 5.0));
+}
+
+// CF-TC-05 : var x = 2.0 < 5.0;  →  LiteralExpr{true}  (패턴 A: <, bool 결과)
+TEST(OptimizationTest, CF_TC_05_BinaryLess_FoldsToBool)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(2.0), TokenType::LESS, makeLit(5.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralBool(decl->initializer, true));
+}
+
+// CF-TC-06 : var x = -7.0;  →  LiteralExpr{-7.0}  (패턴 B: 단항 -)
+TEST(OptimizationTest, CF_TC_06_UnaryMinus_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeUnary(TokenType::MINUS, makeLit(7.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, -7.0));
+}
+
+// CF-TC-07 : var x = (9.0);  →  LiteralExpr{9.0}  (패턴 C: 괄호 껍데기 제거)
+TEST(OptimizationTest, CF_TC_07_Grouping_UnwrapsLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeGrouping(makeLit(9.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 9.0));
+}
+
+// CF-TC-08 : var y = x + 0.0;  →  initializer = VariableExpr{"x"}  (패턴 D: x+0)
+TEST(OptimizationTest, CF_TC_08_IdentityAdd0_YieldsVar)
+{
+    auto stmts = S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::PLUS, makeLit(0.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    auto* var = dynamic_cast<VariableExpr*>(decl->initializer.get());
+    ASSERT_NE(var, nullptr);
+    EXPECT_EQ(var->name.lexeme, "x");
+}
+
+// CF-TC-09 : var y = x * 0.0;  →  LiteralExpr{0.0}  (패턴 D: x*0)
+TEST(OptimizationTest, CF_TC_09_MultiplyBy0_YieldsZero)
+{
+    auto stmts = S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::STAR, makeLit(0.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 0.0));
+}
+
+// CF-TC-10 : var y = 1.0 * x;  →  VariableExpr{"x"}  (패턴 D: 1*x)
+TEST(OptimizationTest, CF_TC_10_MultiplyBy1_YieldsVar)
+{
+    auto stmts = S(makeVarDecl("y", makeBin(makeLit(1.0), TokenType::STAR, makeVar("x"))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    auto* var = dynamic_cast<VariableExpr*>(decl->initializer.get());
+    ASSERT_NE(var, nullptr);
+    EXPECT_EQ(var->name.lexeme, "x");
+}
+
+// CF-TC-11 : var x = 5.0 / 0.0;  →  BinaryExpr 그대로 유지 (0 나누기 비폴딩)
+TEST(OptimizationTest, CF_TC_11_DivByZero_NotFolded)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(5.0), TokenType::SLASH, makeLit(0.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    // LiteralExpr 로 교체되면 안 됨
+    EXPECT_EQ(dynamic_cast<LiteralExpr*>(decl->initializer.get()), nullptr);
+    // BinaryExpr 그대로 유지
+    EXPECT_NE(dynamic_cast<BinaryExpr*>(decl->initializer.get()), nullptr);
+}
+
+// CF-TC-12 : var x = (1.0 + 2.0) * 3.0;  →  LiteralExpr{9.0}  (중첩 폴딩)
+TEST(OptimizationTest, CF_TC_12_NestedFold_YieldsLiteral)
+{
+    // foldExpr 재귀: 먼저 1+2→3, 이후 3*3→9
+    auto stmts = S(makeVarDecl("x",
+        makeBin(
+            makeBin(makeLit(1.0), TokenType::PLUS, makeLit(2.0)),
+            TokenType::STAR,
+            makeLit(3.0)
+        )
+    ));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 9.0));
+}
+
+// CF-TC-13 : var y = f() * 0.0;  →  BinaryExpr 유지 (함수 호출 사이드 이펙트 보호)
+// x * 0 폴딩은 x 가 순수 표현식(Literal/Variable)일 때만 허용
+TEST(OptimizationTest, CF_TC_13_FuncCallTimesZero_NotFolded)
+{
+    auto callExpr = std::make_unique<FunctionCallExpr>();
+    callExpr->callee = idTok("f");
+
+    auto stmts = S(makeVarDecl("y", makeBin(std::move(callExpr), TokenType::STAR, makeLit(0.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_EQ(dynamic_cast<LiteralExpr*>(decl->initializer.get()), nullptr);
+    EXPECT_NE(dynamic_cast<BinaryExpr*>(decl->initializer.get()), nullptr);
+}
+
+// ================================================================
+// 교차 검증 (MX) — 정적 바인딩 × 상수 폴딩 복합 시나리오
+//
+// CF 가 노드를 교체한 뒤에도 SB distance 가 보존되는지,
+// 두 최적화가 동시에 적용됐을 때 런타임 결과가 올바른지 확인한다.
+// ================================================================
+
+// MX-TC-01 : x+0 폴딩 후 VariableExpr distance 보존
+// var x = 1.0; { var y = x + 0.0; }
+// CF: x+0 → x  |  SB: x.distance = 1
+TEST(OptimizationTest, MX_TC_01_IdentityFold_PreservesDistance)
+{
+    auto stmts = S(
+        makeVarDecl("x", makeLit(1.0)),
+        makeBlock(S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::PLUS, makeLit(0.0)))))
+    );
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+
+    auto* block = dynamic_cast<BlockStmt*>(stmts[1].get());
+    auto* yDecl = dynamic_cast<VarDeclareStmt*>(block->statements[0].get());
+    ASSERT_NE(yDecl, nullptr);
+
+    auto* var = dynamic_cast<VariableExpr*>(yDecl->initializer.get());
+    ASSERT_NE(var, nullptr) << "x+0 은 VariableExpr{x} 로 폴딩돼야 함";
+    EXPECT_EQ(var->name.lexeme, "x");
+    EXPECT_EQ(var->distance, 1);
+}
+
+// MX-TC-02 : x*1 폴딩 후 VariableExpr distance 보존
+// var x = 2.0; { var y = x * 1.0; }
+TEST(OptimizationTest, MX_TC_02_MultiplyOne_PreservesDistance)
+{
+    auto stmts = S(
+        makeVarDecl("x", makeLit(2.0)),
+        makeBlock(S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::STAR, makeLit(1.0)))))
+    );
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+
+    auto* block = dynamic_cast<BlockStmt*>(stmts[1].get());
+    auto* yDecl = dynamic_cast<VarDeclareStmt*>(block->statements[0].get());
+    ASSERT_NE(yDecl, nullptr);
+
+    auto* var = dynamic_cast<VariableExpr*>(yDecl->initializer.get());
+    ASSERT_NE(var, nullptr);
+    EXPECT_EQ(var->name.lexeme, "x");
+    EXPECT_EQ(var->distance, 1);
+}
+
+// MX-TC-03 : 0+x 폴딩 후 VariableExpr distance 보존
+// var x = 3.0; { var y = 0.0 + x; }
+TEST(OptimizationTest, MX_TC_03_ZeroPlus_PreservesDistance)
+{
+    auto stmts = S(
+        makeVarDecl("x", makeLit(3.0)),
+        makeBlock(S(makeVarDecl("y", makeBin(makeLit(0.0), TokenType::PLUS, makeVar("x")))))
+    );
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+
+    auto* block = dynamic_cast<BlockStmt*>(stmts[1].get());
+    auto* yDecl = dynamic_cast<VarDeclareStmt*>(block->statements[0].get());
+    ASSERT_NE(yDecl, nullptr);
+
+    auto* var = dynamic_cast<VariableExpr*>(yDecl->initializer.get());
+    ASSERT_NE(var, nullptr);
+    EXPECT_EQ(var->name.lexeme, "x");
+    EXPECT_EQ(var->distance, 1);
+}
+
+// MX-TC-04 : 순수 VariableExpr * 0 폴딩 허용
+// var x = 5.0; { var y = x * 0.0; }
+// x 는 isPure → x*0 → 0.0 허용
+TEST(OptimizationTest, MX_TC_04_PureVar_TimesZero_Folds)
+{
+    auto stmts = S(
+        makeVarDecl("x", makeLit(5.0)),
+        makeBlock(S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::STAR, makeLit(0.0)))))
+    );
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+
+    auto* block = dynamic_cast<BlockStmt*>(stmts[1].get());
+    auto* yDecl = dynamic_cast<VarDeclareStmt*>(block->statements[0].get());
+    ASSERT_NE(yDecl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(yDecl->initializer, 0.0));
+}
+
+// MX-TC-05 : 부분 폴딩 — (2+3)+x 에서 2+3 만 폴딩, x distance 보존
+// var x = 1.0; { var y = (2.0 + 3.0) + x; }
+// CF: 2+3 → 5.0  |  SB: x.distance = 1  |  외부 BinaryExpr 는 유지
+TEST(OptimizationTest, MX_TC_05_PartialFold_LiteralLeft_VarRight)
+{
+    auto stmts = S(
+        makeVarDecl("x", makeLit(1.0)),
+        makeBlock(S(makeVarDecl("y",
+            makeBin(
+                makeBin(makeLit(2.0), TokenType::PLUS, makeLit(3.0)),
+                TokenType::PLUS,
+                makeVar("x")
+            )
+        )))
+    );
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+
+    auto* block = dynamic_cast<BlockStmt*>(stmts[1].get());
+    auto* yDecl = dynamic_cast<VarDeclareStmt*>(block->statements[0].get());
+    ASSERT_NE(yDecl, nullptr);
+
+    auto* bin = dynamic_cast<BinaryExpr*>(yDecl->initializer.get());
+    ASSERT_NE(bin, nullptr) << "5+x 는 BinaryExpr 로 남아야 함";
+    EXPECT_TRUE(isLiteralDouble(bin->left, 5.0));
+    auto* varX = dynamic_cast<VariableExpr*>(bin->right.get());
+    ASSERT_NE(varX, nullptr);
+    EXPECT_EQ(varX->name.lexeme, "x");
+    EXPECT_EQ(varX->distance, 1);
+}
+
+// MX-TC-06 : 초기화식 폴딩 + 참조 distance
+// var a = 1.0 + 2.0; { print a; }
+// a.init = LiteralExpr{3.0}  |  print 의 VarExpr{a}.distance = 1
+TEST(OptimizationTest, MX_TC_06_FoldedInit_ReferenceDistanceCorrect)
+{
+    auto varExprPtr = makeVar("a");
+    auto* rawVar    = dynamic_cast<VariableExpr*>(varExprPtr.get());
+
+    auto stmts = S(
+        makeVarDecl("a", makeBin(makeLit(1.0), TokenType::PLUS, makeLit(2.0))),
+        makeBlock(S(makePrint(std::move(varExprPtr))))
+    );
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+
+    auto* aDecl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(aDecl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(aDecl->initializer, 3.0));
+
+    ASSERT_NE(rawVar, nullptr);
+    EXPECT_EQ(rawVar->distance, 1);
+}
+
+// MX-TC-07 : 2단계 중첩 블록에서 x+0 폴딩 후 distance = 2 보존
+// var x = 1.0; { { var y = x + 0.0; } }
+TEST(OptimizationTest, MX_TC_07_TwoLevelNest_FoldPreservesDistance2)
+{
+    auto stmts = S(
+        makeVarDecl("x", makeLit(1.0)),
+        makeBlock(S(
+            makeBlock(S(
+                makeVarDecl("y", makeBin(makeVar("x"), TokenType::PLUS, makeLit(0.0)))
+            ))
+        ))
+    );
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+
+    auto* outer = dynamic_cast<BlockStmt*>(stmts[1].get());
+    auto* inner = dynamic_cast<BlockStmt*>(outer->statements[0].get());
+    auto* yDecl = dynamic_cast<VarDeclareStmt*>(inner->statements[0].get());
+    ASSERT_NE(yDecl, nullptr);
+
+    auto* var = dynamic_cast<VariableExpr*>(yDecl->initializer.get());
+    ASSERT_NE(var, nullptr);
+    EXPECT_EQ(var->name.lexeme, "x");
+    EXPECT_EQ(var->distance, 2);
+}
+
+// ================================================================
+// 교차 검증 End-to-End (Shell 경유)
+// ================================================================
+
+// MX-TC-08 : var x = 10; { print x + 0; }  →  "10"
+TEST(OptimizationTest, MX_TC_08_E2E_IdentityFold_OuterVar)
+{
+    Shell shell;
+    testing::internal::CaptureStdout();
+    shell.runLine("var x = 10;");
+    shell.runLine("{ print x + 0; }");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "10\n");
+}
+
+// MX-TC-09 : var a = 1 + 2; print a;  →  "3"  (CF 폴딩 후 런타임 정상 출력)
+TEST(OptimizationTest, MX_TC_09_E2E_FoldedInit_PrintsCorrect)
+{
+    Shell shell;
+    testing::internal::CaptureStdout();
+    shell.runLine("var a = 1 + 2;");
+    shell.runLine("print a;");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "3\n");
+}
+
+// MX-TC-10 : var a = 1 + 2; var b = 3; print a + b;  →  "6"
+TEST(OptimizationTest, MX_TC_10_E2E_TwoFoldedVars_Sum)
+{
+    Shell shell;
+    testing::internal::CaptureStdout();
+    shell.runLine("var a = 1 + 2;");
+    shell.runLine("var b = 3;");
+    shell.runLine("print a + b;");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "6\n");
+}
+
+// MX-TC-11 : var x = 4; print x * 1;  →  "4"  (x*1 → x, SB distance=0)
+TEST(OptimizationTest, MX_TC_11_E2E_MultiplyOne_PrintsVar)
+{
+    Shell shell;
+    testing::internal::CaptureStdout();
+    shell.runLine("var x = 4;");
+    shell.runLine("print x * 1;");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "4\n");
+}
+
+// MX-TC-12 : var limit = 2 + 1; for (var i = 0; i < limit; i = i+1) { print i; }  →  "0\n1\n2\n"
+// CF 가 limit 초기식을 3.0 으로 폴딩, SB 가 for 루프에서 limit 스코프 정렬
+TEST(OptimizationTest, MX_TC_12_E2E_FoldedLimit_ForLoop)
+{
+    Shell shell;
+    testing::internal::CaptureStdout();
+    shell.runLine("var limit = 2 + 1;");
+    shell.runLine("for (var i = 0; i < limit; i = i + 1) { print i; }");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "0\n1\n2\n");
+}
+
+// MX-TC-13 : var x = 3; { var y = x * 0; print y; }  →  "0"
+// x 는 순수 VariableExpr → x*0 → 0 폴딩 허용
+TEST(OptimizationTest, MX_TC_13_E2E_PureVarTimesZero_PrintsZero)
+{
+    Shell shell;
+    testing::internal::CaptureStdout();
+    shell.runLine("var x = 3;");
+    shell.runLine("{ var y = x * 0; print y; }");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "0\n");
+}
+
+// MX-TC-14 : var x = 5; print (2 + 3) * x;  →  "25"
+// CF: (2+3) → 5.0, 이후 5*x 는 런타임 평가
+TEST(OptimizationTest, MX_TC_14_E2E_PartialFold_RuntimeEval)
+{
+    Shell shell;
+    testing::internal::CaptureStdout();
+    shell.runLine("var x = 5;");
+    shell.runLine("print (2 + 3) * x;");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "25\n");
+}
