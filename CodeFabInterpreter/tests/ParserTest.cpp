@@ -36,7 +36,7 @@ static Token makeEof(int line = 1)
 class ParserStmtTest : public ::testing::Test
 {
 protected:
-
+    Parser p;
 };
 
 // ================================================================
