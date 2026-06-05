@@ -500,3 +500,54 @@ TEST(ExecutorTest, UnaryExpr)
 		ASSERT_THROW(executor.execute(stmts), std::runtime_error);
 	}
 }
+
+// TC12: GroupingExpr — 괄호 내부 expression이 올바르게 평가되는지 확인
+TEST(ExecutorTest, GroupingExpr)
+{
+	// (1.0 + 2.0) → "3\n"
+	{
+		auto left  = std::make_unique<LiteralExpr>(); left->value  = 1.0;
+		auto right = std::make_unique<LiteralExpr>(); right->value = 2.0;
+		Token plusOp; plusOp.type = TokenType::PLUS;
+
+		auto binExpr = std::make_unique<BinaryExpr>();
+		binExpr->left = std::move(left); binExpr->op = plusOp; binExpr->right = std::move(right);
+
+		auto group = std::make_unique<GroupingExpr>();
+		group->expression = std::move(binExpr);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = std::move(group);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "3\n");
+	}
+
+	// (-(3.0)) → 중첩 GroupingExpr + UnaryExpr → "-3\n"
+	{
+		Token minusOp; minusOp.type = TokenType::MINUS;
+		auto lit = std::make_unique<LiteralExpr>(); lit->value = 3.0;
+
+		auto unary = std::make_unique<UnaryExpr>();
+		unary->op = minusOp; unary->right = std::move(lit);
+
+		auto group = std::make_unique<GroupingExpr>();
+		group->expression = std::move(unary);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = std::move(group);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "-3\n");
+	}
+}
