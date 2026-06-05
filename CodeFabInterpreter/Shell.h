@@ -1,8 +1,11 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include "Executor.h"
 #include "Checker.h"
 
+// -----------------------------------------------------------------------
+// Shell — REPL 모드
+// -----------------------------------------------------------------------
 class Shell
 {
 public:
@@ -11,4 +14,16 @@ public:
 private:
     Executor executor;
     Checker  checker;
+};
+
+// -----------------------------------------------------------------------
+// FactoryShell — 실행 모드 분기
+// -----------------------------------------------------------------------
+enum class ShellMode { REPL, FILE, DEBUG };
+
+class FactoryShell
+{
+public:
+    ShellMode detectMode(int argc, char** argv) const;
+    void      run(int argc, char** argv);
 };

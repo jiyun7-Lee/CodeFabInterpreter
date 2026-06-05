@@ -1,4 +1,4 @@
-﻿#include "Shell.h"
+#include "Shell.h"
 #include <iostream>
 #include <string>
 #include <algorithm>
@@ -12,6 +12,10 @@ static std::string toLower(std::string s)
     return s;
 }
 
+// -----------------------------------------------------------------------
+// Shell
+// -----------------------------------------------------------------------
+
 void Shell::run()
 {
     std::string line;
@@ -20,7 +24,6 @@ void Shell::run()
         std::cout << ">>> " << std::flush;
         if (!std::getline(std::cin, line)) break;
 
-        // exit / quit 입력 시 루프 종료
         std::string trimmed = line;
         while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
             trimmed.pop_back();
@@ -32,13 +35,10 @@ void Shell::run()
 
 void Shell::runLine(const std::string& source)
 {
-    // Trim trailing whitespace and auto-append ';' for REPL convenience.
-    // Blocks ending with '}' and already-terminated lines are left as-is.
     std::string src = source;
     while (!src.empty() && std::isspace(static_cast<unsigned char>(src.back())))
         src.pop_back();
 
-    // exit / quit: REPL 종료 신호 — 대소문자 무관, 에러 없이 조용히 반환
     if (toLower(src) == "exit" || toLower(src) == "quit") return;
 
     try
@@ -61,5 +61,41 @@ void Shell::runLine(const std::string& source)
     catch (const std::exception& e)
     {
         std::cout << "[Error] " << e.what() << "\n";
+    }
+}
+
+// -----------------------------------------------------------------------
+// FactoryShell
+// -----------------------------------------------------------------------
+
+ShellMode FactoryShell::detectMode(int argc, char** argv) const
+{
+    if (argc >= 2)
+    {
+        std::string cmd(argv[1]);
+        if (cmd == "run")   return ShellMode::FILE;
+        if (cmd == "debug") return ShellMode::DEBUG;
+    }
+    return ShellMode::REPL;
+}
+
+void FactoryShell::run(int argc, char** argv)
+{
+    switch (detectMode(argc, argv))
+    {
+        case ShellMode::REPL:
+        {
+            Shell shell;
+            shell.run();
+            break;
+        }
+        case ShellMode::FILE:
+            // Phase 3에서 구현
+            std::cout << "[File Mode] Not implemented yet\n";
+            break;
+        case ShellMode::DEBUG:
+            // Phase 4~7에서 구현
+            std::cout << "[Debug Mode] Not implemented yet\n";
+            break;
     }
 }

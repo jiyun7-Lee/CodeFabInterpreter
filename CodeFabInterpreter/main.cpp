@@ -1,4 +1,4 @@
-﻿#include "Shell.h"
+#include "Shell.h"
 #include "gmock/gmock.h"
 #include <windows.h>
 
@@ -10,8 +10,8 @@ int main(int argc, char** argv)
     return RUN_ALL_TESTS();
 #else
     SetConsoleOutputCP(CP_UTF8);
-    Shell shell;
-    shell.run();
+    FactoryShell shell;
+    shell.run(argc, argv);
     return 0;
 #endif
 }
