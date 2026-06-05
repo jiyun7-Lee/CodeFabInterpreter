@@ -77,10 +77,16 @@ static void checkExpr(Expr* expr,
             }
         }
     }
+    else if (auto* e = dynamic_cast<ArrayAccessExpr*>(expr))
+    {
+        checkExpr(e->array.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
+        checkExpr(e->index.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
+    }
     else if (auto* e = dynamic_cast<ArrayWriteExpr*>(expr))
     {
         // arr[i] = val — ArrayAccessExpr(읽기)와 구분되는 쓰기 전용 노드.
         // 동일한 arr[i] 문법이 대입 좌변이면 ArrayWriteExpr, 우변이면 ArrayAccessExpr 로 파싱된다.
+        checkExpr(e->array.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
         checkExpr(e->index.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
         checkExpr(e->value.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
     }

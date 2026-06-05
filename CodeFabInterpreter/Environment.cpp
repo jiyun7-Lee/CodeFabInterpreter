@@ -21,7 +21,10 @@ Value Environment::getAt(int distance, const std::string& name) const
     const Environment* env = this;
     for (int i = 0; i < distance; i++)
         env = env->parent;
-    return env->values.at(name);
+    auto it = env->values.find(name);
+    if (it == env->values.end())
+        throw std::runtime_error("Undefined variable '" + name + "'");
+    return it->second;
 }
 
 void Environment::assignAt(int distance, const std::string& name, Value value)
@@ -29,7 +32,10 @@ void Environment::assignAt(int distance, const std::string& name, Value value)
     Environment* env = this;
     for (int i = 0; i < distance; i++)
         env = env->parent;
-    env->values.at(name) = value;
+    auto it = env->values.find(name);
+    if (it == env->values.end())
+        throw std::runtime_error("Undefined variable '" + name + "'");
+    it->second = value;
 }
 
 void Environment::assign(const std::string& name, Value value)
