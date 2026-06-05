@@ -1,5 +1,7 @@
 ﻿#include <gtest/gtest.h>
 #include "../Executor.h"
+#include "../Tokenizer.h"
+#include "../Parser.h"
 
 
 // TC0: ExpressionStmt 평가 — 순수 계산은 예외 없이 실행, AssignExpr 사이드 이펙트 반영 확인
@@ -603,6 +605,71 @@ TEST(ExecutorTest, LogicalAnd)
 		Executor executor;
 		ASSERT_NO_THROW(executor.execute(stmts));
 	}
+}
+
+// [Regression #4] for 루프 init 변수는 루프 종료 후 소멸해야 함
+// for (var i = 0; ...) {} 이후 print i; → RuntimeError (i는 for 스코프 내에서만 유효)
+TEST(ExecutorTest, ForScope_InitVarNotLeaking)
+{
+    Tokenizer tz;
+    Parser parser;
+    auto stmts = parser.parse(tz.tokenize(
+        "for (var i = 0; i < 3; i = i + 1) {}"
+        "print i;"));
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// [Regression #11] 런타임 에러 메시지에 줄 번호 + 한국어 형식 포함 확인
+// TC-ErrMsg-1: 미정의 변수 → "[N번째 줄] 미정의된 변수 'x'"
+TEST(ExecutorTest, ErrorMessage_UndefinedVariable)
+{
+    Tokenizer tz;
+    Parser parser;
+    auto stmts = parser.parse(tz.tokenize("print abc;"));
+    Executor executor;
+    try {
+        executor.execute(stmts);
+        FAIL() << "RuntimeError expected";
+    } catch (const std::runtime_error& e) {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("번째 줄"), std::string::npos) << "줄 번호 없음: " << msg;
+        EXPECT_NE(msg.find("미정의된 변수"), std::string::npos) << "메시지 형식 불일치: " << msg;
+    }
+}
+
+// TC-ErrMsg-2: 타입 불일치 → "[N번째 줄] 피연산자는 반드시 숫자여야 한다."
+TEST(ExecutorTest, ErrorMessage_TypeError)
+{
+    Tokenizer tz;
+    Parser parser;
+    auto stmts = parser.parse(tz.tokenize("print 1 + \"hi\";"));
+    Executor executor;
+    try {
+        executor.execute(stmts);
+        FAIL() << "RuntimeError expected";
+    } catch (const std::runtime_error& e) {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("번째 줄"), std::string::npos) << "줄 번호 없음: " << msg;
+        EXPECT_NE(msg.find("피연산자"), std::string::npos) << "메시지 형식 불일치: " << msg;
+    }
+}
+
+// TC-ErrMsg-3: 0 나누기 → "[N번째 줄] 0으로 나눈 오류"
+TEST(ExecutorTest, ErrorMessage_DivideByZero)
+{
+    Tokenizer tz;
+    Parser parser;
+    auto stmts = parser.parse(tz.tokenize("print 1 / 0;"));
+    Executor executor;
+    try {
+        executor.execute(stmts);
+        FAIL() << "RuntimeError expected";
+    } catch (const std::runtime_error& e) {
+        std::string msg = e.what();
+        EXPECT_NE(msg.find("번째 줄"), std::string::npos) << "줄 번호 없음: " << msg;
+        EXPECT_NE(msg.find("0으로 나눈"), std::string::npos) << "메시지 형식 불일치: " << msg;
+    }
 }
 
 // ================================================================

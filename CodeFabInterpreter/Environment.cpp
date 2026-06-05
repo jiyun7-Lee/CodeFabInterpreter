@@ -6,14 +6,14 @@ void Environment::define(const std::string& name, Value value)
     values[name] = value;
 }
 
-Value Environment::get(const std::string& name) const
+Value Environment::get(const std::string& name, int line) const
 {
     auto it = values.find(name);
     if (it != values.end())
         return it->second;
     if (parent)
-        return parent->get(name);
-    throw std::runtime_error("Undefined variable '" + name + "'");
+        return parent->get(name, line);
+    throw std::runtime_error("미정의된 변수 '" + name + "'");
 }
 
 Value Environment::getAt(int distance, const std::string& name) const
@@ -46,7 +46,7 @@ void Environment::assignAt(int distance, const std::string& name, Value value)
     it->second = value;
 }
 
-void Environment::assign(const std::string& name, Value value)
+void Environment::assign(const std::string& name, Value value, int line)
 {
     auto it = values.find(name);
     if (it != values.end())
@@ -56,8 +56,8 @@ void Environment::assign(const std::string& name, Value value)
     }
     if (parent)
     {
-        parent->assign(name, value);
+        parent->assign(name, value, line);
         return;
     }
-    throw std::runtime_error("Undefined variable '" + name + "'");
+    throw std::runtime_error("미정의된 변수 '" + name + "'");
 }
