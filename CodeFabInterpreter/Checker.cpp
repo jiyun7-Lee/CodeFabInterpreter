@@ -220,6 +220,11 @@ static void checkExpr(Expr* expr,
             }
         }
     }
+    else if (auto* e = dynamic_cast<ArrayLiteralExpr*>(expr))
+    {
+        for (const auto& elem : e->elements)
+            checkExpr(elem.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
+    }
     else if (auto* e = dynamic_cast<ArrayAccessExpr*>(expr))
     {
         checkExpr(e->array.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
