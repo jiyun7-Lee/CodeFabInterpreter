@@ -14,14 +14,18 @@ struct FunctionValue
     std::unique_ptr<Stmt>  body;
 };
 
+class DebugController; // forward declaration
+
 class Executor
 {
 public:
     void execute(const std::vector<std::unique_ptr<Stmt>>& statements);
+    void setDebugController(DebugController* ctrl) { debug_ = ctrl; }
 
 private:
     Environment                                    globalEnv;
     std::unordered_map<std::string, FunctionValue> functions_;
+    DebugController*                               debug_ = nullptr;
     int                                            currentLine_ = 0;
 
     void  executeStatement(Stmt* stmt, Environment* env);

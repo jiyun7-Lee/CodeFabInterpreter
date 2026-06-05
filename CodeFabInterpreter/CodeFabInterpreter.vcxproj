@@ -144,6 +144,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Checker.cpp" />
+    <ClCompile Include="DebugController.cpp" />
     <ClCompile Include="Environment.cpp" />
     <ClCompile Include="Executor.cpp" />
     <ClCompile Include="main.cpp" />
@@ -164,6 +165,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Checker.h" />
+    <ClInclude Include="DebugController.h" />
     <ClInclude Include="Environment.h" />
     <ClInclude Include="Executor.h" />
     <ClInclude Include="Expr.h" />

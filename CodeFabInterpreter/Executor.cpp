@@ -1,4 +1,5 @@
 ﻿#include "Executor.h"
+#include "DebugController.h"
 #include <iostream>
 #include <stdexcept>
 
@@ -29,6 +30,7 @@ void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 void Executor::executeStatement(Stmt* stmt, Environment* env)
 {
     if (stmt->line != 0) currentLine_ = stmt->line;
+    if (debug_) debug_->beforeExecute(stmt, env);
 
     if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
     {
