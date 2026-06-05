@@ -114,6 +114,45 @@ TEST(ShellTest, ExitQuitCommand)
     }
 }
 
+// ================================================================
+// Negative UT
+// ================================================================
+
+// TC-PS-10: Checker 에러 후 이전 runLine에서 선언된 변수 상태가 유지되는지 확인
+// Arrange: var a = 5; 선언 후 자기 참조 에러 발생 (var b = b;)
+// Act    : runLine() 세 번 순차 호출
+// Assert : Checker 에러 후에도 a == 5 상태 보존
+TEST(ShellTest, CheckerErrorDoesNotCorruptState)
+{
+    Shell shell;
+    shell.runLine("var a = 5;");
+    shell.runLine("var b = b;"); // Checker 에러 — b는 executor에 등록되지 않음
+
+    testing::internal::CaptureStdout();
+    shell.runLine("print a;");   // a는 여전히 5
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "5\n");
+}
+
+// TC-PS-11: 별도 runLine 호출에서 동일 변수명을 재선언하면 Checker 에러가 발생하는지 확인
+// Arrange: var x = 1; 선언 후 동일 이름 재선언
+// Act    : runLine() 세 번 순차 호출
+// Assert : 두 번째 선언에서 [Checker] 에러 출력, x 값은 1 유지
+TEST(ShellTest, DuplicateVarAcrossRunLine)
+{
+    Shell shell;
+    shell.runLine("var x = 1;");
+
+    testing::internal::CaptureStdout();
+    shell.runLine("var x = 2;"); // 중복 선언 → Checker 에러
+    std::string errOut = testing::internal::GetCapturedStdout();
+    EXPECT_NE(errOut.find("[Checker]"), std::string::npos); // 에러 메시지 출력 확인
+
+    // x는 여전히 1이어야 한다 (Executor가 호출되지 않았으므로)
+    testing::internal::CaptureStdout();
+    shell.runLine("print x;");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "1\n");
+}
+
 // TC-PS-09: 함수 선언과 호출이 별도 runLine() 호출에 걸쳐 동작해야 함
 // Arrange: 첫 번째 runLine()에서 func 선언 (파싱된 AST는 runLine 종료 시 소멸)
 // Act    : 두 번째 runLine()에서 함수 호출

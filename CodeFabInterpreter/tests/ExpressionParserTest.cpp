@@ -526,6 +526,74 @@ TEST(ExprParser, ParsesComparisonLess)
 }
 
 // -----------------------------------------------------------------------
+// TC 18 : 이항 연산자 오른쪽 피연산자 누락
+// 입력  : 1 +
+// 기대  : std::runtime_error throw
+// -----------------------------------------------------------------------
+TEST(ExprParser, MissingRightOperandThrows)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::NUMBER, "1", 1.0),
+        tok(TokenType::PLUS,   "+"),
+        eof()
+    };
+    Parser parser;
+    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC 19 : 닫는 괄호 없는 그루핑
+// 입력  : (1 + 2
+// 기대  : std::runtime_error throw
+// -----------------------------------------------------------------------
+TEST(ExprParser, UnterminatedGroupingThrows)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::LEFT_PAREN, "("),
+        tok(TokenType::NUMBER, "1", 1.0),
+        tok(TokenType::PLUS,   "+"),
+        tok(TokenType::NUMBER, "2", 2.0),
+        eof()
+    };
+    Parser parser;
+    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC 20 : 빈 괄호 그루핑
+// 입력  : ();
+// 기대  : std::runtime_error throw
+// -----------------------------------------------------------------------
+TEST(ExprParser, EmptyGroupingThrows)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::LEFT_PAREN,  "("),
+        tok(TokenType::RIGHT_PAREN, ")"),
+        tok(TokenType::SEMICOLON,   ";"),
+        eof()
+    };
+    Parser parser;
+    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC 21 : 대입 연산자 오른쪽 값 누락
+// 입력  : a =;
+// 기대  : std::runtime_error throw
+// -----------------------------------------------------------------------
+TEST(ExprParser, MissingAssignValueThrows)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::IDENTIFIER, "a"),
+        tok(TokenType::EQUAL,      "="),
+        tok(TokenType::SEMICOLON,  ";"),
+        eof()
+    };
+    Parser parser;
+    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
 // TC 17 : 논리 or 파싱
 // 입력  : a or b;
 // 기대  : ExpressionStmt → BinaryExpr(OR, VariableExpr(a), VariableExpr(b))
