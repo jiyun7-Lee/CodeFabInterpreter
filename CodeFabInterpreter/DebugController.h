@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <unordered_set>
 
 class Stmt;
 class Environment;
@@ -11,14 +12,30 @@ class Environment;
 enum class ExecutionState { RUNNING, PAUSED, STEP, NEXT };
 
 // -----------------------------------------------------------------------
-// DebugController — Executor hook 수신자 (Phase 4 뼈대)
-// Phase 5~7 에서 Breakpoint / Watch / Step 기능 추가 예정
+// BreakpointManager — 줄번호 기반 breakpoint 집합 관리 (Phase 5)
+// -----------------------------------------------------------------------
+class BreakpointManager
+{
+public:
+    void add(int line);
+    void remove(int line);
+    bool isBreakpoint(int line) const;
+    void print() const;
+private:
+    std::unordered_set<int> breakpoints_;
+};
+
+// -----------------------------------------------------------------------
+// DebugController — Executor hook 수신자
 // -----------------------------------------------------------------------
 class DebugController
 {
 public:
     virtual ~DebugController() = default;
     virtual void beforeExecute(Stmt* stmt, Environment* env);
+    void addBreakpoint(int line)    { breakpoints_.add(line); }
+    void removeBreakpoint(int line) { breakpoints_.remove(line); }
 protected:
-    ExecutionState state_ = ExecutionState::STEP;
+    ExecutionState    state_       = ExecutionState::STEP;
+    BreakpointManager breakpoints_;
 };
