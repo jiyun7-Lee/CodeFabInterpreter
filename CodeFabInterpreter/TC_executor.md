@@ -23,6 +23,8 @@
 | TC10   | DivideByZero                  | 🟢 Green  |
 | TC11   | UnaryExpr                     | 🟢 Green  |
 | TC12   | GroupingExpr                  | 🟢 Green  |
+| TC13   | LogicalAnd                    | 🟢 Green  |
+| TC14   | LogicalOr                     | 🟢 Green  |
 
 ---
 
@@ -356,5 +358,61 @@ executor.execute({ printStmt });
 **기대 결과**
 - 괄호 산술 케이스 : stdout = `"3\n"`
 - 중첩 케이스 : stdout = `"-3\n"`
+
+**구현 상태** : 완료
+
+---
+
+### TC13 — LogicalAnd
+
+**목적**
+`BinaryExpr AND` 연산이 올바르게 동작하고 단락 평가가 적용되는지 확인
+
+**사전 조건**
+
+| 케이스 | 입력 | 기대 결과 |
+|--------|------|---------|
+| true and true  | `LiteralExpr(true) AND LiteralExpr(true)` | `"true\n"` |
+| true and false | `LiteralExpr(true) AND LiteralExpr(false)` | `"false\n"` |
+| false and true | `LiteralExpr(false) AND LiteralExpr(true)` | `"false\n"` |
+| false and false| `LiteralExpr(false) AND LiteralExpr(false)` | `"false\n"` |
+| 단락 평가 | `false AND (1/0)` | 예외 없이 실행 (`ASSERT_NO_THROW`) |
+
+**실행**
+```cpp
+executor.execute({ printStmt });
+```
+
+**기대 결과**
+- 4가지 bool 조합 결과 정확히 출력
+- 왼쪽이 false일 때 오른쪽 평가 없이 반환 (단락 평가)
+
+**구현 상태** : 완료
+
+---
+
+### TC14 — LogicalOr
+
+**목적**
+`BinaryExpr OR` 연산이 올바르게 동작하고 단락 평가가 적용되는지 확인
+
+**사전 조건**
+
+| 케이스 | 입력 | 기대 결과 |
+|--------|------|---------|
+| true or true   | `LiteralExpr(true) OR LiteralExpr(true)` | `"true\n"` |
+| true or false  | `LiteralExpr(true) OR LiteralExpr(false)` | `"true\n"` |
+| false or true  | `LiteralExpr(false) OR LiteralExpr(true)` | `"true\n"` |
+| false or false | `LiteralExpr(false) OR LiteralExpr(false)` | `"false\n"` |
+| 단락 평가 | `true OR (1/0)` | 예외 없이 실행 (`ASSERT_NO_THROW`) |
+
+**실행**
+```cpp
+executor.execute({ printStmt });
+```
+
+**기대 결과**
+- 4가지 bool 조합 결과 정확히 출력
+- 왼쪽이 true일 때 오른쪽 평가 없이 반환 (단락 평가)
 
 **구현 상태** : 완료
