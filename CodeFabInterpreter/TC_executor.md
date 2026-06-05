@@ -22,6 +22,7 @@
 | TC9    | TypeError                     | 🟢 Green  |
 | TC10   | DivideByZero                  | 🟢 Green  |
 | TC11   | UnaryExpr                     | 🟢 Green  |
+| TC12   | GroupingExpr                  | 🟢 Green  |
 
 ---
 
@@ -330,5 +331,30 @@ executor.execute({ printStmt });
 - MINUS 케이스 : stdout = `"-3\n"`
 - BANG 케이스 : stdout = `"false\n"`
 - 타입 불일치 케이스 : `RuntimeError` 예외 발생
+
+**구현 상태** : 완료
+
+---
+
+### TC12 — GroupingExpr
+
+**목적**
+괄호로 묶인 `GroupingExpr` 내부 expression이 올바르게 평가되는지 확인
+
+**사전 조건**
+
+| 케이스 | 입력 | 기대 결과 |
+|--------|------|---------|
+| 괄호 산술 | `GroupingExpr { BinaryExpr(1.0 + 2.0) }` | `"3\n"` |
+| 중첩 (괄호 + 단항) | `GroupingExpr { UnaryExpr(MINUS, 3.0) }` | `"-3\n"` |
+
+**실행**
+```cpp
+executor.execute({ printStmt });
+```
+
+**기대 결과**
+- 괄호 산술 케이스 : stdout = `"3\n"`
+- 중첩 케이스 : stdout = `"-3\n"`
 
 **구현 상태** : 완료

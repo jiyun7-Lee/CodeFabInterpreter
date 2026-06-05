@@ -91,6 +91,9 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
     if (auto* e = dynamic_cast<VariableExpr*>(expr))
         return env->get(e->name.lexeme);
 
+    if (auto* e = dynamic_cast<GroupingExpr*>(expr))
+        return evaluateExpr(e->expression.get(), env);
+
     if (auto* e = dynamic_cast<UnaryExpr*>(expr))
     {
         Value val = evaluateExpr(e->right.get(), env);
