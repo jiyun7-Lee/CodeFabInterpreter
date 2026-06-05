@@ -113,3 +113,18 @@ TEST(ShellTest, ExitQuitCommand)
         EXPECT_EQ(testing::internal::GetCapturedStdout(), "") << "input: " << cmd;
     }
 }
+
+// TC-PS-09: 함수 선언과 호출이 별도 runLine() 호출에 걸쳐 동작해야 함
+// Arrange: 첫 번째 runLine()에서 func 선언 (파싱된 AST는 runLine 종료 시 소멸)
+// Act    : 두 번째 runLine()에서 함수 호출
+// Assert : stdout == "7\n" — AST 소멸 후에도 함수 body가 유효해야 함
+// [Regression] FunctionValue::body 가 raw Stmt* 일 때 dangling pointer로 crash 발생
+TEST(ShellTest, FunctionPersistsAcrossRunLine)
+{
+    Shell shell;
+    shell.runLine("func add(a, b) { return a + b; }");
+
+    testing::internal::CaptureStdout();
+    shell.runLine("print add(3, 4);");
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "7\n");
+}

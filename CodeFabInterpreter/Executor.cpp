@@ -70,6 +70,18 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
             executeStatement(st.get(), &blockEnv);
         return;
     }
+
+    if (auto* s = dynamic_cast<FunctionDeclareStmt*>(stmt))
+    {
+        functions_[s->name.lexeme] = {s->params, std::move(s->body)};
+        return;
+    }
+
+    if (auto* s = dynamic_cast<ReturnStmt*>(stmt))
+    {
+        Value val = s->value ? evaluateExpr(s->value.get(), env) : std::monostate{};
+        throw ReturnSignal{val};
+    }
 }
 
 void Executor::printValue(const Value& val)
@@ -80,6 +92,26 @@ void Executor::printValue(const Value& val)
             std::cout << v << "\n";
         else if constexpr (std::is_same_v<T, bool>)
             std::cout << (v ? "true" : "false") << "\n";
+        else if constexpr (std::is_same_v<T, std::monostate>)
+            std::cout << "null\n";
+        else if constexpr (std::is_same_v<T, std::shared_ptr<ArrayValue>>)
+        {
+            std::cout << "[";
+            for (size_t i = 0; i < v->elements.size(); ++i)
+            {
+                if (i > 0) std::cout << ", ";
+                std::visit([](const auto& elem) {
+                    using ET = std::decay_t<decltype(elem)>;
+                    if constexpr (std::is_same_v<ET, double> || std::is_same_v<ET, std::string>)
+                        std::cout << elem;
+                    else if constexpr (std::is_same_v<ET, bool>)
+                        std::cout << (elem ? "true" : "false");
+                    else if constexpr (std::is_same_v<ET, std::monostate>)
+                        std::cout << "null";
+                }, v->elements[i]);
+            }
+            std::cout << "]\n";
+        }
     }, val);
 }
 
@@ -162,6 +194,84 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
             }
             default: return std::monostate{};
         }
+    }
+
+    if (auto* e = dynamic_cast<FunctionCallExpr*>(expr))
+    {
+        // 빌트인 Array(n) — 고정 크기 배열 생성, 초기값 null
+        // 사용자가 `func Array(n) { ... }` 를 선언하면 functions_ 에 등록되어
+        // 해당 조건이 false 가 되므로 사용자 정의 함수가 빌트인을 오버라이드한다.
+        // 이는 의도된 동작이다 — 사용자 정의가 항상 빌트인보다 우선한다.
+        if (e->callee.lexeme == "Array" && functions_.find("Array") == functions_.end())
+        {
+            if (e->args.size() != 1)
+                throw std::runtime_error("Array(): 인자가 1개 필요합니다.");
+            Value sizeVal = evaluateExpr(e->args[0].get(), env);
+            if (!std::holds_alternative<double>(sizeVal))
+                throw std::runtime_error("Array(): 배열 크기는 숫자여야 합니다.");
+            int size = static_cast<int>(std::get<double>(sizeVal));
+            if (size < 0)
+                throw std::runtime_error("Array(): 배열 크기는 0 이상이어야 합니다.");
+            auto arr = std::make_shared<ArrayValue>();
+            arr->elements.resize(static_cast<size_t>(size), std::monostate{});
+            return arr;
+        }
+
+        auto it = functions_.find(e->callee.lexeme);
+        if (it == functions_.end())
+            throw std::runtime_error("Undefined function '" + e->callee.lexeme + "'");
+        const auto& fn = it->second;
+        if (e->args.size() != fn.params.size())
+            throw std::runtime_error("'" + e->callee.lexeme + "': wrong number of arguments");
+
+        Environment fnEnv;
+        fnEnv.parent = &globalEnv;
+        for (size_t i = 0; i < fn.params.size(); ++i)
+            fnEnv.define(fn.params[i].lexeme, evaluateExpr(e->args[i].get(), env));
+
+        try { executeStatement(fn.body.get(), &fnEnv); }
+        catch (const ReturnSignal& ret) { return ret.value; }
+        return std::monostate{};
+    }
+
+    if (auto* e = dynamic_cast<ArrayLiteralExpr*>(expr))
+    {
+        auto arr = std::make_shared<ArrayValue>();
+        for (const auto& elem : e->elements)
+            arr->elements.push_back(evaluateExpr(elem.get(), env));
+        return arr;
+    }
+
+    if (auto* e = dynamic_cast<ArrayAccessExpr*>(expr))
+    {
+        Value arrVal = evaluateExpr(e->array.get(), env);
+        if (!std::holds_alternative<std::shared_ptr<ArrayValue>>(arrVal))
+            throw std::runtime_error("Type error: not an array");
+        auto arr     = std::get<std::shared_ptr<ArrayValue>>(arrVal);
+        Value idxVal = evaluateExpr(e->index.get(), env);
+        if (!std::holds_alternative<double>(idxVal))
+            throw std::runtime_error("Type error: array index must be a number");
+        int idx = static_cast<int>(std::get<double>(idxVal));
+        if (idx < 0 || idx >= static_cast<int>(arr->elements.size()))
+            throw std::runtime_error("Array index out of bounds");
+        return arr->elements[idx];
+    }
+
+    if (auto* e = dynamic_cast<ArrayWriteExpr*>(expr))
+    {
+        Value arrVal = evaluateExpr(e->array.get(), env);
+        if (!std::holds_alternative<std::shared_ptr<ArrayValue>>(arrVal))
+            throw std::runtime_error("Type error: not an array");
+        auto arr     = std::get<std::shared_ptr<ArrayValue>>(arrVal);
+        Value idxVal = evaluateExpr(e->index.get(), env);
+        if (!std::holds_alternative<double>(idxVal))
+            throw std::runtime_error("Type error: array index must be a number");
+        int idx = static_cast<int>(std::get<double>(idxVal));
+        if (idx < 0 || idx >= static_cast<int>(arr->elements.size()))
+            throw std::runtime_error("Array index out of bounds");
+        Value newVal = evaluateExpr(e->value.get(), env);
+        arr->elements[idx] = newVal;
+        return newVal;
     }
 
     return std::monostate{};

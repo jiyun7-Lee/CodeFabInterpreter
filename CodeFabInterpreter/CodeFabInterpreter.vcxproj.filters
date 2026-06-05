@@ -57,6 +57,12 @@
     <ClCompile Include="tests\ShellTest.cpp">
       <Filter>Test</Filter>
     </ClCompile>
+    <ClCompile Include="tests\FunctionTest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\ArrayTest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Checker.h">

@@ -37,6 +37,8 @@ private:
     std::unique_ptr<Stmt> parseForStatement();
     std::unique_ptr<Stmt> parseBlock();
     std::unique_ptr<Stmt> parseExpressionStatement();
+    std::unique_ptr<Stmt> parseFunctionDeclaration();
+    std::unique_ptr<Stmt> parseReturnStatement();
 
     // Expression (B파트)
     std::unique_ptr<Expr> parseAssignment();
@@ -46,6 +48,7 @@ private:
     std::unique_ptr<Expr> parseTerm();
     std::unique_ptr<Expr> parseFactor();
     std::unique_ptr<Expr> parseUnary();
+    std::unique_ptr<Expr> parsePostfix();
     std::unique_ptr<Expr> parsePrimary();
 
     std::unique_ptr<BinaryExpr> makeBinary(
