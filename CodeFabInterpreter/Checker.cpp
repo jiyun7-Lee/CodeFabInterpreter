@@ -8,23 +8,23 @@ using FuncMap = std::unordered_map<std::string, size_t>; // 함수명 → 파라
 // -----------------------------------------------------------------------
 // 전방 선언
 // -----------------------------------------------------------------------
-static void checkExpr(const Expr* expr,
+static void checkExpr(Expr* expr,
                       const std::string& declaringVarName,
                       std::vector<std::string>& errors,
                       bool& selfRefFound,
                       const FuncMap& funcs,
                       const std::vector<Scope>& scopes);
 
-static void checkStmt(const Stmt* stmt,
+static void checkStmt(Stmt* stmt,
                       std::vector<Scope>& scopes,
                       std::vector<std::string>& errors,
                       FuncMap& funcs,
                       bool insideFunction);
 
 // -----------------------------------------------------------------------
-// checkExpr
+// checkExpr — non-const: VariableExpr/AssignExpr 에 distance 기록
 // -----------------------------------------------------------------------
-static void checkExpr(const Expr* expr,
+static void checkExpr(Expr* expr,
                       const std::string& declaringVarName,
                       std::vector<std::string>& errors,
                       bool& selfRefFound,
@@ -33,7 +33,7 @@ static void checkExpr(const Expr* expr,
 {
     if (!expr) return;
 
-    if (const auto* e = dynamic_cast<const VariableExpr*>(expr))
+    if (auto* e = dynamic_cast<VariableExpr*>(expr))
     {
         if (!declaringVarName.empty() && e->name.lexeme == declaringVarName && !selfRefFound)
         {
@@ -41,32 +41,56 @@ static void checkExpr(const Expr* expr,
             errors.push_back("[" + std::to_string(e->name.line) + "번째 줄] "
                              "변수 '" + declaringVarName + "' 가 자기 자신을 초기화에 참조합니다.");
         }
+        // 정적 바인딩: 가장 안쪽 스코프부터 바깥으로 탐색해 distance 기록
+        for (int i = (int)scopes.size() - 1; i >= 0; i--)
+        {
+            if (scopes[i].count(e->name.lexeme))
+            {
+                e->distance = (int)scopes.size() - 1 - i;
+                break;
+            }
+        }
     }
-    else if (const auto* e = dynamic_cast<const BinaryExpr*>(expr))
+    else if (auto* e = dynamic_cast<BinaryExpr*>(expr))
     {
         checkExpr(e->left.get(),  declaringVarName, errors, selfRefFound, funcs, scopes);
         checkExpr(e->right.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
     }
-    else if (const auto* e = dynamic_cast<const UnaryExpr*>(expr))
+    else if (auto* e = dynamic_cast<UnaryExpr*>(expr))
     {
         checkExpr(e->right.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
     }
-    else if (const auto* e = dynamic_cast<const GroupingExpr*>(expr))
+    else if (auto* e = dynamic_cast<GroupingExpr*>(expr))
     {
         checkExpr(e->expression.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
     }
-    else if (const auto* e = dynamic_cast<const AssignExpr*>(expr))
+    else if (auto* e = dynamic_cast<AssignExpr*>(expr))
     {
         checkExpr(e->value.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
+        // 정적 바인딩: 대입 대상 변수의 distance 기록
+        for (int i = (int)scopes.size() - 1; i >= 0; i--)
+        {
+            if (scopes[i].count(e->name.lexeme))
+            {
+                e->distance = (int)scopes.size() - 1 - i;
+                break;
+            }
+        }
     }
-    else if (const auto* e = dynamic_cast<const ArrayWriteExpr*>(expr))
+    else if (auto* e = dynamic_cast<ArrayAccessExpr*>(expr))
+    {
+        checkExpr(e->array.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
+        checkExpr(e->index.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
+    }
+    else if (auto* e = dynamic_cast<ArrayWriteExpr*>(expr))
     {
         // arr[i] = val — ArrayAccessExpr(읽기)와 구분되는 쓰기 전용 노드.
         // 동일한 arr[i] 문법이 대입 좌변이면 ArrayWriteExpr, 우변이면 ArrayAccessExpr 로 파싱된다.
+        checkExpr(e->array.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
         checkExpr(e->index.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
         checkExpr(e->value.get(), declaringVarName, errors, selfRefFound, funcs, scopes);
     }
-    else if (const auto* e = dynamic_cast<const FunctionCallExpr*>(expr))
+    else if (auto* e = dynamic_cast<FunctionCallExpr*>(expr))
     {
         const std::string& callee = e->callee.lexeme;
         int line = e->callee.line;
@@ -103,9 +127,9 @@ static void checkExpr(const Expr* expr,
 }
 
 // -----------------------------------------------------------------------
-// checkStmt
+// checkStmt — non-const: 자식 expr 에 non-const Expr* 전달 가능
 // -----------------------------------------------------------------------
-static void checkStmt(const Stmt* stmt,
+static void checkStmt(Stmt* stmt,
                       std::vector<Scope>& scopes,
                       std::vector<std::string>& errors,
                       FuncMap& funcs,
@@ -113,7 +137,7 @@ static void checkStmt(const Stmt* stmt,
 {
     if (!stmt) return;
 
-    if (const auto* s = dynamic_cast<const VarDeclareStmt*>(stmt))
+    if (auto* s = dynamic_cast<VarDeclareStmt*>(stmt))
     {
         bool selfRefFound = false;
         checkExpr(s->initializer.get(), s->name.lexeme, errors, selfRefFound, funcs, scopes);
@@ -124,7 +148,7 @@ static void checkStmt(const Stmt* stmt,
         else
             scopes.back().insert(s->name.lexeme);
     }
-    else if (const auto* s = dynamic_cast<const FunctionDeclareStmt*>(stmt))
+    else if (auto* s = dynamic_cast<FunctionDeclareStmt*>(stmt))
     {
         // 파라미터 이름 중복 검사
         std::unordered_set<std::string> paramSet;
@@ -144,7 +168,7 @@ static void checkStmt(const Stmt* stmt,
         checkStmt(s->body.get(), scopes, errors, funcs, true);
         scopes.pop_back();
     }
-    else if (const auto* s = dynamic_cast<const ReturnStmt*>(stmt))
+    else if (auto* s = dynamic_cast<ReturnStmt*>(stmt))
     {
         // 함수 외부 return 검사
         if (!insideFunction)
@@ -156,21 +180,21 @@ static void checkStmt(const Stmt* stmt,
             checkExpr(s->value.get(), "", errors, unused, funcs, scopes);
         }
     }
-    else if (const auto* s = dynamic_cast<const BlockStmt*>(stmt))
+    else if (auto* s = dynamic_cast<BlockStmt*>(stmt))
     {
         scopes.push_back({});
         for (const auto& st : s->statements)
             checkStmt(st.get(), scopes, errors, funcs, insideFunction);
         scopes.pop_back();
     }
-    else if (const auto* s = dynamic_cast<const IfStmt*>(stmt))
+    else if (auto* s = dynamic_cast<IfStmt*>(stmt))
     {
         bool unused = false;
         checkExpr(s->condition.get(), "", errors, unused, funcs, scopes);
         checkStmt(s->thenBranch.get(), scopes, errors, funcs, insideFunction);
         checkStmt(s->elseBranch.get(), scopes, errors, funcs, insideFunction);
     }
-    else if (const auto* s = dynamic_cast<const ForStmt*>(stmt))
+    else if (auto* s = dynamic_cast<ForStmt*>(stmt))
     {
         bool unused = false;
         scopes.push_back({});
@@ -180,12 +204,12 @@ static void checkStmt(const Stmt* stmt,
         checkStmt(s->body.get(), scopes, errors, funcs, insideFunction);
         scopes.pop_back();
     }
-    else if (const auto* s = dynamic_cast<const PrintStmt*>(stmt))
+    else if (auto* s = dynamic_cast<PrintStmt*>(stmt))
     {
         bool unused = false;
         checkExpr(s->expression.get(), "", errors, unused, funcs, scopes);
     }
-    else if (const auto* s = dynamic_cast<const ExpressionStmt*>(stmt))
+    else if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
     {
         bool unused = false;
         checkExpr(s->expression.get(), "", errors, unused, funcs, scopes);
@@ -193,7 +217,8 @@ static void checkStmt(const Stmt* stmt,
 }
 
 // -----------------------------------------------------------------------
-// public
+// public — check() 시그니처는 const& 유지
+// const unique_ptr<Stmt>::get() 은 Stmt* 를 반환하므로 non-const checkStmt 호출 가능
 // -----------------------------------------------------------------------
 bool Checker::check(const std::vector<std::unique_ptr<Stmt>>& statements)
 {

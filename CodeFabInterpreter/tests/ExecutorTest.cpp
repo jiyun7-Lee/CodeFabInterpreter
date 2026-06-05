@@ -672,6 +672,121 @@ TEST(ExecutorTest, ErrorMessage_DivideByZero)
     }
 }
 
+// ================================================================
+// Negative UT
+// ================================================================
+
+// TC15: 문자열(lhs) + 숫자 연산 시 RuntimeError가 발생하는지 확인
+TEST(ExecutorTest, StringPlusNumberThrows)
+{
+	auto left  = std::make_unique<LiteralExpr>(); left->value  = std::string("hello");
+	auto right = std::make_unique<LiteralExpr>(); right->value = 1.0;
+	Token op; op.type = TokenType::PLUS;
+	auto bin = std::make_unique<BinaryExpr>();
+	bin->left = std::move(left); bin->op = op; bin->right = std::move(right);
+	auto stmt = std::make_unique<PrintStmt>();
+	stmt->expression = std::move(bin);
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(stmt));
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// TC16: 문자열끼리 대소 비교(>) 시 RuntimeError가 발생하는지 확인
+TEST(ExecutorTest, StringComparisonThrows)
+{
+	auto left  = std::make_unique<LiteralExpr>(); left->value  = std::string("a");
+	auto right = std::make_unique<LiteralExpr>(); right->value = std::string("b");
+	Token op; op.type = TokenType::GREATER;
+	auto bin = std::make_unique<BinaryExpr>();
+	bin->left = std::move(left); bin->op = op; bin->right = std::move(right);
+	auto stmt = std::make_unique<PrintStmt>();
+	stmt->expression = std::move(bin);
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(stmt));
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// TC17: bool + 숫자 연산 시 RuntimeError가 발생하는지 확인
+TEST(ExecutorTest, BoolArithmeticThrows)
+{
+	auto left  = std::make_unique<LiteralExpr>(); left->value  = true;
+	auto right = std::make_unique<LiteralExpr>(); right->value = 1.0;
+	Token op; op.type = TokenType::PLUS;
+	auto bin = std::make_unique<BinaryExpr>();
+	bin->left = std::move(left); bin->op = op; bin->right = std::move(right);
+	auto stmt = std::make_unique<PrintStmt>();
+	stmt->expression = std::move(bin);
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(stmt));
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// TC18: null + 숫자 연산 시 RuntimeError가 발생하는지 확인
+TEST(ExecutorTest, NullArithmeticThrows)
+{
+	auto left  = std::make_unique<LiteralExpr>(); left->value  = std::monostate{};
+	auto right = std::make_unique<LiteralExpr>(); right->value = 1.0;
+	Token op; op.type = TokenType::PLUS;
+	auto bin = std::make_unique<BinaryExpr>();
+	bin->left = std::move(left); bin->op = op; bin->right = std::move(right);
+	auto stmt = std::make_unique<PrintStmt>();
+	stmt->expression = std::move(bin);
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(stmt));
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// TC19: 선언되지 않은 변수에 대입 시 RuntimeError가 발생하는지 확인
+TEST(ExecutorTest, AssignUndeclaredVarThrows)
+{
+	Token xToken; xToken.lexeme = "x";
+	auto assignVal = std::make_unique<LiteralExpr>(); assignVal->value = 5.0;
+	auto assignExpr = std::make_unique<AssignExpr>();
+	assignExpr->name  = xToken;
+	assignExpr->value = std::move(assignVal);
+	auto stmt = std::make_unique<ExpressionStmt>();
+	stmt->expression = std::move(assignExpr);
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(stmt));
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// TC20: null 반환 함수 결과를 산술 연산에 사용 시 RuntimeError가 발생하는지 확인
+TEST(ExecutorTest, NullReturnArithmeticThrows)
+{
+	Token fTok; fTok.lexeme = "f";
+
+	// func f() {}
+	auto fnBody = std::make_unique<BlockStmt>();
+	auto fnDecl = std::make_unique<FunctionDeclareStmt>();
+	fnDecl->name = fTok;
+	fnDecl->body = std::move(fnBody);
+
+	// f() + 1.0
+	auto callExpr = std::make_unique<FunctionCallExpr>();
+	callExpr->callee = fTok;
+
+	auto one = std::make_unique<LiteralExpr>(); one->value = 1.0;
+	Token plusOp; plusOp.type = TokenType::PLUS;
+	auto bin = std::make_unique<BinaryExpr>();
+	bin->left = std::move(callExpr); bin->op = plusOp; bin->right = std::move(one);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(bin);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(fnDecl));
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
 // TC14: BinaryExpr OR — 단락 평가, true/false 조합 결과 확인
 TEST(ExecutorTest, LogicalOr)
 {

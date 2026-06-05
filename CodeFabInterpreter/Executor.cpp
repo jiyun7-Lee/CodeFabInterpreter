@@ -51,6 +51,8 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
 
     if (auto* s = dynamic_cast<ForStmt*>(stmt))
     {
+        // Checker가 for-init 변수를 별도 스코프에 등록하므로
+        // Executor도 대응하는 Environment를 생성해 distance 값과 환경 체인을 일치시킨다.
         Environment forEnv;
         forEnv.parent = env;
         if (s->init)
@@ -123,7 +125,8 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         return e->value;
 
     if (auto* e = dynamic_cast<VariableExpr*>(expr))
-        return env->get(e->name.lexeme, e->name.line);
+        return e->distance >= 0 ? env->getAt(e->distance, e->name.lexeme)
+                                : env->get(e->name.lexeme, e->name.line);
 
     if (auto* e = dynamic_cast<GroupingExpr*>(expr))
         return evaluateExpr(e->expression.get(), env);
@@ -145,7 +148,10 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
     if (auto* e = dynamic_cast<AssignExpr*>(expr))
     {
         Value val = evaluateExpr(e->value.get(), env);
-        env->assign(e->name.lexeme, val, e->name.line);
+        if (e->distance >= 0)
+            env->assignAt(e->distance, e->name.lexeme, val);
+        else
+            env->assign(e->name.lexeme, val, e->name.line);
         return val;
     }
 

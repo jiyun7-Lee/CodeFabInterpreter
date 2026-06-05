@@ -11,5 +11,7 @@ public:
 
     void define(const std::string& name, Value value);
     Value get(const std::string& name, int line = 0) const;
+    Value getAt(int distance, const std::string& name) const;
     void assign(const std::string& name, Value value, int line = 0);
+    void assignAt(int distance, const std::string& name, Value value);
 };

@@ -262,6 +262,15 @@ TEST_F(TokenizerFixture, UnknownCharacterThrows)
 }
 
 // ──────────────────────────────────────────────
+// 에러(T-1): 소스 중간에 알 수 없는 문자가 있으면 runtime_error를 throw한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, UnknownCharMidSourceThrows)
+{
+    // 유효한 토큰(var, x) 사이에 '@' 가 끼어있는 경우
+    ASSERT_THROW(tokenizer.tokenize("var @ x"), std::runtime_error);
+}
+
+// ──────────────────────────────────────────────
 // 복합: 여러 줄 소스의 type과 line이 동시에 올바르다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, MultilineSourceHasCorrectTypeAndLine)

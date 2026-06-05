@@ -19,6 +19,7 @@ class VariableExpr : public Expr
 {
 public:
     Token name;
+    int   distance = -1;
 };
 
 class UnaryExpr : public Expr
@@ -41,6 +42,7 @@ class AssignExpr : public Expr
 public:
     Token                  name;
     std::unique_ptr<Expr>  value;
+    int                    distance = -1;
 };
 
 class GroupingExpr : public Expr

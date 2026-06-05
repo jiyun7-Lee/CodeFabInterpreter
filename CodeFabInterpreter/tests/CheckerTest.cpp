@@ -202,3 +202,90 @@ TEST(CheckerTest, C_TC_12_VarInsideIfBlock)
         )
     )));
 }
+
+// ================================================================
+// Negative UT — 추가 헬퍼
+// ================================================================
+
+static std::unique_ptr<Expr> makeGrouping(std::unique_ptr<Expr> inner)
+{
+    auto e         = std::make_unique<GroupingExpr>();
+    e->expression  = std::move(inner);
+    return e;
+}
+
+static std::unique_ptr<Expr> makeUnary(TokenType op, std::unique_ptr<Expr> right)
+{
+    auto e   = std::make_unique<UnaryExpr>();
+    e->op    = Token{ op, "", 1, std::monostate{} };
+    e->right = std::move(right);
+    return e;
+}
+
+static std::unique_ptr<Stmt> makeReturn(std::unique_ptr<Expr> val = nullptr)
+{
+    auto s   = std::make_unique<ReturnStmt>();
+    s->value = std::move(val);
+    return s;
+}
+
+static std::unique_ptr<Stmt> makeFuncDecl(
+    const std::string& name,
+    std::vector<std::string> paramNames,
+    std::unique_ptr<Stmt> body)
+{
+    auto s   = std::make_unique<FunctionDeclareStmt>();
+    s->name  = idTok(name);
+    for (const auto& pn : paramNames)
+        s->params.push_back(idTok(pn));
+    s->body  = std::move(body);
+    return s;
+}
+
+// ================================================================
+// Negative UT
+// ================================================================
+
+// C-TC-13 : var a = (a + 1);  →  Error (GroupingExpr 내 자기 참조)
+TEST(CheckerTest, SelfReferenceInGrouping)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeVarDecl("a",
+            makeGrouping(makeBin(makeVar("a"), TokenType::PLUS, makeLit(1.0)))
+        )
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-14 : var a = -a;  →  Error (UnaryExpr 내 자기 참조)
+TEST(CheckerTest, SelfReferenceInUnary)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeVarDecl("a",
+            makeUnary(TokenType::MINUS, makeVar("a"))
+        )
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-15 : { return 5; }  (함수 외부 블록)  →  Error
+TEST(CheckerTest, ReturnInNestedBlockOutsideFunc)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeBlock(S(makeReturn(makeLit(5.0))))
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-16 : func foo(a, b, a) {}  (비연속 파라미터 중복)  →  Error
+TEST(CheckerTest, DuplicateParamInFuncExtended)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeFuncDecl("foo", {"a", "b", "a"}, makeBlock(S()))
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}

@@ -227,3 +227,49 @@ TEST(ArrayTest, ArraySizeNotNumber)
     Executor executor;
     ASSERT_THROW(executor.execute(stmts), std::runtime_error);
 }
+
+// -----------------------------------------------------------------------
+// Negative UT
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// TC-AR-10: 음수 인덱스로 배열 접근 → RuntimeError
+// var arr = Array(3); print arr[-1];
+// -----------------------------------------------------------------------
+TEST(ArrayTest, NegativeIndexThrows)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("var arr = Array(3); print arr[-1];");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC-AR-11: Array() 크기에 음수 전달 → RuntimeError
+// var arr = Array(-1);
+// -----------------------------------------------------------------------
+TEST(ArrayTest, NegativeArraySizeThrows)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("var arr = Array(-1);");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC-AR-12: 크기 0 배열의 첫 번째 요소 접근 → RuntimeError
+// var arr = Array(0); print arr[0];
+// -----------------------------------------------------------------------
+TEST(ArrayTest, ZeroSizeArrayAccessThrows)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("var arr = Array(0); print arr[0];");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
