@@ -2,8 +2,22 @@
 #include "TestHelpers.h"
 #include "../Parser.h"
 #include "../Executor.h"
+#include "../Tokenizer.h"
 #include "../Stmt.h"
 #include "../Expr.h"
+
+// 소스 문자열 파싱 후 실행 → stdout 반환 헬퍼
+static std::string runSource(const std::string& source)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize(source);
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    testing::internal::CaptureStdout();
+    executor.execute(stmts);
+    return testing::internal::GetCapturedStdout();
+}
 
 // -----------------------------------------------------------------------
 // TC-AR-01: 배열 리터럴 파싱
@@ -137,6 +151,79 @@ TEST(ArrayTest, ArrayAccessOutOfBounds)
     stmts.push_back(std::move(varDecl));
     stmts.push_back(std::move(printStmt));
 
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC-AR-05: Array(n) 고정 크기 배열 생성 — 초기값 null, 인덱스 접근
+// var arr = Array(3); print arr[0]; → "null\n"
+// -----------------------------------------------------------------------
+TEST(ArrayTest, ArrayCreation)
+{
+    EXPECT_EQ(runSource("var arr = Array(3); print arr[0];"), "null\n");
+    EXPECT_EQ(runSource("var arr = Array(3); print arr[2];"), "null\n");
+}
+
+// -----------------------------------------------------------------------
+// TC-AR-06: 배열 쓰기 — arr[i] = val 후 읽기
+// var arr = Array(3); arr[1] = 99; print arr[1]; → "99\n"
+// -----------------------------------------------------------------------
+TEST(ArrayTest, ArrayWrite)
+{
+    EXPECT_EQ(runSource(
+        "var arr = Array(3);"
+        "arr[0] = 10;"
+        "arr[1] = 20;"
+        "arr[2] = 30;"
+        "print arr[1];"), "20\n");
+
+    // 변수 인덱스로 쓰기
+    EXPECT_EQ(runSource(
+        "var arr = Array(3);"
+        "var i = 2;"
+        "arr[i] = 42;"
+        "print arr[2];"), "42\n");
+}
+
+// -----------------------------------------------------------------------
+// TC-AR-07: 런타임 오류 — 인덱스가 숫자 아닌 경우
+// print arr["hello"]; → RuntimeError
+// -----------------------------------------------------------------------
+TEST(ArrayTest, ArrayIndexNotNumber)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("var arr = Array(3); print arr[\"hello\"];");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC-AR-08: 런타임 오류 — 배열이 아닌 대상에 [] 사용
+// var x = 10; print x[0]; → RuntimeError
+// -----------------------------------------------------------------------
+TEST(ArrayTest, IndexOnNonArray)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("var x = 10; print x[0];");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+    Executor executor;
+    ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// -----------------------------------------------------------------------
+// TC-AR-09: 런타임 오류 — Array() 크기가 숫자 아닌 경우
+// var arr = Array("hi"); → RuntimeError
+// -----------------------------------------------------------------------
+TEST(ArrayTest, ArraySizeNotNumber)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize("var arr = Array(\"hi\");");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
     Executor executor;
     ASSERT_THROW(executor.execute(stmts), std::runtime_error);
 }

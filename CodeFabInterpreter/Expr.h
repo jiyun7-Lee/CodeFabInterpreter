@@ -68,3 +68,11 @@ public:
     std::unique_ptr<Expr>  array;
     std::unique_ptr<Expr>  index;
 };
+
+class ArrayWriteExpr : public Expr
+{
+public:
+    std::unique_ptr<Expr>  array;
+    std::unique_ptr<Expr>  index;
+    std::unique_ptr<Expr>  value;
+};

@@ -231,13 +231,23 @@ std::unique_ptr<Expr> Parser::parseAssignment()
         Token op    = previous(); // 연산자를 재귀 호출 이전에 캡처 (인자 평가 순서 보장)
         auto  value = parseAssignment(); // 우결합: 재귀 호출
 
-        // 대입의 좌변은 반드시 변수(VariableExpr) 여야 한다.
+        // 좌변이 변수인 경우 — AssignExpr
         if (auto* var = dynamic_cast<VariableExpr*>(expr.get()))
         {
             auto assign   = std::make_unique<AssignExpr>();
             assign->name  = var->name;
             assign->value = std::move(value);
             return assign;
+        }
+
+        // 좌변이 배열 접근인 경우 — ArrayWriteExpr
+        if (auto* acc = dynamic_cast<ArrayAccessExpr*>(expr.get()))
+        {
+            auto write   = std::make_unique<ArrayWriteExpr>();
+            write->array = std::move(acc->array);
+            write->index = std::move(acc->index);
+            write->value = std::move(value);
+            return write;
         }
     }
     return expr;
