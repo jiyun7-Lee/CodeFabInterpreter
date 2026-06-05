@@ -382,7 +382,7 @@ TEST(OptimizationTest, CF_TC_08_IdentityAdd0_YieldsVar)
 {
     auto stmts = S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::PLUS, makeLit(0.0))));
     Checker checker;
-    checker.check(stmts);
+    ASSERT_TRUE(checker.check(stmts));
     auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(decl, nullptr);
     auto* var = dynamic_cast<VariableExpr*>(decl->initializer.get());
@@ -395,7 +395,7 @@ TEST(OptimizationTest, CF_TC_09_MultiplyBy0_YieldsZero)
 {
     auto stmts = S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::STAR, makeLit(0.0))));
     Checker checker;
-    checker.check(stmts);
+    ASSERT_TRUE(checker.check(stmts));
     auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(decl, nullptr);
     EXPECT_TRUE(isLiteralDouble(decl->initializer, 0.0));
@@ -406,10 +406,43 @@ TEST(OptimizationTest, CF_TC_10_MultiplyBy1_YieldsVar)
 {
     auto stmts = S(makeVarDecl("y", makeBin(makeLit(1.0), TokenType::STAR, makeVar("x"))));
     Checker checker;
-    checker.check(stmts);
+    ASSERT_TRUE(checker.check(stmts));
     auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
     ASSERT_NE(decl, nullptr);
     auto* var = dynamic_cast<VariableExpr*>(decl->initializer.get());
     ASSERT_NE(var, nullptr);
     EXPECT_EQ(var->name.lexeme, "x");
+}
+
+// CF-TC-11 : var x = 5.0 / 0.0;  →  BinaryExpr 그대로 유지 (0 나누기 비폴딩)
+TEST(OptimizationTest, CF_TC_11_DivByZero_NotFolded)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(5.0), TokenType::SLASH, makeLit(0.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    // LiteralExpr 로 교체되면 안 됨
+    EXPECT_EQ(dynamic_cast<LiteralExpr*>(decl->initializer.get()), nullptr);
+    // BinaryExpr 그대로 유지
+    EXPECT_NE(dynamic_cast<BinaryExpr*>(decl->initializer.get()), nullptr);
+}
+
+// CF-TC-12 : var x = (1.0 + 2.0) * 3.0;  →  LiteralExpr{9.0}  (중첩 폴딩)
+TEST(OptimizationTest, CF_TC_12_NestedFold_YieldsLiteral)
+{
+    // (1.0 + 2.0) 는 GroupingExpr 없이 BinaryExpr 로 직접 구성
+    // foldExpr 재귀: 먼저 1+2→3, 이후 3*3→9
+    auto stmts = S(makeVarDecl("x",
+        makeBin(
+            makeBin(makeLit(1.0), TokenType::PLUS, makeLit(2.0)),
+            TokenType::STAR,
+            makeLit(3.0)
+        )
+    ));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 9.0));
 }
