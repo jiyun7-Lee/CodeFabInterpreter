@@ -441,3 +441,220 @@ TEST(ExecutorTest, DivideByZero)
 	Executor executor;
 	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
 }
+
+// TC11-1: UnaryExpr MINUS — 숫자 부호 반전 확인
+TEST(ExecutorTest, UnaryExpr_Minus)
+{
+	Token minusOp; minusOp.type = TokenType::MINUS;
+	auto lit = std::make_unique<LiteralExpr>(); lit->value = 3.0;
+	auto unary = std::make_unique<UnaryExpr>();
+	unary->op = minusOp; unary->right = std::move(lit);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(unary);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	testing::internal::CaptureStdout();
+	executor.execute(stmts);
+	ASSERT_EQ(testing::internal::GetCapturedStdout(), "-3\n");
+}
+
+// TC11-2: UnaryExpr BANG — 논리 반전 확인
+TEST(ExecutorTest, UnaryExpr_Bang)
+{
+	Token bangOp; bangOp.type = TokenType::BANG;
+	auto lit = std::make_unique<LiteralExpr>(); lit->value = true;
+	auto unary = std::make_unique<UnaryExpr>();
+	unary->op = bangOp; unary->right = std::move(lit);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(unary);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	testing::internal::CaptureStdout();
+	executor.execute(stmts);
+	ASSERT_EQ(testing::internal::GetCapturedStdout(), "false\n");
+}
+
+// TC11-3: UnaryExpr MINUS 타입 불일치 — RuntimeError 확인
+TEST(ExecutorTest, UnaryExpr_TypeMismatch)
+{
+	Token minusOp; minusOp.type = TokenType::MINUS;
+	auto lit = std::make_unique<LiteralExpr>(); lit->value = std::string("hello");
+	auto unary = std::make_unique<UnaryExpr>();
+	unary->op = minusOp; unary->right = std::move(lit);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(unary);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
+// TC12: GroupingExpr — 괄호 내부 expression이 올바르게 평가되는지 확인
+TEST(ExecutorTest, GroupingExpr)
+{
+	// (1.0 + 2.0) → "3\n"
+	{
+		auto left  = std::make_unique<LiteralExpr>(); left->value  = 1.0;
+		auto right = std::make_unique<LiteralExpr>(); right->value = 2.0;
+		Token plusOp; plusOp.type = TokenType::PLUS;
+
+		auto binExpr = std::make_unique<BinaryExpr>();
+		binExpr->left = std::move(left); binExpr->op = plusOp; binExpr->right = std::move(right);
+
+		auto group = std::make_unique<GroupingExpr>();
+		group->expression = std::move(binExpr);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = std::move(group);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "3\n");
+	}
+
+	// (-(3.0)) → 중첩 GroupingExpr + UnaryExpr → "-3\n"
+	{
+		Token minusOp; minusOp.type = TokenType::MINUS;
+		auto lit = std::make_unique<LiteralExpr>(); lit->value = 3.0;
+
+		auto unary = std::make_unique<UnaryExpr>();
+		unary->op = minusOp; unary->right = std::move(lit);
+
+		auto group = std::make_unique<GroupingExpr>();
+		group->expression = std::move(unary);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = std::move(group);
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), "-3\n");
+	}
+}
+
+// TC13: BinaryExpr AND — 단락 평가, true/false 조합 결과 확인
+TEST(ExecutorTest, LogicalAnd)
+{
+	auto makeLitBool = [](bool v) -> std::unique_ptr<Expr> {
+		auto e = std::make_unique<LiteralExpr>(); e->value = v; return e;
+	};
+	auto makeAnd = [](std::unique_ptr<Expr> l, std::unique_ptr<Expr> r) -> std::unique_ptr<Expr> {
+		Token t; t.type = TokenType::AND;
+		auto e = std::make_unique<BinaryExpr>();
+		e->left = std::move(l); e->op = t; e->right = std::move(r);
+		return e;
+	};
+
+	struct Case { bool l; bool r; std::string expected; };
+	std::vector<Case> cases = {
+		{ true,  true,  "true\n"  },
+		{ true,  false, "false\n" },
+		{ false, true,  "false\n" },
+		{ false, false, "false\n" },
+	};
+
+	for (const auto& c : cases)
+	{
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = makeAnd(makeLitBool(c.l), makeLitBool(c.r));
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), c.expected);
+	}
+
+	// 단락 평가: 왼쪽이 false면 오른쪽 평가 안 함 (RuntimeError 미발생)
+	{
+		Token divOp; divOp.type = TokenType::SLASH;
+		auto zero  = std::make_unique<LiteralExpr>(); zero->value  = 0.0;
+		auto one   = std::make_unique<LiteralExpr>(); one->value   = 1.0;
+		auto divByZero = std::make_unique<BinaryExpr>();
+		divByZero->left = std::move(one); divByZero->op = divOp; divByZero->right = std::move(zero);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = makeAnd(makeLitBool(false), std::move(divByZero));
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		ASSERT_NO_THROW(executor.execute(stmts));
+	}
+}
+
+// TC14: BinaryExpr OR — 단락 평가, true/false 조합 결과 확인
+TEST(ExecutorTest, LogicalOr)
+{
+	auto makeLitBool = [](bool v) -> std::unique_ptr<Expr> {
+		auto e = std::make_unique<LiteralExpr>(); e->value = v; return e;
+	};
+	auto makeOr = [](std::unique_ptr<Expr> l, std::unique_ptr<Expr> r) -> std::unique_ptr<Expr> {
+		Token t; t.type = TokenType::OR;
+		auto e = std::make_unique<BinaryExpr>();
+		e->left = std::move(l); e->op = t; e->right = std::move(r);
+		return e;
+	};
+
+	struct Case { bool l; bool r; std::string expected; };
+	std::vector<Case> cases = {
+		{ true,  true,  "true\n"  },
+		{ true,  false, "true\n"  },
+		{ false, true,  "true\n"  },
+		{ false, false, "false\n" },
+	};
+
+	for (const auto& c : cases)
+	{
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = makeOr(makeLitBool(c.l), makeLitBool(c.r));
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		testing::internal::CaptureStdout();
+		executor.execute(stmts);
+		ASSERT_EQ(testing::internal::GetCapturedStdout(), c.expected);
+	}
+
+	// 단락 평가: 왼쪽이 true면 오른쪽 평가 안 함 (RuntimeError 미발생)
+	{
+		Token divOp; divOp.type = TokenType::SLASH;
+		auto zero = std::make_unique<LiteralExpr>(); zero->value = 0.0;
+		auto one  = std::make_unique<LiteralExpr>(); one->value  = 1.0;
+		auto divByZero = std::make_unique<BinaryExpr>();
+		divByZero->left = std::move(one); divByZero->op = divOp; divByZero->right = std::move(zero);
+
+		auto printStmt = std::make_unique<PrintStmt>();
+		printStmt->expression = makeOr(makeLitBool(true), std::move(divByZero));
+
+		std::vector<std::unique_ptr<Stmt>> stmts;
+		stmts.push_back(std::move(printStmt));
+
+		Executor executor;
+		ASSERT_NO_THROW(executor.execute(stmts));
+	}
+}

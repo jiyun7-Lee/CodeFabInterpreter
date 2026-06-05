@@ -4,33 +4,37 @@
 using Scope = std::unordered_set<std::string>;
 
 static void checkExpr(const Expr* expr,
-                      const std::string& forbiddenName,
-                      std::vector<std::string>& errors)
+                      const std::string& declaringVarName,
+                      std::vector<std::string>& errors,
+                      bool& selfRefFound)
 {
     if (!expr) return;
 
-    if (const auto* v = dynamic_cast<const VariableExpr*>(expr))
+    if (const auto* varExpr = dynamic_cast<const VariableExpr*>(expr))
     {
-        if (!forbiddenName.empty() && v->name.lexeme == forbiddenName)
-            errors.push_back("[" + std::to_string(v->name.line) + "번째 줄] "
-                             "변수 '" + forbiddenName + "' 가 자기 자신을 초기화에 참조합니다.");
+        if (!declaringVarName.empty() && varExpr->name.lexeme == declaringVarName && !selfRefFound)
+        {
+            selfRefFound = true;
+            errors.push_back("[" + std::to_string(varExpr->name.line) + "번째 줄] "
+                             "변수 '" + declaringVarName + "' 가 자기 자신을 초기화에 참조합니다.");
+        }
     }
-    else if (const auto* b = dynamic_cast<const BinaryExpr*>(expr))
+    else if (const auto* binExpr = dynamic_cast<const BinaryExpr*>(expr))
     {
-        checkExpr(b->left.get(),  forbiddenName, errors);
-        checkExpr(b->right.get(), forbiddenName, errors);
+        checkExpr(binExpr->left.get(),  declaringVarName, errors, selfRefFound);
+        checkExpr(binExpr->right.get(), declaringVarName, errors, selfRefFound);
     }
-    else if (const auto* u = dynamic_cast<const UnaryExpr*>(expr))
+    else if (const auto* unaryExpr = dynamic_cast<const UnaryExpr*>(expr))
     {
-        checkExpr(u->right.get(), forbiddenName, errors);
+        checkExpr(unaryExpr->right.get(), declaringVarName, errors, selfRefFound);
     }
-    else if (const auto* g = dynamic_cast<const GroupingExpr*>(expr))
+    else if (const auto* groupExpr = dynamic_cast<const GroupingExpr*>(expr))
     {
-        checkExpr(g->expression.get(), forbiddenName, errors);
+        checkExpr(groupExpr->expression.get(), declaringVarName, errors, selfRefFound);
     }
-    else if (const auto* a = dynamic_cast<const AssignExpr*>(expr))
+    else if (const auto* assignExpr = dynamic_cast<const AssignExpr*>(expr))
     {
-        checkExpr(a->value.get(), forbiddenName, errors);
+        checkExpr(assignExpr->value.get(), declaringVarName, errors, selfRefFound);
     }
 }
 
@@ -40,47 +44,53 @@ static void checkStmt(const Stmt* stmt,
 {
     if (!stmt) return;
 
-    if (const auto* v = dynamic_cast<const VarDeclareStmt*>(stmt))
+    if (const auto* varDecl = dynamic_cast<const VarDeclareStmt*>(stmt))
     {
         // initializer를 먼저 검사 (선언 전이므로 자기 참조 감지)
-        checkExpr(v->initializer.get(), v->name.lexeme, errors);
+        // selfRefFound 플래그로 같은 변수 자기참조 에러를 1개만 추가
+        bool selfRefFound = false;
+        checkExpr(varDecl->initializer.get(), varDecl->name.lexeme, errors, selfRefFound);
 
         // 현재 스코프에서 중복 선언 검사
-        if (scopes.back().count(v->name.lexeme))
-            errors.push_back("[" + std::to_string(v->name.line) + "번째 줄] "
-                             "변수 '" + v->name.lexeme + "' 가 이미 선언되어 있습니다.");
+        if (scopes.back().count(varDecl->name.lexeme))
+            errors.push_back("[" + std::to_string(varDecl->name.line) + "번째 줄] "
+                             "변수 '" + varDecl->name.lexeme + "' 가 이미 선언되어 있습니다.");
         else
-            scopes.back().insert(v->name.lexeme);
+            scopes.back().insert(varDecl->name.lexeme);
     }
-    else if (const auto* bl = dynamic_cast<const BlockStmt*>(stmt))
+    else if (const auto* blockStmt = dynamic_cast<const BlockStmt*>(stmt))
     {
         scopes.push_back({});
-        for (const auto& s : bl->statements)
+        for (const auto& s : blockStmt->statements)
             checkStmt(s.get(), scopes, errors);
         scopes.pop_back();
     }
-    else if (const auto* i = dynamic_cast<const IfStmt*>(stmt))
+    else if (const auto* ifStmt = dynamic_cast<const IfStmt*>(stmt))
     {
-        checkExpr(i->condition.get(), "", errors);
-        checkStmt(i->thenBranch.get(), scopes, errors);
-        checkStmt(i->elseBranch.get(), scopes, errors);
+        bool unused = false;
+        checkExpr(ifStmt->condition.get(), "", errors, unused);
+        checkStmt(ifStmt->thenBranch.get(), scopes, errors);
+        checkStmt(ifStmt->elseBranch.get(), scopes, errors);
     }
-    else if (const auto* f = dynamic_cast<const ForStmt*>(stmt))
+    else if (const auto* forStmt = dynamic_cast<const ForStmt*>(stmt))
     {
+        bool unused = false;
         scopes.push_back({});
-        checkStmt(f->init.get(), scopes, errors);
-        checkExpr(f->condition.get(), "", errors);
-        checkExpr(f->increment.get(), "", errors);
-        checkStmt(f->body.get(), scopes, errors);
+        checkStmt(forStmt->init.get(), scopes, errors);
+        checkExpr(forStmt->condition.get(), "", errors, unused);
+        checkExpr(forStmt->increment.get(), "", errors, unused);
+        checkStmt(forStmt->body.get(), scopes, errors);
         scopes.pop_back();
     }
-    else if (const auto* p = dynamic_cast<const PrintStmt*>(stmt))
+    else if (const auto* printStmt = dynamic_cast<const PrintStmt*>(stmt))
     {
-        checkExpr(p->expression.get(), "", errors);
+        bool unused = false;
+        checkExpr(printStmt->expression.get(), "", errors, unused);
     }
-    else if (const auto* e = dynamic_cast<const ExpressionStmt*>(stmt))
+    else if (const auto* exprStmt = dynamic_cast<const ExpressionStmt*>(stmt))
     {
-        checkExpr(e->expression.get(), "", errors);
+        bool unused = false;
+        checkExpr(exprStmt->expression.get(), "", errors, unused);
     }
 }
 
