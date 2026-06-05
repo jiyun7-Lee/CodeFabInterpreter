@@ -1,10 +1,14 @@
-#include "Shell.h"
+﻿#include "Shell.h"
 #include <iostream>
+#include <fstream>
+#include <sstream>
 #include <string>
 #include <algorithm>
 #include <cctype>
 #include "Tokenizer.h"
 #include "Parser.h"
+#include "Checker.h"
+#include "Executor.h"
 
 static std::string toLower(std::string s)
 {
@@ -21,7 +25,7 @@ void Shell::run()
     std::string line;
     while (true)
     {
-        std::cout << ">>> " << std::flush;
+        std::cout << "> " << std::flush;
         if (!std::getline(std::cin, line)) break;
 
         std::string trimmed = line;
@@ -65,6 +69,50 @@ void Shell::runLine(const std::string& source)
 }
 
 // -----------------------------------------------------------------------
+// FileRunner
+// -----------------------------------------------------------------------
+
+void FileRunner::run(const std::string& filepath)
+{
+    std::ifstream file(filepath);
+    if (!file.is_open())
+    {
+        std::cout << "Error: File Not Found '" << filepath << "'\n";
+        return;
+    }
+    std::string source((std::istreambuf_iterator<char>(file)),
+                        std::istreambuf_iterator<char>());
+    runSource(source);
+}
+
+void FileRunner::runSource(const std::string& source)
+{
+    try
+    {
+        Tokenizer tokenizer;
+        auto tokens = tokenizer.tokenize(source);
+
+        Parser parser;
+        auto stmts = parser.parse(tokens);
+
+        Checker checker;
+        if (!checker.check(stmts))
+        {
+            for (const auto& err : checker.getErrors())
+                std::cout << "[Checker] " << err << "\n";
+            return;
+        }
+
+        Executor executor;
+        executor.execute(stmts);
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << "[Error] " << e.what() << "\n";
+    }
+}
+
+// -----------------------------------------------------------------------
 // FactoryShell
 // -----------------------------------------------------------------------
 
@@ -90,9 +138,16 @@ void FactoryShell::run(int argc, char** argv)
             break;
         }
         case ShellMode::FILE:
-            // Phase 3에서 구현
-            std::cout << "[File Mode] Not implemented yet\n";
+        {
+            if (argc < 3)
+            {
+                std::cout << "Error: 파일 경로가 필요합니다. 사용법: run <파일경로>\n";
+                break;
+            }
+            FileRunner runner;
+            runner.run(argv[2]);
             break;
+        }
         case ShellMode::DEBUG:
             // Phase 4~7에서 구현
             std::cout << "[Debug Mode] Not implemented yet\n";
