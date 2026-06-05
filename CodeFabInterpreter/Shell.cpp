@@ -13,6 +13,13 @@ void Shell::run()
     {
         std::cout << ">>> " << std::flush;
         if (!std::getline(std::cin, line)) break;
+
+        // exit / quit 입력 시 루프 종료
+        std::string trimmed = line;
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
+            trimmed.pop_back();
+        if (trimmed == "exit" || trimmed == "quit") break;
+
         runLine(line);
     }
 }
@@ -24,6 +31,10 @@ void Shell::runLine(const std::string& source)
     std::string src = source;
     while (!src.empty() && std::isspace(static_cast<unsigned char>(src.back())))
         src.pop_back();
+
+    // exit / quit: REPL 종료 신호 — 에러 없이 조용히 반환
+    if (src == "exit" || src == "quit") return;
+
     if (!src.empty() && src.back() != ';' && src.back() != '}')
         src += ';';
 
