@@ -10,6 +10,6 @@ public:
     Environment* parent = nullptr;
 
     void define(const std::string& name, Value value);
-    Value get(const std::string& name) const;
-    void assign(const std::string& name, Value value);
+    Value get(const std::string& name, int line = 0) const;
+    void assign(const std::string& name, Value value, int line = 0);
 };

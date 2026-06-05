@@ -51,13 +51,15 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
 
     if (auto* s = dynamic_cast<ForStmt*>(stmt))
     {
+        Environment forEnv;
+        forEnv.parent = env;
         if (s->init)
-            executeStatement(s->init.get(), env);
-        while (!s->condition || isTruthy(evaluateExpr(s->condition.get(), env)))
+            executeStatement(s->init.get(), &forEnv);
+        while (!s->condition || isTruthy(evaluateExpr(s->condition.get(), &forEnv)))
         {
-            executeStatement(s->body.get(), env);
+            executeStatement(s->body.get(), &forEnv);
             if (s->increment)
-                evaluateExpr(s->increment.get(), env);
+                evaluateExpr(s->increment.get(), &forEnv);
         }
         return;
     }
@@ -121,7 +123,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         return e->value;
 
     if (auto* e = dynamic_cast<VariableExpr*>(expr))
-        return env->get(e->name.lexeme);
+        return env->get(e->name.lexeme, e->name.line);
 
     if (auto* e = dynamic_cast<GroupingExpr*>(expr))
         return evaluateExpr(e->expression.get(), env);
@@ -132,7 +134,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         if (e->op.type == TokenType::MINUS)
         {
             if (!std::holds_alternative<double>(val))
-                throw std::runtime_error("Type error: unary '-' requires a number");
+                throw std::runtime_error("[" + std::to_string(e->op.line) + "번째 줄] 피연산자는 반드시 숫자여야 한다.");
             return -std::get<double>(val);
         }
         if (e->op.type == TokenType::BANG)
@@ -143,7 +145,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
     if (auto* e = dynamic_cast<AssignExpr*>(expr))
     {
         Value val = evaluateExpr(e->value.get(), env);
-        env->assign(e->name.lexeme, val);
+        env->assign(e->name.lexeme, val, e->name.line);
         return val;
     }
 
@@ -178,7 +180,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
             case TokenType::GREATER:
             {
                 if (!std::holds_alternative<double>(lv) || !std::holds_alternative<double>(rv))
-                    throw std::runtime_error("Type error: operands must be numbers");
+                    throw std::runtime_error("[" + std::to_string(e->op.line) + "번째 줄] 피연산자는 반드시 숫자여야 한다.");
                 double l = std::get<double>(lv);
                 double r = std::get<double>(rv);
                 if (e->op.type == TokenType::PLUS)    return l + r;
@@ -186,7 +188,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
                 if (e->op.type == TokenType::STAR)    return l * r;
                 if (e->op.type == TokenType::SLASH)
                 {
-                    if (r == 0.0) throw std::runtime_error("Division by zero");
+                    if (r == 0.0) throw std::runtime_error("[" + std::to_string(e->op.line) + "번째 줄] 0으로 나눈 오류");
                     return l / r;
                 }
                 if (e->op.type == TokenType::LESS)    return l < r;

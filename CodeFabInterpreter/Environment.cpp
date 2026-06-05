@@ -6,17 +6,18 @@ void Environment::define(const std::string& name, Value value)
     values[name] = value;
 }
 
-Value Environment::get(const std::string& name) const
+Value Environment::get(const std::string& name, int line) const
 {
     auto it = values.find(name);
     if (it != values.end())
         return it->second;
     if (parent)
-        return parent->get(name);
-    throw std::runtime_error("Undefined variable '" + name + "'");
+        return parent->get(name, line);
+    std::string prefix = line > 0 ? "[" + std::to_string(line) + "번째 줄] " : "";
+    throw std::runtime_error(prefix + "미정의된 변수 '" + name + "'");
 }
 
-void Environment::assign(const std::string& name, Value value)
+void Environment::assign(const std::string& name, Value value, int line)
 {
     auto it = values.find(name);
     if (it != values.end())
@@ -26,8 +27,9 @@ void Environment::assign(const std::string& name, Value value)
     }
     if (parent)
     {
-        parent->assign(name, value);
+        parent->assign(name, value, line);
         return;
     }
-    throw std::runtime_error("Undefined variable '" + name + "'");
+    std::string prefix = line > 0 ? "[" + std::to_string(line) + "번째 줄] " : "";
+    throw std::runtime_error(prefix + "미정의된 변수 '" + name + "'");
 }
