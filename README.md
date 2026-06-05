@@ -811,3 +811,127 @@ Runtime Error
 AST 구조와 Environment 구조를 먼저 확정한다.
 
 설계가 고정되면 Claude를 활용해 병렬 개발한다.
+
+------------------------------------------------------------------------
+
+# 17. Custom Language 사용 방법
+
+## 실행 방법
+
+```
+# REPL 모드 (대화형)
+./CodeFabInterpreter
+
+# 종료
+> exit
+> quit
+```
+
+## 기본 문법
+
+모든 구문은 세미콜론(`;`)으로 끝나야 합니다.
+
+### 변수 선언
+
+```
+var x = 10;
+var name = "hello";
+var flag = true;
+```
+
+### 출력
+
+```
+print x;
+print x + 1;
+```
+
+### 산술 / 비교 / 논리 연산자
+
+```
+print 1 + 2 * 3;      // 7
+print 10 / 2 - 1;     // 4
+print 3 > 2;          // true
+print 3 < 2;          // false
+print true and false; // false
+print true or false;  // true
+print !true;          // false
+```
+
+### 조건문
+
+```
+var x = 5;
+if (x > 0) {
+    print x;
+} else {
+    print 0;
+}
+```
+
+### 반복문
+
+```
+for (var i = 0; i < 3; i = i + 1) {
+    print i;
+}
+```
+
+### 함수
+
+`func` 또는 `Func` 키워드 모두 사용 가능합니다.
+
+```
+func add(a, b) {
+    return a + b;
+}
+
+var result = add(3, 7);
+print result;   // 10
+```
+
+#### 재귀 함수
+
+```
+func fact(n) {
+    if (n < 2) { return 1; }
+    return n * fact(n - 1);
+}
+
+print fact(5);  // 120
+```
+
+#### 빈 return (null 반환)
+
+```
+func doNothing() {
+    return;
+}
+```
+
+### 정적 배열
+
+`Array(n)` 으로 크기 n의 배열을 생성합니다. 초기값은 `null`입니다.
+
+```
+var arr = Array(3);   // [null, null, null]
+arr[0] = 10;
+arr[1] = 20;
+arr[2] = 30;
+print arr[1];         // 20
+
+// 변수 인덱스 사용
+var i = 2;
+print arr[i];         // 30
+```
+
+## 특이사항
+
+| 항목 | 설명 |
+|------|------|
+| 세미콜론 필수 | 모든 구문은 `;` 으로 끝나야 합니다 |
+| `func` / `Func` | 함수 선언 키워드로 둘 다 사용 가능합니다 |
+| `Array(n)` 내장 함수 | 사용자가 `func Array(...)` 를 선언하면 내장 Array 가 오버라이드됩니다 |
+| 스코프 | 블록 `{}` 안에서 선언한 변수는 블록 밖에서 접근 불가합니다 |
+| 배열 타입 | 인덱스는 반드시 숫자여야 하며, 배열이 아닌 변수에 `[]` 사용 시 런타임 오류가 발생합니다 |
+| 미선언 함수 호출 | Checker 에서 잡지 않고 Executor 런타임에 오류를 발생시킵니다 |
