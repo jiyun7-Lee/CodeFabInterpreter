@@ -146,7 +146,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         if (e->op.type == TokenType::MINUS)
         {
             if (!std::holds_alternative<double>(val))
-                throw std::runtime_error("[" + std::to_string(e->op.line) + "번째 줄] 피연산자는 반드시 숫자여야 한다.");
+                throw std::runtime_error("피연산자는 반드시 숫자여야 한다.");
             return -std::get<double>(val);
         }
         if (e->op.type == TokenType::BANG)
@@ -195,7 +195,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
             case TokenType::GREATER:
             {
                 if (!std::holds_alternative<double>(lv) || !std::holds_alternative<double>(rv))
-                    throw std::runtime_error("[" + std::to_string(e->op.line) + "번째 줄] 피연산자는 반드시 숫자여야 한다.");
+                    throw std::runtime_error("피연산자는 반드시 숫자여야 한다.");
                 double l = std::get<double>(lv);
                 double r = std::get<double>(rv);
                 if (e->op.type == TokenType::PLUS)    return l + r;
@@ -203,7 +203,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
                 if (e->op.type == TokenType::STAR)    return l * r;
                 if (e->op.type == TokenType::SLASH)
                 {
-                    if (r == 0.0) throw std::runtime_error("[" + std::to_string(e->op.line) + "번째 줄] 0으로 나눈 오류");
+                    if (r == 0.0) throw std::runtime_error("0으로 나눈 오류");
                     return l / r;
                 }
                 if (e->op.type == TokenType::LESS)    return l < r;

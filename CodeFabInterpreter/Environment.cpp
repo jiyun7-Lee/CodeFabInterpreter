@@ -13,8 +13,7 @@ Value Environment::get(const std::string& name, int line) const
         return it->second;
     if (parent)
         return parent->get(name, line);
-    std::string prefix = line > 0 ? "[" + std::to_string(line) + "번째 줄] " : "";
-    throw std::runtime_error(prefix + "미정의된 변수 '" + name + "'");
+    throw std::runtime_error("미정의된 변수 '" + name + "'");
 }
 
 Value Environment::getAt(int distance, const std::string& name) const
@@ -60,6 +59,5 @@ void Environment::assign(const std::string& name, Value value, int line)
         parent->assign(name, value, line);
         return;
     }
-    std::string prefix = line > 0 ? "[" + std::to_string(line) + "번째 줄] " : "";
-    throw std::runtime_error(prefix + "미정의된 변수 '" + name + "'");
+    throw std::runtime_error("미정의된 변수 '" + name + "'");
 }
