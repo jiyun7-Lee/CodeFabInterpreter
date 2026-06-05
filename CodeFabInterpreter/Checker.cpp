@@ -8,6 +8,8 @@ using FuncMap = std::unordered_map<std::string, size_t>; // 함수명 → 파라
 // -----------------------------------------------------------------------
 // 전방 선언
 // -----------------------------------------------------------------------
+static void foldExpr(std::unique_ptr<Expr>& exprRef);
+
 static void checkExpr(Expr* expr,
                       const std::string& declaringVarName,
                       std::vector<std::string>& errors,
@@ -20,6 +22,147 @@ static void checkStmt(Stmt* stmt,
                       std::vector<std::string>& errors,
                       FuncMap& funcs,
                       bool insideFunction);
+
+// -----------------------------------------------------------------------
+// foldExpr — 상수 폴딩: 컴파일 타임에 계산 가능한 노드를 LiteralExpr 로 교체한다.
+//   패턴 A : BinaryExpr(Lit, op, Lit) → Lit
+//   패턴 B : UnaryExpr(op, Lit)       → Lit
+//   패턴 C : GroupingExpr(Lit)        → Lit  (괄호 껍데기 제거)
+//   패턴 D : 대수 항등식 (x±0, x*1, 1*x, x/1, x*0, 0*x, 0+x, x+0)
+// checkExpr 로 distance 기록을 완료한 뒤 호출해야 한다.
+// -----------------------------------------------------------------------
+static void foldExpr(std::unique_ptr<Expr>& exprRef)
+{
+    if (!exprRef) return;
+
+    if (auto* e = dynamic_cast<BinaryExpr*>(exprRef.get()))
+    {
+        foldExpr(e->left);
+        foldExpr(e->right);
+
+        auto* litL = dynamic_cast<LiteralExpr*>(e->left.get());
+        auto* litR = dynamic_cast<LiteralExpr*>(e->right.get());
+
+        // 패턴 A: 양쪽 모두 숫자 리터럴 → 연산 결과 리터럴로 교체
+        if (litL && litR &&
+            std::holds_alternative<double>(litL->value) &&
+            std::holds_alternative<double>(litR->value))
+        {
+            double l = std::get<double>(litL->value);
+            double r = std::get<double>(litR->value);
+            bool foldable = false;
+            Value result;
+            switch (e->op.type)
+            {
+                case TokenType::PLUS:    result = Value{l + r};  foldable = true; break;
+                case TokenType::MINUS:   result = Value{l - r};  foldable = true; break;
+                case TokenType::STAR:    result = Value{l * r};  foldable = true; break;
+                case TokenType::SLASH:   if (r != 0.0) { result = Value{l / r}; foldable = true; } break;
+                case TokenType::LESS:    result = Value{l < r};  foldable = true; break;
+                case TokenType::GREATER: result = Value{l > r};  foldable = true; break;
+                default: break;
+            }
+            if (foldable)
+            {
+                auto lit = std::make_unique<LiteralExpr>();
+                lit->value = result;
+                exprRef = std::move(lit);
+                return;
+            }
+        }
+
+        // 패턴 D: 대수 항등식 — 한쪽이 숫자 리터럴인 경우만 처리
+        if (litR && std::holds_alternative<double>(litR->value))
+        {
+            double r   = std::get<double>(litR->value);
+            TokenType op = e->op.type;
+            if ((op == TokenType::PLUS || op == TokenType::MINUS) && r == 0.0)
+            { exprRef = std::move(e->left); return; }
+            if ((op == TokenType::STAR || op == TokenType::SLASH) && r == 1.0)
+            { exprRef = std::move(e->left); return; }
+            if (op == TokenType::STAR && r == 0.0)
+            { auto z = std::make_unique<LiteralExpr>(); z->value = 0.0; exprRef = std::move(z); return; }
+        }
+        if (litL && std::holds_alternative<double>(litL->value))
+        {
+            double l   = std::get<double>(litL->value);
+            TokenType op = e->op.type;
+            if (op == TokenType::PLUS && l == 0.0)
+            { exprRef = std::move(e->right); return; }
+            if (op == TokenType::STAR && l == 1.0)
+            { exprRef = std::move(e->right); return; }
+            if (op == TokenType::STAR && l == 0.0)
+            { auto z = std::make_unique<LiteralExpr>(); z->value = 0.0; exprRef = std::move(z); return; }
+        }
+        return;
+    }
+
+    if (auto* e = dynamic_cast<UnaryExpr*>(exprRef.get()))
+    {
+        foldExpr(e->right);
+        auto* lit = dynamic_cast<LiteralExpr*>(e->right.get());
+        if (!lit) return;
+
+        // 패턴 B: -숫자
+        if (e->op.type == TokenType::MINUS && std::holds_alternative<double>(lit->value))
+        {
+            auto folded = std::make_unique<LiteralExpr>();
+            folded->value = Value{-std::get<double>(lit->value)};
+            exprRef = std::move(folded);
+        }
+        // 패턴 B: !bool
+        else if (e->op.type == TokenType::BANG && std::holds_alternative<bool>(lit->value))
+        {
+            auto folded = std::make_unique<LiteralExpr>();
+            folded->value = Value{!std::get<bool>(lit->value)};
+            exprRef = std::move(folded);
+        }
+        return;
+    }
+
+    if (auto* e = dynamic_cast<GroupingExpr*>(exprRef.get()))
+    {
+        foldExpr(e->expression);
+        // 패턴 C: (리터럴) → 리터럴
+        if (dynamic_cast<LiteralExpr*>(e->expression.get()))
+            exprRef = std::move(e->expression);
+        return;
+    }
+
+    if (auto* e = dynamic_cast<AssignExpr*>(exprRef.get()))
+    {
+        foldExpr(e->value);
+        return;
+    }
+
+    if (auto* e = dynamic_cast<ArrayLiteralExpr*>(exprRef.get()))
+    {
+        for (auto& elem : e->elements) foldExpr(elem);
+        return;
+    }
+
+    if (auto* e = dynamic_cast<ArrayAccessExpr*>(exprRef.get()))
+    {
+        foldExpr(e->array);
+        foldExpr(e->index);
+        return;
+    }
+
+    if (auto* e = dynamic_cast<ArrayWriteExpr*>(exprRef.get()))
+    {
+        foldExpr(e->array);
+        foldExpr(e->index);
+        foldExpr(e->value);
+        return;
+    }
+
+    if (auto* e = dynamic_cast<FunctionCallExpr*>(exprRef.get()))
+    {
+        for (auto& arg : e->args) foldExpr(arg);
+        return;
+    }
+    // LiteralExpr / VariableExpr: 리프 노드, 처리 불필요
+}
 
 // -----------------------------------------------------------------------
 // checkExpr — non-const: VariableExpr/AssignExpr 에 distance 기록
@@ -141,6 +284,7 @@ static void checkStmt(Stmt* stmt,
     {
         bool selfRefFound = false;
         checkExpr(s->initializer.get(), s->name.lexeme, errors, selfRefFound, funcs, scopes);
+        foldExpr(s->initializer);
 
         if (scopes.back().count(s->name.lexeme))
             errors.push_back("[" + std::to_string(s->name.line) + "번째 줄] "
@@ -178,6 +322,7 @@ static void checkStmt(Stmt* stmt,
         {
             bool unused = false;
             checkExpr(s->value.get(), "", errors, unused, funcs, scopes);
+            foldExpr(s->value);
         }
     }
     else if (auto* s = dynamic_cast<BlockStmt*>(stmt))
@@ -191,6 +336,7 @@ static void checkStmt(Stmt* stmt,
     {
         bool unused = false;
         checkExpr(s->condition.get(), "", errors, unused, funcs, scopes);
+        foldExpr(s->condition);
         checkStmt(s->thenBranch.get(), scopes, errors, funcs, insideFunction);
         checkStmt(s->elseBranch.get(), scopes, errors, funcs, insideFunction);
     }
@@ -200,7 +346,9 @@ static void checkStmt(Stmt* stmt,
         scopes.push_back({});
         checkStmt(s->init.get(), scopes, errors, funcs, insideFunction);
         checkExpr(s->condition.get(), "", errors, unused, funcs, scopes);
+        foldExpr(s->condition);
         checkExpr(s->increment.get(), "", errors, unused, funcs, scopes);
+        foldExpr(s->increment);
         checkStmt(s->body.get(), scopes, errors, funcs, insideFunction);
         scopes.pop_back();
     }
@@ -208,11 +356,13 @@ static void checkStmt(Stmt* stmt,
     {
         bool unused = false;
         checkExpr(s->expression.get(), "", errors, unused, funcs, scopes);
+        foldExpr(s->expression);
     }
     else if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
     {
         bool unused = false;
         checkExpr(s->expression.get(), "", errors, unused, funcs, scopes);
+        foldExpr(s->expression);
     }
 }
 
@@ -220,7 +370,7 @@ static void checkStmt(Stmt* stmt,
 // public — check() 시그니처는 const& 유지
 // const unique_ptr<Stmt>::get() 은 Stmt* 를 반환하므로 non-const checkStmt 호출 가능
 // -----------------------------------------------------------------------
-bool Checker::check(const std::vector<std::unique_ptr<Stmt>>& statements)
+bool Checker::check(std::vector<std::unique_ptr<Stmt>>& statements)
 {
     errors_.clear();
     // scopes_·funcs_ 는 초기화하지 않음 — REPL 세션 전반의 선언 정보를 누적하기 위해 유지
