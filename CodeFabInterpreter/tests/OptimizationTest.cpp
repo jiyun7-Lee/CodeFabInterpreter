@@ -251,3 +251,165 @@ TEST(OptimizationTest, SB_TC_09_ForLoop_OuterVarInCondition)
     shell.runLine("for (var i = 0; i < limit; i = i + 1) { print i; }");
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "0\n1\n2\n");
 }
+
+// ================================================================
+// 상수 폴딩 헬퍼
+// ================================================================
+static std::unique_ptr<Expr> makeBin(std::unique_ptr<Expr> left, TokenType op, std::unique_ptr<Expr> right)
+{
+    auto e   = std::make_unique<BinaryExpr>();
+    e->left  = std::move(left);
+    e->op    = Token{op, "", 1, std::monostate{}};
+    e->right = std::move(right);
+    return e;
+}
+
+static std::unique_ptr<Expr> makeUnary(TokenType op, std::unique_ptr<Expr> right)
+{
+    auto e   = std::make_unique<UnaryExpr>();
+    e->op    = Token{op, "", 1, std::monostate{}};
+    e->right = std::move(right);
+    return e;
+}
+
+static std::unique_ptr<Expr> makeGrouping(std::unique_ptr<Expr> inner)
+{
+    auto e        = std::make_unique<GroupingExpr>();
+    e->expression = std::move(inner);
+    return e;
+}
+
+static bool isLiteralDouble(const std::unique_ptr<Expr>& e, double expected)
+{
+    auto* lit = dynamic_cast<LiteralExpr*>(e.get());
+    return lit && std::holds_alternative<double>(lit->value)
+               && std::get<double>(lit->value) == expected;
+}
+
+static bool isLiteralBool(const std::unique_ptr<Expr>& e, bool expected)
+{
+    auto* lit = dynamic_cast<LiteralExpr*>(e.get());
+    return lit && std::holds_alternative<bool>(lit->value)
+               && std::get<bool>(lit->value) == expected;
+}
+
+// ================================================================
+// 상수 폴딩 — foldExpr 동작 검증 (Test Double: AST 직접 검사)
+//
+// check() 호출 후 AST 노드가 LiteralExpr 로 교체되거나
+// 항등식에 의해 단순화됐는지 확인한다.
+// ================================================================
+
+// CF-TC-01 : var x = 1.0 + 2.0;  →  initializer = LiteralExpr{3.0}  (패턴 A: +)
+TEST(OptimizationTest, CF_TC_01_BinaryPlus_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(1.0), TokenType::PLUS, makeLit(2.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 3.0));
+}
+
+// CF-TC-02 : var x = 10.0 - 3.0;  →  LiteralExpr{7.0}  (패턴 A: -)
+TEST(OptimizationTest, CF_TC_02_BinaryMinus_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(10.0), TokenType::MINUS, makeLit(3.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 7.0));
+}
+
+// CF-TC-03 : var x = 4.0 * 5.0;  →  LiteralExpr{20.0}  (패턴 A: *)
+TEST(OptimizationTest, CF_TC_03_BinaryStar_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(4.0), TokenType::STAR, makeLit(5.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 20.0));
+}
+
+// CF-TC-04 : var x = 10.0 / 2.0;  →  LiteralExpr{5.0}  (패턴 A: /)
+TEST(OptimizationTest, CF_TC_04_BinarySlash_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(10.0), TokenType::SLASH, makeLit(2.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 5.0));
+}
+
+// CF-TC-05 : var x = 2.0 < 5.0;  →  LiteralExpr{true}  (패턴 A: <, bool 결과)
+TEST(OptimizationTest, CF_TC_05_BinaryLess_FoldsToBool)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(2.0), TokenType::LESS, makeLit(5.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralBool(decl->initializer, true));
+}
+
+// CF-TC-06 : var x = -7.0;  →  LiteralExpr{-7.0}  (패턴 B: 단항 -)
+TEST(OptimizationTest, CF_TC_06_UnaryMinus_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeUnary(TokenType::MINUS, makeLit(7.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, -7.0));
+}
+
+// CF-TC-07 : var x = (9.0);  →  LiteralExpr{9.0}  (패턴 C: 괄호 껍데기 제거)
+TEST(OptimizationTest, CF_TC_07_Grouping_UnwrapsLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeGrouping(makeLit(9.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 9.0));
+}
+
+// CF-TC-08 : var y = x + 0.0;  →  initializer = VariableExpr{"x"}  (패턴 D: x+0)
+TEST(OptimizationTest, CF_TC_08_IdentityAdd0_YieldsVar)
+{
+    auto stmts = S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::PLUS, makeLit(0.0))));
+    Checker checker;
+    checker.check(stmts);
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    auto* var = dynamic_cast<VariableExpr*>(decl->initializer.get());
+    ASSERT_NE(var, nullptr);
+    EXPECT_EQ(var->name.lexeme, "x");
+}
+
+// CF-TC-09 : var y = x * 0.0;  →  LiteralExpr{0.0}  (패턴 D: x*0)
+TEST(OptimizationTest, CF_TC_09_MultiplyBy0_YieldsZero)
+{
+    auto stmts = S(makeVarDecl("y", makeBin(makeVar("x"), TokenType::STAR, makeLit(0.0))));
+    Checker checker;
+    checker.check(stmts);
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 0.0));
+}
+
+// CF-TC-10 : var y = 1.0 * x;  →  VariableExpr{"x"}  (패턴 D: 1*x)
+TEST(OptimizationTest, CF_TC_10_MultiplyBy1_YieldsVar)
+{
+    auto stmts = S(makeVarDecl("y", makeBin(makeLit(1.0), TokenType::STAR, makeVar("x"))));
+    Checker checker;
+    checker.check(stmts);
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    auto* var = dynamic_cast<VariableExpr*>(decl->initializer.get());
+    ASSERT_NE(var, nullptr);
+    EXPECT_EQ(var->name.lexeme, "x");
+}
