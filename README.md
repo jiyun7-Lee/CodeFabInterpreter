@@ -669,6 +669,7 @@ main 직접 Push 금지
 -   feature/expr-parser
 -   feature/stmt-checker
 -   feature/executor
+-   bugfix/console-encoding
 
 ------------------------------------------------------------------------
 
@@ -703,6 +704,7 @@ TDD 사이클 및 작업 유형에 따라 아래 헤더를 붙인다.
 | `[refactoring]` | TDD Refactor 단계 — 코드 개선 | `[refactoring] Extract makeBinary helper` |
 | `[doc]` | 문서 추가 / 수정 | `[doc] Add TC_ExprParser specification` |
 | `[build]` | 빌드 환경 / 설정 변경 | `[build] Add /utf-8 compiler flag` |
+| `[fix]` | 버그 수정 | `[fix] Set console output code page to UTF-8` |
 
 ------------------------------------------------------------------------
 
