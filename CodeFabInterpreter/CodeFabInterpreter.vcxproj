@@ -161,6 +161,7 @@
     <ClCompile Include="tests\ParserTest.cpp" />
     <ClCompile Include="tests\DebugInfraTest.cpp" />
     <ClCompile Include="tests\BreakpointTest.cpp" />
+    <ClCompile Include="tests\WatchTest.cpp" />
     <ClCompile Include="tests\ShellTest.cpp" />
     <ClCompile Include="tests\TokenizerTest.cpp" />
     <ClCompile Include="Tokenizer.cpp" />

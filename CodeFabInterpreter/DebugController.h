@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include <unordered_set>
+#include <string>
 
 class Stmt;
 class Environment;
@@ -26,6 +27,21 @@ private:
 };
 
 // -----------------------------------------------------------------------
+// WatchManager — 감시 변수 집합 관리 (Phase 6)
+// -----------------------------------------------------------------------
+class WatchManager
+{
+public:
+    void add(const std::string& name);
+    void remove(const std::string& name);
+    bool empty() const;
+    void printWatches(const Environment* env) const; // 감시 변수 값 출력
+    void printInspect(const Environment* env) const; // 현재 스코프 전체 출력
+private:
+    std::unordered_set<std::string> watches_;
+};
+
+// -----------------------------------------------------------------------
 // DebugController — Executor hook 수신자
 // -----------------------------------------------------------------------
 class DebugController
@@ -33,9 +49,12 @@ class DebugController
 public:
     virtual ~DebugController() = default;
     virtual void beforeExecute(Stmt* stmt, Environment* env);
-    void addBreakpoint(int line)    { breakpoints_.add(line); }
-    void removeBreakpoint(int line) { breakpoints_.remove(line); }
+    void addBreakpoint(int line)          { breakpoints_.add(line); }
+    void removeBreakpoint(int line)       { breakpoints_.remove(line); }
+    void addWatch(const std::string& n)   { watches_.add(n); }
+    void removeWatch(const std::string& n){ watches_.remove(n); }
 protected:
     ExecutionState    state_       = ExecutionState::STEP;
     BreakpointManager breakpoints_;
+    WatchManager      watches_;
 };
