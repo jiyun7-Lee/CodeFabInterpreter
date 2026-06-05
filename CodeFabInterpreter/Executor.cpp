@@ -73,7 +73,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
 
     if (auto* s = dynamic_cast<FunctionDeclareStmt*>(stmt))
     {
-        functions_[s->name.lexeme] = {s->params, s->body.get()};
+        functions_[s->name.lexeme] = {s->params, std::move(s->body)};
         return;
     }
 
@@ -226,7 +226,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         for (size_t i = 0; i < fn.params.size(); ++i)
             fnEnv.define(fn.params[i].lexeme, evaluateExpr(e->args[i].get(), env));
 
-        try { executeStatement(fn.body, &fnEnv); }
+        try { executeStatement(fn.body.get(), &fnEnv); }
         catch (const ReturnSignal& ret) { return ret.value; }
         return std::monostate{};
     }

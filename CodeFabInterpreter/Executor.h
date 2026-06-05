@@ -10,8 +10,8 @@ struct ReturnSignal { Value value; };
 
 struct FunctionValue
 {
-    std::vector<Token> params;
-    Stmt*              body;   // non-owning: body is owned by FunctionDeclareStmt AST
+    std::vector<Token>     params;
+    std::unique_ptr<Stmt>  body;
 };
 
 class Executor
