@@ -1,10 +1,16 @@
 #include "Shell.h"
 #include <iostream>
 #include <string>
+#include <algorithm>
+#include <cctype>
 #include "Tokenizer.h"
 #include "Parser.h"
-#include "Checker.h"
-#include "Executor.h"
+
+static std::string toLower(std::string s)
+{
+    for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
 
 void Shell::run()
 {
@@ -13,6 +19,13 @@ void Shell::run()
     {
         std::cout << ">>> " << std::flush;
         if (!std::getline(std::cin, line)) break;
+
+        // exit / quit 입력 시 루프 종료
+        std::string trimmed = line;
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
+            trimmed.pop_back();
+        if (toLower(trimmed) == "exit" || toLower(trimmed) == "quit") break;
+
         runLine(line);
     }
 }
@@ -24,8 +37,9 @@ void Shell::runLine(const std::string& source)
     std::string src = source;
     while (!src.empty() && std::isspace(static_cast<unsigned char>(src.back())))
         src.pop_back();
-    if (!src.empty() && src.back() != ';' && src.back() != '}')
-        src += ';';
+
+    // exit / quit: REPL 종료 신호 — 대소문자 무관, 에러 없이 조용히 반환
+    if (toLower(src) == "exit" || toLower(src) == "quit") return;
 
     try
     {
@@ -35,7 +49,6 @@ void Shell::runLine(const std::string& source)
         Parser parser;
         auto stmts = parser.parse(tokens);
 
-        Checker checker;
         if (!checker.check(stmts))
         {
             for (const auto& err : checker.getErrors())
@@ -43,7 +56,7 @@ void Shell::runLine(const std::string& source)
             return;
         }
 
-        executor_.execute(stmts);
+        executor.execute(stmts);
     }
     catch (const std::exception& e)
     {
