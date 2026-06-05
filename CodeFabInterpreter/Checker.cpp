@@ -24,6 +24,15 @@ static void checkStmt(Stmt* stmt,
                       bool insideFunction);
 
 // -----------------------------------------------------------------------
+// isPure — 사이드 이펙트가 없는 표현식인지 판별한다.
+// LiteralExpr / VariableExpr 만 순수하다고 본다.
+// 함수 호출(FunctionCallExpr), 대입(AssignExpr) 등은 false.
+static bool isPure(const Expr* e)
+{
+    return dynamic_cast<const LiteralExpr*>(e) || dynamic_cast<const VariableExpr*>(e);
+}
+
+// -----------------------------------------------------------------------
 // foldExpr — 상수 폴딩: 컴파일 타임에 계산 가능한 노드를 LiteralExpr 로 교체한다.
 //   패턴 A : BinaryExpr(Lit, op, Lit) → Lit
 //   패턴 B : UnaryExpr(op, Lit)       → Lit
@@ -80,7 +89,7 @@ static void foldExpr(std::unique_ptr<Expr>& exprRef)
             { exprRef = std::move(e->left); return; }
             if ((op == TokenType::STAR || op == TokenType::SLASH) && r == 1.0)
             { exprRef = std::move(e->left); return; }
-            if (op == TokenType::STAR && r == 0.0)
+            if (op == TokenType::STAR && r == 0.0 && isPure(e->left.get()))
             { auto z = std::make_unique<LiteralExpr>(); z->value = 0.0; exprRef = std::move(z); return; }
         }
         if (litL && std::holds_alternative<double>(litL->value))
@@ -91,7 +100,7 @@ static void foldExpr(std::unique_ptr<Expr>& exprRef)
             { exprRef = std::move(e->right); return; }
             if (op == TokenType::STAR && l == 1.0)
             { exprRef = std::move(e->right); return; }
-            if (op == TokenType::STAR && l == 0.0)
+            if (op == TokenType::STAR && l == 0.0 && isPure(e->right.get()))
             { auto z = std::make_unique<LiteralExpr>(); z->value = 0.0; exprRef = std::move(z); return; }
         }
         return;

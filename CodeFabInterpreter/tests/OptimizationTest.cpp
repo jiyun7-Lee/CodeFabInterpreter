@@ -428,6 +428,22 @@ TEST(OptimizationTest, CF_TC_11_DivByZero_NotFolded)
     EXPECT_NE(dynamic_cast<BinaryExpr*>(decl->initializer.get()), nullptr);
 }
 
+// CF-TC-13 : var y = f() * 0.0;  →  BinaryExpr 유지 (함수 호출 사이드 이펙트 보호)
+// x * 0 폴딩은 x 가 순수 표현식(Literal/Variable)일 때만 허용
+TEST(OptimizationTest, CF_TC_13_FuncCallTimesZero_NotFolded)
+{
+    auto callExpr = std::make_unique<FunctionCallExpr>();
+    callExpr->callee = idTok("f");
+
+    auto stmts = S(makeVarDecl("y", makeBin(std::move(callExpr), TokenType::STAR, makeLit(0.0))));
+    Checker checker;
+    checker.check(stmts);
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_EQ(dynamic_cast<LiteralExpr*>(decl->initializer.get()), nullptr);
+    EXPECT_NE(dynamic_cast<BinaryExpr*>(decl->initializer.get()), nullptr);
+}
+
 // CF-TC-12 : var x = (1.0 + 2.0) * 3.0;  →  LiteralExpr{9.0}  (중첩 폴딩)
 TEST(OptimizationTest, CF_TC_12_NestedFold_YieldsLiteral)
 {
