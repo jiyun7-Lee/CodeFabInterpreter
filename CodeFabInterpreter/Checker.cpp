@@ -375,7 +375,7 @@ static void checkStmt(Stmt* stmt,
 // public — check() 시그니처는 const& 유지
 // const unique_ptr<Stmt>::get() 은 Stmt* 를 반환하므로 non-const checkStmt 호출 가능
 // -----------------------------------------------------------------------
-bool Checker::check(std::vector<std::unique_ptr<Stmt>>& statements)
+bool Checker::check(const std::vector<std::unique_ptr<Stmt>>& statements)
 {
     errors_.clear();
     // scopes_·funcs_ 는 초기화하지 않음 — REPL 세션 전반의 선언 정보를 누적하기 위해 유지
