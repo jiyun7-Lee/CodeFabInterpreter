@@ -31,33 +31,12 @@ static Token makeEof(int line = 1)
 }
 
 // ================================================================
-// FakeExprParser
-// B파트 미구현 상태에서 Stmt 파싱 테스트용.
-// parseExpression() 호출 시 현재 토큰 1개 소비 후 LiteralExpr 반환.
+// Test Fixture
 // ================================================================
-class FakeExprParser : public Parser
+class ParserStmtTest : public ::testing::Test
 {
 protected:
-    std::unique_ptr<Expr> parseExpression() override
-    {
-        auto lit = std::make_unique<LiteralExpr>();
-        // 첫 토큰의 값을 literal에 저장
-        if (check(TokenType::NUMBER))
-            lit->value = std::get<double>(advance().literal);
-        else if (check(TokenType::STRING))
-            lit->value = std::get<std::string>(advance().literal);
-        else if (check(TokenType::TRUE) || check(TokenType::FALSE))
-            lit->value = (advance().type == TokenType::TRUE);
-        else if (check(TokenType::IDENTIFIER))
-            advance();
-        // 나머지 표현식 토큰을 문장 경계(; ) })까지 소비
-        while (!isAtEnd()                         &&
-               !check(TokenType::SEMICOLON)       &&
-               !check(TokenType::RIGHT_PAREN)     &&
-               !check(TokenType::RIGHT_BRACE))
-            advance();
-        return lit;
-    }
+
 };
 
 // ================================================================
@@ -65,9 +44,9 @@ protected:
 // ================================================================
 
 // P-TC-01 : var a = 3;  →  VarDeclareStmt, name="a", initializer == LiteralExpr(3.0)
-TEST(ParserStmtTest, P_TC_01_VarWithNumber)
+TEST_F(ParserStmtTest, P_TC_01_VarWithNumber)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("a"),
         makeTok(TokenType::EQUAL, "="), makeNum(3.0),
@@ -84,9 +63,9 @@ TEST(ParserStmtTest, P_TC_01_VarWithNumber)
 }
 
 // P-TC-02 : var abc = "hello";  →  VarDeclareStmt, name="abc", initializer == LiteralExpr("hello")
-TEST(ParserStmtTest, P_TC_02_VarWithString)
+TEST_F(ParserStmtTest, P_TC_02_VarWithString)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("abc"),
         makeTok(TokenType::EQUAL, "="), makeStr("hello"),
@@ -103,9 +82,9 @@ TEST(ParserStmtTest, P_TC_02_VarWithString)
 }
 
 // P-TC-03 : var flag = true;  →  VarDeclareStmt, name="flag", initializer == LiteralExpr(true)
-TEST(ParserStmtTest, P_TC_03_VarWithBool)
+TEST_F(ParserStmtTest, P_TC_03_VarWithBool)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("flag"),
         makeTok(TokenType::EQUAL, "="), makeBoolTok(true),
@@ -121,10 +100,10 @@ TEST(ParserStmtTest, P_TC_03_VarWithBool)
     EXPECT_EQ(std::get<bool>(lit->value), true);
 }
 
-// P-TC-04 : var a = b + 1;  →  initializer != null  (FakeExprParser가 IDENTIFIER 소비)
-TEST(ParserStmtTest, P_TC_04_VarWithExpr)
+// P-TC-04 : var a = b + 1;  →  initializer != null
+TEST_F(ParserStmtTest, P_TC_04_VarWithExpr)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("a"),
         makeTok(TokenType::EQUAL, "="), makeId("b"),
@@ -137,9 +116,9 @@ TEST(ParserStmtTest, P_TC_04_VarWithExpr)
 }
 
 // P-TC-05 : var a = 3  (세미콜론 없음)  →  parse 오류
-TEST(ParserStmtTest, P_TC_05_VarMissingSemicolon)
+TEST_F(ParserStmtTest, P_TC_05_VarMissingSemicolon)
 {
-    FakeExprParser p;
+
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::VAR, "var"), makeId("a"),
@@ -155,9 +134,9 @@ TEST(ParserStmtTest, P_TC_05_VarMissingSemicolon)
 // ================================================================
 
 // P-TC-06 : print a;  →  PrintStmt, expression != null
-TEST(ParserStmtTest, P_TC_06_PrintVariable)
+TEST_F(ParserStmtTest, P_TC_06_PrintVariable)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::PRINT, "print"), makeId("a"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
@@ -169,9 +148,9 @@ TEST(ParserStmtTest, P_TC_06_PrintVariable)
 }
 
 // P-TC-07 : print a + b;  →  PrintStmt, expression != null
-TEST(ParserStmtTest, P_TC_07_PrintExpression)
+TEST_F(ParserStmtTest, P_TC_07_PrintExpression)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::PRINT, "print"), makeId("a"),
         makeTok(TokenType::PLUS, "+"), makeId("b"),
@@ -184,9 +163,9 @@ TEST(ParserStmtTest, P_TC_07_PrintExpression)
 }
 
 // P-TC-08 : print a  (세미콜론 없음)  →  parse 오류
-TEST(ParserStmtTest, P_TC_08_PrintMissingSemicolon)
+TEST_F(ParserStmtTest, P_TC_08_PrintMissingSemicolon)
 {
-    FakeExprParser p;
+
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::PRINT, "print"), makeId("a"),
@@ -201,9 +180,9 @@ TEST(ParserStmtTest, P_TC_08_PrintMissingSemicolon)
 // ================================================================
 
 // P-TC-09 : {}  →  BlockStmt, statements.size() == 0
-TEST(ParserStmtTest, P_TC_09_EmptyBlock)
+TEST_F(ParserStmtTest, P_TC_09_EmptyBlock)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::LEFT_BRACE, "{"),
         makeTok(TokenType::RIGHT_BRACE, "}"),
@@ -216,9 +195,9 @@ TEST(ParserStmtTest, P_TC_09_EmptyBlock)
 }
 
 // P-TC-10 : { print a; }  →  statements.size() == 1
-TEST(ParserStmtTest, P_TC_10_BlockOneStmt)
+TEST_F(ParserStmtTest, P_TC_10_BlockOneStmt)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::LEFT_BRACE, "{"),
         makeTok(TokenType::PRINT, "print"), makeId("a"), makeTok(TokenType::SEMICOLON, ";"),
@@ -232,9 +211,9 @@ TEST(ParserStmtTest, P_TC_10_BlockOneStmt)
 }
 
 // P-TC-11 : { print a; print b; }  →  statements.size() == 2
-TEST(ParserStmtTest, P_TC_11_BlockMultipleStmts)
+TEST_F(ParserStmtTest, P_TC_11_BlockMultipleStmts)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::LEFT_BRACE, "{"),
         makeTok(TokenType::PRINT, "print"), makeId("a"), makeTok(TokenType::SEMICOLON, ";"),
@@ -249,9 +228,9 @@ TEST(ParserStmtTest, P_TC_11_BlockMultipleStmts)
 }
 
 // P-TC-12 : { { print a; } }  →  중첩 BlockStmt
-TEST(ParserStmtTest, P_TC_12_NestedBlock)
+TEST_F(ParserStmtTest, P_TC_12_NestedBlock)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::LEFT_BRACE, "{"),
           makeTok(TokenType::LEFT_BRACE, "{"),
@@ -268,9 +247,9 @@ TEST(ParserStmtTest, P_TC_12_NestedBlock)
 }
 
 // P-TC-13 : { print a;  (닫는 중괄호 없음)  →  parse 오류
-TEST(ParserStmtTest, P_TC_13_BlockMissingClosingBrace)
+TEST_F(ParserStmtTest, P_TC_13_BlockMissingClosingBrace)
 {
-    FakeExprParser p;
+
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::LEFT_BRACE, "{"),
@@ -286,9 +265,9 @@ TEST(ParserStmtTest, P_TC_13_BlockMissingClosingBrace)
 // ================================================================
 
 // P-TC-14 : if (a > 0) print a;  →  IfStmt, elseBranch == null
-TEST(ParserStmtTest, P_TC_14_IfWithoutElse)
+TEST_F(ParserStmtTest, P_TC_14_IfWithoutElse)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -304,9 +283,9 @@ TEST(ParserStmtTest, P_TC_14_IfWithoutElse)
 }
 
 // P-TC-15 : if (a > 0) print a; else print b;  →  elseBranch != null
-TEST(ParserStmtTest, P_TC_15_IfWithElse)
+TEST_F(ParserStmtTest, P_TC_15_IfWithElse)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -322,9 +301,9 @@ TEST(ParserStmtTest, P_TC_15_IfWithElse)
 }
 
 // P-TC-16 : if (a > 0) { print a; }  →  thenBranch == BlockStmt
-TEST(ParserStmtTest, P_TC_16_IfWithBlockBody)
+TEST_F(ParserStmtTest, P_TC_16_IfWithBlockBody)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -340,9 +319,9 @@ TEST(ParserStmtTest, P_TC_16_IfWithBlockBody)
 }
 
 // P-TC-17 : if (a > 0) { } else { }  →  thenBranch, elseBranch 모두 BlockStmt
-TEST(ParserStmtTest, P_TC_17_IfElseBothBlocks)
+TEST_F(ParserStmtTest, P_TC_17_IfElseBothBlocks)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -359,9 +338,9 @@ TEST(ParserStmtTest, P_TC_17_IfElseBothBlocks)
 }
 
 // P-TC-18 : if (a > 0) if (b > 0) print b;  →  중첩 IfStmt
-TEST(ParserStmtTest, P_TC_18_NestedIf)
+TEST_F(ParserStmtTest, P_TC_18_NestedIf)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -377,9 +356,9 @@ TEST(ParserStmtTest, P_TC_18_NestedIf)
 }
 
 // P-TC-19 : if a > 0) print a;  (여는 괄호 없음)  →  parse 오류
-TEST(ParserStmtTest, P_TC_19_IfMissingLeftParen)
+TEST_F(ParserStmtTest, P_TC_19_IfMissingLeftParen)
 {
-    FakeExprParser p;
+
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::IF, "if"),
@@ -392,9 +371,9 @@ TEST(ParserStmtTest, P_TC_19_IfMissingLeftParen)
 }
 
 // P-TC-20 : if (a > 0 print a;  (닫는 괄호 없음)  →  parse 오류
-TEST(ParserStmtTest, P_TC_20_IfMissingRightParen)
+TEST_F(ParserStmtTest, P_TC_20_IfMissingRightParen)
 {
-    FakeExprParser p;
+
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::IF, "if"),
@@ -411,9 +390,9 @@ TEST(ParserStmtTest, P_TC_20_IfMissingRightParen)
 // ================================================================
 
 // P-TC-21 : for (var i = 0; i < 3; i = i+1) print i;  →  모든 필드 != null
-TEST(ParserStmtTest, P_TC_21_ForAllParts)
+TEST_F(ParserStmtTest, P_TC_21_ForAllParts)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::FOR, "for"),
         makeTok(TokenType::LEFT_PAREN, "("),
@@ -435,9 +414,9 @@ TEST(ParserStmtTest, P_TC_21_ForAllParts)
 }
 
 // P-TC-22 : for (...) { print i; }  →  body == BlockStmt
-TEST(ParserStmtTest, P_TC_22_ForWithBlockBody)
+TEST_F(ParserStmtTest, P_TC_22_ForWithBlockBody)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::FOR, "for"),
         makeTok(TokenType::LEFT_PAREN, "("),
@@ -458,9 +437,9 @@ TEST(ParserStmtTest, P_TC_22_ForWithBlockBody)
 }
 
 // P-TC-23 : condition 뒤 세미콜론 없음  →  parse 오류
-TEST(ParserStmtTest, P_TC_23_ForMissingSemicolon)
+TEST_F(ParserStmtTest, P_TC_23_ForMissingSemicolon)
 {
-    FakeExprParser p;
+
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::FOR, "for"),
@@ -477,9 +456,9 @@ TEST(ParserStmtTest, P_TC_23_ForMissingSemicolon)
 }
 
 // P-TC-24 : for (...) {}  →  body == 빈 BlockStmt
-TEST(ParserStmtTest, P_TC_24_ForWithEmptyBlock)
+TEST_F(ParserStmtTest, P_TC_24_ForWithEmptyBlock)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::FOR, "for"),
         makeTok(TokenType::LEFT_PAREN, "("),
@@ -504,9 +483,9 @@ TEST(ParserStmtTest, P_TC_24_ForWithEmptyBlock)
 // ================================================================
 
 // P-TC-25 : var a = 1; print a;  →  statements.size() == 2
-TEST(ParserStmtTest, P_TC_25_MultipleStatements)
+TEST_F(ParserStmtTest, P_TC_25_MultipleStatements)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("a"),
         makeTok(TokenType::EQUAL, "="), makeNum(1.0),
@@ -518,9 +497,9 @@ TEST(ParserStmtTest, P_TC_25_MultipleStatements)
 }
 
 // P-TC-26 : EOF만 있는 경우  →  statements.size() == 0
-TEST(ParserStmtTest, P_TC_26_EmptyInput)
+TEST_F(ParserStmtTest, P_TC_26_EmptyInput)
 {
-    FakeExprParser p;
+
     auto stmts = p.parse({ makeEof() });
     EXPECT_EQ(stmts.size(), 0u);
 }
