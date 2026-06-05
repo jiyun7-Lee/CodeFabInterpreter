@@ -12,7 +12,7 @@
 - Checker: `check(stmts)` 반환값(bool) + `getErrors()` 크기로 검증
 - 표현식 서브트리는 **FakeExprParser** 가 토큰 1개를 소비해 `LiteralExpr` 반환 (B파트 독립성 확보)
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **🔴 Red** (Parser.cpp / Checker.cpp 미구현 상태)
+- 현재 상태: **🟢 Green**
 
 ---
 
@@ -20,51 +20,49 @@
 
 | ID | 테스트 이름 | 입력 코드 | 검증 Stmt 타입 | 상태 |
 |---|---|---|---|---|
-| P-TC-01 | VarWithNumber | `var a = 3;` | VarDeclareStmt | 🔴 Red |
-| P-TC-02 | VarWithString | `var abc = "hello";` | VarDeclareStmt | 🔴 Red |
-| P-TC-03 | VarWithBool | `var flag = true;` | VarDeclareStmt | 🔴 Red |
-| P-TC-04 | VarWithExpr | `var a = b + 1;` | VarDeclareStmt | 🔴 Red |
-| P-TC-05 | VarMissingSemicolon | `var a = 3` (`;` 없음) | runtime_error | 🔴 Red |
-| P-TC-06 | PrintVariable | `print a;` | PrintStmt | 🔴 Red |
-| P-TC-07 | PrintExpression | `print a + b;` | PrintStmt | 🔴 Red |
-| P-TC-08 | PrintMissingSemicolon | `print a` (`;` 없음) | runtime_error | 🔴 Red |
-| P-TC-09 | EmptyBlock | `{}` | BlockStmt (0개) | 🔴 Red |
-| P-TC-10 | BlockOneStmt | `{ print a; }` | BlockStmt (1개) | 🔴 Red |
-| P-TC-11 | BlockMultipleStmts | `{ print a; print b; }` | BlockStmt (2개) | 🔴 Red |
-| P-TC-12 | NestedBlock | `{ { print a; } }` | BlockStmt 중첩 | 🔴 Red |
-| P-TC-13 | BlockMissingClosingBrace | `{ print a;` (`}` 없음) | runtime_error | 🔴 Red |
-| P-TC-14 | IfWithoutElse | `if (a > 0) print a;` | IfStmt (else 없음) | 🔴 Red |
-| P-TC-15 | IfWithElse | `if (a > 0) print a; else print b;` | IfStmt (else 있음) | 🔴 Red |
-| P-TC-16 | IfWithBlockBody | `if (a > 0) { print a; }` | thenBranch == BlockStmt | 🔴 Red |
-| P-TC-17 | IfElseBothBlocks | `if (a > 0) { } else { }` | 양 분기 BlockStmt | 🔴 Red |
-| P-TC-18 | NestedIf | `if (a > 0) if (b > 0) print b;` | IfStmt 중첩 | 🔴 Red |
-| P-TC-19 | IfMissingLeftParen | `if a > 0) print a;` | runtime_error | 🔴 Red |
-| P-TC-20 | IfMissingRightParen | `if (a > 0 print a;` | runtime_error | 🔴 Red |
-| P-TC-21 | ForAllParts | `for (var i=0; i<3; i=i+1) print i;` | ForStmt (전 필드 ≠ null) | 🔴 Red |
-| P-TC-22 | ForWithBlockBody | `for (...) { print i; }` | body == BlockStmt | 🔴 Red |
-| P-TC-23 | ForMissingSemicolon | condition 뒤 `;` 없음 | runtime_error | 🔴 Red |
-| P-TC-24 | ForWithEmptyBlock | `for (...) {}` | body == 빈 BlockStmt | 🔴 Red |
-| P-TC-25 | MultipleStatements | `var a = 1; print a;` | stmts.size() == 2 | 🔴 Red |
-| P-TC-26 | EmptyInput | EOF만 | stmts.size() == 0 | 🔴 Red |
+| P-TC-01 | VarWithNumber | `var a = 3;` | VarDeclareStmt | 🟢 Green |
+| P-TC-02 | VarWithString | `var abc = "hello";` | VarDeclareStmt | 🟢 Green |
+| P-TC-03 | VarWithBool | `var flag = true;` | VarDeclareStmt | 🟢 Green |
+| P-TC-04 | VarWithExpr | `var a = b + 1;` | VarDeclareStmt | 🟢 Green |
+| P-TC-05 | VarMissingSemicolon | `var a = 3` (`;` 없음) | runtime_error | 🟢 Green |
+| P-TC-06 | PrintVariable | `print a;` | PrintStmt | 🟢 Green |
+| P-TC-07 | PrintExpression | `print a + b;` | PrintStmt | 🟢 Green |
+| P-TC-08 | PrintMissingSemicolon | `print a` (`;` 없음) | runtime_error | 🟢 Green |
+| P-TC-09 | EmptyBlock | `{}` | BlockStmt (0개) | 🟢 Green |
+| P-TC-10 | BlockOneStmt | `{ print a; }` | BlockStmt (1개) | 🟢 Green |
+| P-TC-11 | BlockMultipleStmts | `{ print a; print b; }` | BlockStmt (2개) | 🟢 Green |
+| P-TC-12 | NestedBlock | `{ { print a; } }` | BlockStmt 중첩 | 🟢 Green |
+| P-TC-13 | BlockMissingClosingBrace | `{ print a;` (`}` 없음) | runtime_error | 🟢 Green |
+| P-TC-14 | IfWithoutElse | `if (a > 0) print a;` | IfStmt (else 없음) | 🟢 Green |
+| P-TC-15 | IfWithElse | `if (a > 0) print a; else print b;` | IfStmt (else 있음) | 🟢 Green |
+| P-TC-16 | IfWithBlockBody | `if (a > 0) { print a; }` | thenBranch == BlockStmt | 🟢 Green |
+| P-TC-17 | IfElseBothBlocks | `if (a > 0) { } else { }` | 양 분기 BlockStmt | 🟢 Green |
+| P-TC-18 | NestedIf | `if (a > 0) if (b > 0) print b;` | IfStmt 중첩 | 🟢 Green |
+| P-TC-19 | IfMissingLeftParen | `if a > 0) print a;` | runtime_error | 🟢 Green |
+| P-TC-20 | IfMissingRightParen | `if (a > 0 print a;` | runtime_error | 🟢 Green |
+| P-TC-21 | ForAllParts | `for (var i=0; i<3; i=i+1) print i;` | ForStmt (전 필드 ≠ null) | 🟢 Green |
+| P-TC-22 | ForWithBlockBody | `for (...) { print i; }` | body == BlockStmt | 🟢 Green |
+| P-TC-23 | ForMissingSemicolon | condition 뒤 `;` 없음 | runtime_error | 🟢 Green |
+| P-TC-24 | ForWithEmptyBlock | `for (...) {}` | body == 빈 BlockStmt | 🟢 Green |
+| P-TC-25 | MultipleStatements | `var a = 1; print a;` | stmts.size() == 2 | 🟢 Green |
+| P-TC-26 | EmptyInput | EOF만 | stmts.size() == 0 | 🟢 Green |
 
 ## TC 목록 — Checker
 
 | ID | 테스트 이름 | 입력 코드 | 기대 결과 | 상태 |
 |---|---|---|---|---|
-| C-TC-01 | DuplicateVarSameBlock | `{ var a = 1; var a = 2; }` | false (오류) | 🔴 Red |
-| C-TC-02 | DuplicateVarGlobal | `var a = 1; var a = 2;` | false (오류) | 🔴 Red |
+| C-TC-01 | DuplicateVarSameBlock | `{ var a = 1; var a = 2; }` | false (오류) | 🟢 Green |
+| C-TC-02 | DuplicateVarGlobal | `var a = 1; var a = 2;` | false (오류) | 🟢 Green |
 | C-TC-03 | ShadowingAllowed | `var a = 1; { var a = 2; }` | true (OK) | 🟢 Green |
 | C-TC-04 | SameNameDifferentBlocks | `{ var a = 1; } { var a = 2; }` | true (OK) | 🟢 Green |
 | C-TC-05 | DifferentVarsSameBlock | `{ var a = 1; var b = 2; }` | true (OK) | 🟢 Green |
-| C-TC-06 | SelfReference | `var a = a;` | false (오류) | 🔴 Red |
-| C-TC-07 | SelfReferenceInBinary | `var a = a + 1;` | false (오류) | 🔴 Red |
+| C-TC-06 | SelfReference | `var a = a;` | false (오류) | 🟢 Green |
+| C-TC-07 | SelfReferenceInBinary | `var a = a + 1;` | false (오류) | 🟢 Green |
 | C-TC-08 | ReferenceAlreadyDeclared | `var a = 1; var b = a;` | true (OK) | 🟢 Green |
 | C-TC-09 | ReferenceOtherVar | `var b = 1; var a = b;` | true (OK) | 🟢 Green |
 | C-TC-10 | EmptyAST | `(빈 입력)` | true (OK) | 🟢 Green |
 | C-TC-11 | MultipleDistinctVars | `var a = 1; var b = 2;` | true (OK) | 🟢 Green |
 | C-TC-12 | VarInsideIfBlock | `if (true) { var x = 1; }` | true (OK) | 🟢 Green |
-
-> Checker 🟢 Green 항목은 현재 stub(`return true`) 상태에서 우연히 통과 중 — 구현 후에도 유지돼야 함
 
 ---
 
@@ -214,12 +212,12 @@ PrintStmt
 
 **입력 토큰**
 ```
-PRINT → IDENTIFIER("a") → SEMICOLON → EOF
+PRINT → IDENTIFIER("a") → PLUS("+") → IDENTIFIER("b") → SEMICOLON → EOF
 ```
 
 | 단계 | 내용 |
 |---|---|
-| Arrange | `print a + b;` 형태의 토큰 시퀀스 구성 (FakeExprParser는 첫 IDENTIFIER 소비) |
+| Arrange | `print a + b;` 에 해당하는 토큰 시퀀스 구성 (FakeExprParser가 `;` 이전 토큰 전부 소비) |
 | Act | `parser.parse(tokens)` 호출 |
 | Assert | `PrintStmt`, `expression != nullptr` |
 
@@ -888,8 +886,14 @@ IfStmt
 
 | ID | 설명 | 입력 예시 | 비고 |
 |---|---|---|---|
-| P-TC-27 | 초기값 없는 변수 선언 | `var a;` | initializer == nullptr |
+| P-TC-27 | 초기값 없는 변수 선언 | `var a;` | initializer == nullptr (리팩토링으로 허용 추가됨) |
 | P-TC-28 | else-if 체이닝 | `if (a) {} else if (b) {}` | elseBranch == IfStmt |
+| P-TC-29 | for ExpressionStmt init | `for (i = 0; i < 3; i = i+1) print i;` | var 없는 init 케이스 |
+| P-TC-30 | for 여는 괄호 누락 | `for var i = 0; ...` | runtime_error |
+| P-TC-31 | for 닫는 괄호 누락 | `for (var i = 0; i < 3; i = i+1 print i;` | runtime_error |
 | C-TC-13 | 중첩 블록 깊이 3 중복 | `{ { { var a=1; var a=2; } } }` | 가장 내부 스코프에서 중복 감지 |
 | C-TC-14 | 그루핑 내부 자기 참조 | `var a = (a + 1);` | GroupingExpr 내부 탐색 |
-| C-TC-15 | 중첩 if 내 변수 선언 충돌 | `{ var a=1; if(x){ var a=2; } }` | shadowing → OK |
+| C-TC-15 | 단항 표현식 내부 자기 참조 | `var a = !a;` | UnaryExpr 내부 탐색 |
+| C-TC-16 | 초기값 없는 선언 체크 | `var a;` | initializer 없으면 자기참조 검사 생략 → true |
+| C-TC-17 | for 루프 이후 같은 이름 재선언 | `for (var i=0;...) print i; var i=1;` | for 스코프 pop 후 OK |
+| C-TC-18 | 중첩 if 내 변수 선언 충돌 | `{ var a=1; if(x){ var a=2; } }` | shadowing → OK |

@@ -1,5 +1,4 @@
 ﻿#include "Parser.h"
-#include "Expr.h"
 #include <stdexcept>
 
 // -----------------------------------------------------------------------
@@ -69,10 +68,13 @@ std::unique_ptr<Stmt> Parser::parseStatement()
 
 std::unique_ptr<Stmt> Parser::parseVarDeclaration()
 {
-    // VAR 는 이미 소비된 상태로 진입. 문법: var IDENTIFIER = expr ;
+    // VAR 는 이미 소비된 상태로 진입. 문법: var IDENTIFIER ( = expr )? ;
     Token name = consume(TokenType::IDENTIFIER, "변수 이름이 필요합니다.");
-    consume(TokenType::EQUAL, "'=' 가 필요합니다.");
-    auto initializer = parseExpression();
+
+    std::unique_ptr<Expr> initializer;
+    if (match({ TokenType::EQUAL }))
+        initializer = parseExpression();
+
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
     auto stmt         = std::make_unique<VarDeclareStmt>();
@@ -106,11 +108,11 @@ std::unique_ptr<Stmt> Parser::parseIfStatement()
     if (match({ TokenType::ELSE }))
         elseBranch = parseStatement();
 
-    auto stmt        = std::make_unique<IfStmt>();
-    stmt->condition  = std::move(condition);
-    stmt->thenBranch = std::move(thenBranch);
-    stmt->elseBranch = std::move(elseBranch);
-    return stmt;
+    auto ifStmt        = std::make_unique<IfStmt>();
+    ifStmt->condition  = std::move(condition);
+    ifStmt->thenBranch = std::move(thenBranch);
+    ifStmt->elseBranch = std::move(elseBranch);
+    return ifStmt;
 }
 
 std::unique_ptr<Stmt> Parser::parseForStatement()
@@ -121,9 +123,9 @@ std::unique_ptr<Stmt> Parser::parseForStatement()
 
     std::unique_ptr<Stmt> init;
     if (match({ TokenType::VAR }))
-        init = parseVarDeclaration();       // var i = 0;  (세미콜론 포함)
+        init = parseVarDeclaration();      // var 선언문 (세미콜론 포함)
     else
-        init = parseExpressionStatement();  // i = 0;      (세미콜론 포함)
+        init = parseExpressionStatement(); // 표현식 문장 (세미콜론 포함)
 
     auto condition = parseExpression();
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
@@ -133,12 +135,12 @@ std::unique_ptr<Stmt> Parser::parseForStatement()
 
     auto body = parseStatement();
 
-    auto stmt       = std::make_unique<ForStmt>();
-    stmt->init      = std::move(init);
-    stmt->condition = std::move(condition);
-    stmt->increment = std::move(increment);
-    stmt->body      = std::move(body);
-    return stmt;
+    auto forStmt       = std::make_unique<ForStmt>();
+    forStmt->init      = std::move(init);
+    forStmt->condition = std::move(condition);
+    forStmt->increment = std::move(increment);
+    forStmt->body      = std::move(body);
+    return forStmt;
 }
 
 std::unique_ptr<Stmt> Parser::parseBlock()
@@ -146,11 +148,11 @@ std::unique_ptr<Stmt> Parser::parseBlock()
     // LEFT_BRACE 는 이미 소비된 상태로 진입.
     // isAtEnd() 검사는 닫는 중괄호 없이 EOF 에 도달했을 때 무한루프를 방지한다.
     // 실제 오류는 consume(RIGHT_BRACE) 에서 던진다.
-    auto stmt = std::make_unique<BlockStmt>();
+    auto block = std::make_unique<BlockStmt>();
     while (!check(TokenType::RIGHT_BRACE) && !isAtEnd())
-        stmt->statements.push_back(parseDeclaration());
+        block->statements.push_back(parseDeclaration());
     consume(TokenType::RIGHT_BRACE, "'}' 가 필요합니다.");
-    return stmt;
+    return block;
 }
 
 std::unique_ptr<Stmt> Parser::parseExpressionStatement()
