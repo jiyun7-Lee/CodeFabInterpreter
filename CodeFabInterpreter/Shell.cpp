@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <optional>
 #include <string>
 #include <algorithm>
 #include <cctype>
@@ -71,13 +72,14 @@ void Shell::runLine(const std::string& source)
 // -----------------------------------------------------------------------
 // 공통 헬퍼 — 파일 읽기 (FileRunner / DebugShell 공유)
 // -----------------------------------------------------------------------
-static std::string readFile(const std::string& filepath)
+// nullopt → 파일 없음, "" → 빈 파일 (정상), "..." → 내용 있는 파일
+static std::optional<std::string> readFile(const std::string& filepath)
 {
     std::ifstream file(filepath);
     if (!file.is_open())
     {
         std::cout << "Error: File Not Found '" << filepath << "'\n";
-        return {};
+        return std::nullopt;
     }
     return std::string((std::istreambuf_iterator<char>(file)),
                         std::istreambuf_iterator<char>());
@@ -89,9 +91,9 @@ static std::string readFile(const std::string& filepath)
 
 void FileRunner::run(const std::string& filepath)
 {
-    std::string source = readFile(filepath);
-    if (source.empty()) return;
-    runSource(source);
+    auto source = readFile(filepath);
+    if (!source.has_value()) return;
+    runSource(*source);
 }
 
 void FileRunner::runSource(const std::string& source)
@@ -127,13 +129,13 @@ void FileRunner::runSource(const std::string& source)
 
 void DebugShell::run(const std::string& filepath)
 {
-    std::string source = readFile(filepath);
-    if (source.empty()) return;
+    auto source = readFile(filepath);
+    if (!source.has_value()) return;
 
     try
     {
         Tokenizer tokenizer;
-        auto tokens = tokenizer.tokenize(source);
+        auto tokens = tokenizer.tokenize(*source);
 
         Parser parser;
         auto stmts = parser.parse(tokens);

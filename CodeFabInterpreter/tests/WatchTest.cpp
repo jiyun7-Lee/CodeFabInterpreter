@@ -86,3 +86,40 @@ TEST(WatchTest, TC_WATCH_05_Inspect)
     EXPECT_NE(out.find("x"), std::string::npos);
     EXPECT_NE(out.find("y"), std::string::npos);
 }
+
+// TC-WATCH-06: watch 변수명 앞뒤 공백 → trim 후 정상 감시
+TEST(WatchTest, TC_WATCH_06_AddWatch_TrimsWhitespace)
+{
+    WatchManager mgr;
+    mgr.add("  x  ");
+
+    Environment env;
+    env.define("x", 42.0);
+
+    testing::internal::CaptureStdout();
+    mgr.printWatches(&env);
+    std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("x"),       std::string::npos);
+    EXPECT_EQ(out.find("스코프 밖"), std::string::npos);
+}
+
+// TC-WATCH-07: inspect → 부모 스코프 변수는 노출되지 않음
+TEST(WatchTest, TC_WATCH_07_Inspect_DoesNotExposeParentScope)
+{
+    WatchManager mgr;
+
+    Environment parent;
+    parent.define("g", 100.0);
+
+    Environment child;
+    child.parent = &parent;
+    child.define("x", 5.0);
+
+    testing::internal::CaptureStdout();
+    mgr.printInspect(&child);
+    std::string out = testing::internal::GetCapturedStdout();
+
+    EXPECT_NE(out.find("x"), std::string::npos);
+    EXPECT_EQ(out.find("g"), std::string::npos);
+}

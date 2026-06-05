@@ -62,8 +62,20 @@ void BreakpointManager::print() const
 // WatchManager
 // -----------------------------------------------------------------------
 
-void WatchManager::add(const std::string& name)    { watches_.insert(name); }
-void WatchManager::remove(const std::string& name) { watches_.erase(name); }
+static std::string trimWhitespace(const std::string& s)
+{
+    size_t start = s.find_first_not_of(" \t");
+    if (start == std::string::npos) return "";
+    size_t end = s.find_last_not_of(" \t");
+    return s.substr(start, end - start + 1);
+}
+
+void WatchManager::add(const std::string& name)
+{
+    const std::string trimmed = trimWhitespace(name);
+    if (!trimmed.empty()) watches_.insert(trimmed);
+}
+void WatchManager::remove(const std::string& name) { watches_.erase(trimWhitespace(name)); }
 bool WatchManager::empty() const                   { return watches_.empty(); }
 
 void WatchManager::printWatches(const Environment* env) const
@@ -84,17 +96,23 @@ void WatchManager::printWatches(const Environment* env) const
 
 void WatchManager::printInspect(const Environment* env) const
 {
-    if (!env || env->values.empty())
+    if (!env)
+    {
+        std::cout << "(현재 스코프에 변수 없음)\n";
+        return;
+    }
+    const auto& all = env->getAll();
+    if (all.empty())
     {
         std::cout << "(현재 스코프에 변수 없음)\n";
         return;
     }
     std::vector<std::string> names;
-    for (const auto& kv : env->values)
+    for (const auto& kv : all)
         names.push_back(kv.first);
     std::sort(names.begin(), names.end());
     for (const auto& name : names)
-        std::cout << "  " << name << " = " << valueToString(env->values.at(name)) << "\n";
+        std::cout << "  " << name << " = " << valueToString(all.at(name)) << "\n";
 }
 
 // -----------------------------------------------------------------------

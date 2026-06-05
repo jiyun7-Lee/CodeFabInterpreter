@@ -3,6 +3,14 @@
 #include <iostream>
 #include <stdexcept>
 
+// ReturnSignal 등 예외 발생 시에도 depth_ 가 복원되도록 보장
+struct DepthGuard
+{
+    int& depth;
+    DepthGuard(int& d) : depth(d) { ++depth; }
+    ~DepthGuard()                 { --depth; }
+};
+
 static bool isTruthy(const Value& val)
 {
     return std::visit([](const auto& v) -> bool {
@@ -53,12 +61,11 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
 
     if (auto* s = dynamic_cast<IfStmt*>(stmt))
     {
-        depth_++;
+        DepthGuard g(depth_);
         if (isTruthy(evaluateExpr(s->condition.get(), env)))
             executeStatement(s->thenBranch.get(), env);
         else if (s->elseBranch)
             executeStatement(s->elseBranch.get(), env);
-        depth_--;
         return;
     }
 
@@ -68,7 +75,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
         // Executor도 대응하는 Environment를 생성해 distance 값과 환경 체인을 일치시킨다.
         Environment forEnv;
         forEnv.parent = env;
-        depth_++;
+        DepthGuard g(depth_);
         if (s->init)
             executeStatement(s->init.get(), &forEnv);
         while (!s->condition || isTruthy(evaluateExpr(s->condition.get(), &forEnv)))
@@ -77,7 +84,6 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
             if (s->increment)
                 evaluateExpr(s->increment.get(), &forEnv);
         }
-        depth_--;
         return;
     }
 
@@ -85,10 +91,9 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
     {
         Environment blockEnv;
         blockEnv.parent = env;
-        depth_++;
+        DepthGuard g(depth_);
         for (const auto& st : s->statements)
             executeStatement(st.get(), &blockEnv);
-        depth_--;
         return;
     }
 
