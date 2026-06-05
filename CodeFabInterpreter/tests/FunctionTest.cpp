@@ -331,6 +331,40 @@ TEST(FunctionTest, CallWithTooManyArgsThrows)
 }
 
 // -----------------------------------------------------------------------
+// TC-FN-15: 빈 return 실행 — null 반환
+// func f() { return; } var r = f(); print r;
+// → stdout "null\n"
+// -----------------------------------------------------------------------
+TEST(FunctionTest, EmptyReturnYieldsNull)
+{
+    Tokenizer tz;
+    auto tokens = tz.tokenize(
+        "func f() { return; }"
+        "var r = f();"
+        "print r;");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+
+    Executor executor;
+    testing::internal::CaptureStdout();
+    executor.execute(stmts);
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "null\n");
+}
+
+// -----------------------------------------------------------------------
+// TC-FN-16: Checker — 함수 외부 return 오류 메시지에 줄 번호 포함
+// return 5;  (1번째 줄)
+// → 오류 메시지에 "[1번째 줄]" 과 "함수 외부" 포함
+// -----------------------------------------------------------------------
+TEST(FunctionTest, ReturnOutsideFunctionErrorIncludesLineNumber)
+{
+    auto errors = checkerErrors("return 5;");
+    ASSERT_FALSE(errors.empty());
+    EXPECT_NE(errors[0].find("[1번째 줄]"),  std::string::npos);
+    EXPECT_NE(errors[0].find("함수 외부"), std::string::npos);
+}
+
+// -----------------------------------------------------------------------
 // TC-FN-14: Executor — null 반환 함수 결과를 산술 연산에 사용 → runtime_error
 // func f() {} var r = f() + 1;
 // -----------------------------------------------------------------------

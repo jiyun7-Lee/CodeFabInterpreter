@@ -637,3 +637,17 @@ TEST_F(ParserStmtTest, ReturnMissingSemicolonThrows)
         std::runtime_error
     );
 }
+
+// P-TC-34 : var x;  (초기화 없음)  →  VarDeclareStmt, initializer == nullptr
+TEST_F(ParserStmtTest, VarNoInitializerParsed)
+{
+    auto stmts = p.parse({
+        makeTok(TokenType::VAR, "var"), makeId("x"),
+        makeTok(TokenType::SEMICOLON, ";"), makeEof()
+    });
+    ASSERT_EQ(stmts.size(), 1u);
+    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(s->name.lexeme, "x");
+    EXPECT_EQ(s->initializer, nullptr);
+}

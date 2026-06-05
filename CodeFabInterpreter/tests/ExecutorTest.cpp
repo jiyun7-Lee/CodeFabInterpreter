@@ -840,3 +840,16 @@ TEST(ExecutorTest, LogicalOr)
 		ASSERT_NO_THROW(executor.execute(stmts));
 	}
 }
+
+// TC21: 초기화 없는 var 선언 후 print → "null\n"
+TEST(ExecutorTest, VarNoInitializerPrintsNull)
+{
+	Tokenizer tz;
+	auto tokens = tz.tokenize("var x; print x;");
+	Parser parser;
+	auto stmts = parser.parse(tokens);
+	Executor executor;
+	testing::internal::CaptureStdout();
+	executor.execute(stmts);
+	EXPECT_EQ(testing::internal::GetCapturedStdout(), "null\n");
+}
