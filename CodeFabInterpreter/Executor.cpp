@@ -91,6 +91,23 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
     if (auto* e = dynamic_cast<VariableExpr*>(expr))
         return env->get(e->name.lexeme);
 
+    if (auto* e = dynamic_cast<GroupingExpr*>(expr))
+        return evaluateExpr(e->expression.get(), env);
+
+    if (auto* e = dynamic_cast<UnaryExpr*>(expr))
+    {
+        Value val = evaluateExpr(e->right.get(), env);
+        if (e->op.type == TokenType::MINUS)
+        {
+            if (!std::holds_alternative<double>(val))
+                throw std::runtime_error("Type error: unary '-' requires a number");
+            return -std::get<double>(val);
+        }
+        if (e->op.type == TokenType::BANG)
+            return !isTruthy(val);
+        throw std::runtime_error("Executor error: unknown unary operator '" + e->op.lexeme + "'");
+    }
+
     if (auto* e = dynamic_cast<AssignExpr*>(expr))
     {
         Value val = evaluateExpr(e->value.get(), env);
@@ -100,6 +117,22 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
 
     if (auto* e = dynamic_cast<BinaryExpr*>(expr))
     {
+        // AND는 단락 평가: 왼쪽이 falsy면 오른쪽 평가 없이 반환
+        if (e->op.type == TokenType::AND)
+        {
+            Value lv = evaluateExpr(e->left.get(), env);
+            if (!isTruthy(lv)) return lv;
+            return evaluateExpr(e->right.get(), env);
+        }
+
+        // OR는 단락 평가: 왼쪽이 truthy면 오른쪽 평가 없이 반환
+        if (e->op.type == TokenType::OR)
+        {
+            Value lv = evaluateExpr(e->left.get(), env);
+            if (isTruthy(lv)) return lv;
+            return evaluateExpr(e->right.get(), env);
+        }
+
         Value lv = evaluateExpr(e->left.get(), env);
         Value rv = evaluateExpr(e->right.get(), env);
 
