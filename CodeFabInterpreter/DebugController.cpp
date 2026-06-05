@@ -101,7 +101,7 @@ void WatchManager::printInspect(const Environment* env) const
 // DebugController
 // -----------------------------------------------------------------------
 
-void DebugController::beforeExecute(Stmt* stmt, Environment* env)
+void DebugController::beforeExecute(Stmt* stmt, Environment* env, int depth)
 {
     // RUNNING 중 breakpoint 도달 시 PAUSED로 전환
     if (state_ == ExecutionState::RUNNING)
@@ -110,6 +110,13 @@ void DebugController::beforeExecute(Stmt* stmt, Environment* env)
             state_ = ExecutionState::PAUSED;
         else
             return;
+    }
+
+    // NEXT: 발행 당시 depth보다 깊은 Stmt는 통과, 같거나 얕으면 STEP으로 전환
+    if (state_ == ExecutionState::NEXT)
+    {
+        if (depth > nextDepth_) return;
+        state_ = ExecutionState::STEP;
     }
 
     // 정지 시 감시 변수 자동 출력
@@ -125,6 +132,7 @@ void DebugController::beforeExecute(Stmt* stmt, Environment* env)
         const std::string low = toLower(cmd);
 
         if (low == "step" || low == "s")      { state_ = ExecutionState::STEP;    return; }
+        if (low == "next" || low == "n")      { nextDepth_ = depth; state_ = ExecutionState::NEXT; return; }
         if (low == "continue" || low == "c")  { state_ = ExecutionState::RUNNING; return; }
 
         if (low.rfind("break ", 0) == 0)
@@ -164,9 +172,8 @@ void DebugController::beforeExecute(Stmt* stmt, Environment* env)
         else if (low == "inspect") { watches_.printInspect(env); }
         else
         {
-            // Phase 7: next
             std::cout << "[Debug] 알 수 없는 명령어."
-                         " (step/continue/break N/remove N/breakpoints"
+                         " (step/next/continue/break N/remove N/breakpoints"
                          "/watch V/unwatch V/watches/inspect)\n";
         }
         std::cout << "> " << std::flush;

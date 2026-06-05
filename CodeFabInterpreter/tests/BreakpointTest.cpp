@@ -42,7 +42,7 @@ class PauseTrackingController : public DebugController
 public:
     int pausedAtLine = -1;
     void setRunning() { state_ = ExecutionState::RUNNING; }
-    void beforeExecute(Stmt* stmt, Environment* /*env*/) override
+    void beforeExecute(Stmt* stmt, Environment* /*env*/, int /*depth*/) override
     {
         if (state_ == ExecutionState::RUNNING && breakpoints_.isBreakpoint(stmt->line))
         {

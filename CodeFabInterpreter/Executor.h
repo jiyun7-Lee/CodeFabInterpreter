@@ -27,6 +27,7 @@ private:
     std::unordered_map<std::string, FunctionValue> functions_;
     DebugController*                               debug_ = nullptr;
     int                                            currentLine_ = 0;
+    int                                            depth_ = 0;
 
     void  executeStatement(Stmt* stmt, Environment* env);
     Value evaluateExpr(Expr* expr, Environment* env);

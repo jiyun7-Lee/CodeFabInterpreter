@@ -30,7 +30,7 @@ void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 void Executor::executeStatement(Stmt* stmt, Environment* env)
 {
     if (stmt->line != 0) currentLine_ = stmt->line;
-    if (debug_) debug_->beforeExecute(stmt, env);
+    if (debug_) debug_->beforeExecute(stmt, env, depth_);
 
     if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
     {
@@ -53,10 +53,12 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
 
     if (auto* s = dynamic_cast<IfStmt*>(stmt))
     {
+        depth_++;
         if (isTruthy(evaluateExpr(s->condition.get(), env)))
             executeStatement(s->thenBranch.get(), env);
         else if (s->elseBranch)
             executeStatement(s->elseBranch.get(), env);
+        depth_--;
         return;
     }
 
@@ -66,6 +68,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
         // Executor도 대응하는 Environment를 생성해 distance 값과 환경 체인을 일치시킨다.
         Environment forEnv;
         forEnv.parent = env;
+        depth_++;
         if (s->init)
             executeStatement(s->init.get(), &forEnv);
         while (!s->condition || isTruthy(evaluateExpr(s->condition.get(), &forEnv)))
@@ -74,6 +77,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
             if (s->increment)
                 evaluateExpr(s->increment.get(), &forEnv);
         }
+        depth_--;
         return;
     }
 
@@ -81,8 +85,10 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
     {
         Environment blockEnv;
         blockEnv.parent = env;
+        depth_++;
         for (const auto& st : s->statements)
             executeStatement(st.get(), &blockEnv);
+        depth_--;
         return;
     }
 

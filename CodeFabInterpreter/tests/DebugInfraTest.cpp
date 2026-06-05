@@ -23,7 +23,7 @@ class MockDebugController : public DebugController
 {
 public:
     int callCount = 0;
-    void beforeExecute(Stmt* /*stmt*/, Environment* /*env*/) override { callCount++; }
+    void beforeExecute(Stmt* /*stmt*/, Environment* /*env*/, int /*depth*/) override { callCount++; }
 };
 
 TEST(DebugInfraTest, TC_DBG_INFRA_02_HookCalledForEachStmt)
