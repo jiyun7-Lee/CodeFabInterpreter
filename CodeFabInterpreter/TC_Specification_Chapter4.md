@@ -39,6 +39,8 @@
 
 ### 상수 폴딩 (CF)
 
+> CF-TC-01~05, CF-TC-14 는 `PatternAFoldTest (TEST_P)` 로 통합 — 연산자별 매개변수화
+
 | ID | 테스트 이름 | 입력 AST / 코드 | 검증 항목 | 상태 |
 |---|---|---|---|---|
 | CF-TC-01 | BinaryPlus_Fold | `1.0 + 2.0` | `LiteralExpr == 3.0` | 🟢 Green |
@@ -54,7 +56,7 @@
 | CF-TC-11 | DivByZero_NoFold | `5.0 / 0.0` | `BinaryExpr` 유지 | 🟢 Green |
 | CF-TC-12 | NestedFold | `(1.0 + 2.0) * 3.0` | `LiteralExpr == 9.0` | 🟢 Green |
 | CF-TC-13 | FunctionCall_MulZero_NoFold | `f() * 0.0` | `BinaryExpr` 유지 | 🟢 Green |
-| CF-TC-14 | BinaryPercent_Fold | `9.0 % 4.0` | `LiteralExpr == 1.0` | 🟢 Green |
+| CF-TC-14 | BinaryPercent_Fold *(PatternA)* | `9.0 % 4.0` | `LiteralExpr == 1.0` | 🟢 Green |
 | CF-TC-15 | PercentByZero_NoFold | `5.0 % 0.0` | `BinaryExpr` 유지 | 🟢 Green |
 | CF-TC-16 | BinaryCount_NToZero | `(1+2)*(3-4)+(5*6)` | count `5 → 0`, 결과 `27.0` | 🟢 Green |
 

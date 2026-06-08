@@ -133,7 +133,6 @@ static bool isLiteralBool(const std::unique_ptr<Expr>& e, bool expected)
                && std::get<bool>(lit->value) == expected;
 }
 
-// BinaryExpr 노드 수를 재귀적으로 센다 — 폴딩 전/후 계산 횟수 검증용
 static int countBinaryExprInExpr(const Expr* e)
 {
     if (!e) return 0;
@@ -167,14 +166,11 @@ static int countBinaryExpr(const std::vector<std::unique_ptr<Stmt>>& stmts)
 // Fixtures
 // ================================================================
 
-// Checker 기반 테스트 공통 Fixture
-// 각 테스트마다 fresh Checker 인스턴스 제공
 class OptimizationCheckerFixture : public ::testing::Test
 {
 protected:
     Checker checker;
 
-    // check() 실행 후 첫 번째 VarDeclareStmt* 반환
     VarDeclareStmt* checkAndGetVarDecl(std::vector<std::unique_ptr<Stmt>>& stmts)
     {
         EXPECT_TRUE(checker.check(stmts));
@@ -182,7 +178,6 @@ protected:
     }
 };
 
-// Shell E2E 테스트 공통 Fixture
 class ShellE2EFixture : public ::testing::Test
 {
 protected:
@@ -197,61 +192,7 @@ protected:
 };
 
 // ================================================================
-// 패턴 A — 매개변수화 테스트 (CF-TC-01~05, CF-TC-14)
-//
-// BinaryExpr(Lit, op, Lit) → LiteralExpr 폴딩 검증
-// 연산자별 케이스를 하나의 TEST_P 로 통합
-// ================================================================
-struct PatternAParam
-{
-    const char* testName;
-    TokenType   op;
-    double      lhs;
-    double      rhs;
-    Value       expected;   // double 또는 bool
-};
-
-class PatternAFoldTest : public ::testing::TestWithParam<PatternAParam> {};
-
-TEST_P(PatternAFoldTest, FoldsToLiteral)
-{
-    const auto& p = GetParam();
-    auto stmts = S(makeVarDecl("x", makeBin(makeLit(p.lhs), p.op, makeLit(p.rhs))));
-
-    Checker checker;
-    ASSERT_TRUE(checker.check(stmts));
-    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
-    ASSERT_NE(decl, nullptr);
-
-    if (std::holds_alternative<double>(p.expected))
-        EXPECT_TRUE(isLiteralDouble(decl->initializer, std::get<double>(p.expected)));
-    else if (std::holds_alternative<bool>(p.expected))
-        EXPECT_TRUE(isLiteralBool(decl->initializer, std::get<bool>(p.expected)));
-}
-
-INSTANTIATE_TEST_SUITE_P(
-    PatternA, PatternAFoldTest,
-    ::testing::Values(
-        // CF-TC-01 : 1.0 + 2.0  →  3.0
-        PatternAParam{"Plus",    TokenType::PLUS,    1.0,  2.0, Value{3.0}},
-        // CF-TC-02 : 10.0 - 3.0  →  7.0
-        PatternAParam{"Minus",   TokenType::MINUS,   10.0, 3.0, Value{7.0}},
-        // CF-TC-03 : 4.0 * 5.0  →  20.0
-        PatternAParam{"Star",    TokenType::STAR,    4.0,  5.0, Value{20.0}},
-        // CF-TC-04 : 10.0 / 2.0  →  5.0
-        PatternAParam{"Slash",   TokenType::SLASH,   10.0, 2.0, Value{5.0}},
-        // CF-TC-05 : 2.0 < 5.0  →  true  (bool 결과)
-        PatternAParam{"Less",    TokenType::LESS,    2.0,  5.0, Value{true}},
-        // CF-TC-14 : 9.0 % 4.0  →  1.0
-        PatternAParam{"Percent", TokenType::PERCENT, 9.0,  4.0, Value{1.0}}
-    ),
-    [](const ::testing::TestParamInfo<PatternAParam>& info) {
-        return info.param.testName;
-    }
-);
-
-// ================================================================
-// 정적 바인딩 — Checker distance 검증 (SB-TC-01~07)
+// 정적 바인딩 (SB-TC-01~11)
 // ================================================================
 
 // SB-TC-01 : 글로벌 스코프 변수 참조 → distance = 0
@@ -369,11 +310,23 @@ TEST_F(OptimizationCheckerFixture, SB_TC_07_NearestScope_Selected)
     EXPECT_EQ(rawVar->distance, 1);
 }
 
-// ================================================================
-// 정적 바인딩 — MockEnvironment 행위 검증 (SB-TC-10~11)
-// ================================================================
+// SB-TC-08 : E2E — 중첩 블록에서 외부 변수 읽기 → "10"
+TEST_F(ShellE2EFixture, SB_TC_08_NestedBlock_ReadsOuterVar)
+{
+    EXPECT_EQ(runLines({"var x = 10;", "{ print x; }"}), "10\n");
+}
 
-// SB-TC-10 : distance=0 → getAt(0) 호출, get() 미호출
+// SB-TC-09 : E2E — for 루프 조건에서 외부 변수 참조 → 루프 정상 실행
+TEST_F(ShellE2EFixture, SB_TC_09_ForLoop_OuterVarInCondition)
+{
+    EXPECT_EQ(
+        runLines({"var limit = 3;",
+                  "for (var i = 0; i < limit; i = i + 1) { print i; }"}),
+        "0\n1\n2\n"
+    );
+}
+
+// SB-TC-10 : Mock — distance=0 → getAt(0) 호출, get() 미호출
 TEST(StaticBindingMockTest, SB_TC_10_GlobalVar_UsesGetAt_NotGet)
 {
     MockEnvironment mock;
@@ -397,7 +350,7 @@ TEST(StaticBindingMockTest, SB_TC_10_GlobalVar_UsesGetAt_NotGet)
     exec.execute(stmts, mock);
 }
 
-// SB-TC-11 : 블록 내부 외부 변수 참조 → 체인 순회(get) 미호출
+// SB-TC-11 : Mock — 블록 내부 외부 변수 참조 → 체인 순회(get) 미호출
 TEST(StaticBindingMockTest, SB_TC_11_BlockVar_NoChainTraversal)
 {
     MockEnvironment mock;
@@ -419,9 +372,57 @@ TEST(StaticBindingMockTest, SB_TC_11_BlockVar_NoChainTraversal)
 }
 
 // ================================================================
-// 상수 폴딩 — foldExpr 동작 검증 (CF-TC-06~16)
-// CF-TC-01~05, CF-TC-14 는 위의 PatternAFoldTest(TEST_P) 참조
+// 상수 폴딩 (CF-TC-01~16)
+//
+// CF-TC-01~05, CF-TC-14 : PatternAFoldTest (TEST_P) — 아래 참조
+// CF-TC-06~13, CF-TC-15~16 : OptimizationCheckerFixture (TEST_F)
 // ================================================================
+
+// --- CF-TC-01~05, CF-TC-14 : 패턴 A 매개변수화 테스트 ---
+// BinaryExpr(Lit, op, Lit) → LiteralExpr 폴딩 검증
+struct PatternAParam
+{
+    const char* testName;
+    TokenType   op;
+    double      lhs;
+    double      rhs;
+    Value       expected;
+};
+
+class PatternAFoldTest : public ::testing::TestWithParam<PatternAParam> {};
+
+TEST_P(PatternAFoldTest, FoldsToLiteral)
+{
+    const auto& p = GetParam();
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(p.lhs), p.op, makeLit(p.rhs))));
+
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+
+    if (std::holds_alternative<double>(p.expected))
+        EXPECT_TRUE(isLiteralDouble(decl->initializer, std::get<double>(p.expected)));
+    else if (std::holds_alternative<bool>(p.expected))
+        EXPECT_TRUE(isLiteralBool(decl->initializer, std::get<bool>(p.expected)));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    PatternA, PatternAFoldTest,
+    ::testing::Values(
+        PatternAParam{"CF_TC_01_Plus",    TokenType::PLUS,    1.0,  2.0, Value{3.0}},
+        PatternAParam{"CF_TC_02_Minus",   TokenType::MINUS,   10.0, 3.0, Value{7.0}},
+        PatternAParam{"CF_TC_03_Star",    TokenType::STAR,    4.0,  5.0, Value{20.0}},
+        PatternAParam{"CF_TC_04_Slash",   TokenType::SLASH,   10.0, 2.0, Value{5.0}},
+        PatternAParam{"CF_TC_05_Less",    TokenType::LESS,    2.0,  5.0, Value{true}},
+        PatternAParam{"CF_TC_14_Percent", TokenType::PERCENT, 9.0,  4.0, Value{1.0}}
+    ),
+    [](const ::testing::TestParamInfo<PatternAParam>& info) {
+        return info.param.testName;
+    }
+);
+
+// --- CF-TC-06~13, CF-TC-15~16 ---
 
 // CF-TC-06 : var x = -7.0;  →  LiteralExpr{-7.0}  (패턴 B: 단항 -)
 TEST_F(OptimizationCheckerFixture, CF_TC_06_UnaryMinus_FoldsToLiteral)
@@ -542,7 +543,7 @@ TEST_F(OptimizationCheckerFixture, CF_TC_16_BinaryCount_NToZero)
 }
 
 // ================================================================
-// 교차 검증 (MX) — 정적 바인딩 × 상수 폴딩 복합 시나리오 (MX-TC-01~07)
+// 교차 검증 (MX-TC-01~14)
 // ================================================================
 
 // MX-TC-01 : x+0 폴딩 후 VariableExpr distance 보존
@@ -688,52 +689,31 @@ TEST_F(OptimizationCheckerFixture, MX_TC_07_TwoLevelNest_FoldPreservesDistance2)
     EXPECT_EQ(var->distance, 2);
 }
 
-// ================================================================
-// End-to-End 테스트 — Shell 경유 실행 결과 검증
-// SB E2E (SB-TC-08~09), MX E2E (MX-TC-08~14)
-// ================================================================
-
-// SB-TC-08 : 중첩 블록에서 외부 변수 읽기 → "10"
-TEST_F(ShellE2EFixture, SB_TC_08_NestedBlock_ReadsOuterVar)
-{
-    EXPECT_EQ(runLines({"var x = 10;", "{ print x; }"}), "10\n");
-}
-
-// SB-TC-09 : for 루프 조건에서 외부 변수 참조 → 루프 정상 실행
-TEST_F(ShellE2EFixture, SB_TC_09_ForLoop_OuterVarInCondition)
-{
-    EXPECT_EQ(
-        runLines({"var limit = 3;",
-                  "for (var i = 0; i < limit; i = i + 1) { print i; }"}),
-        "0\n1\n2\n"
-    );
-}
-
-// MX-TC-08 : { print x + 0; }  →  "10"
+// MX-TC-08 : E2E — { print x + 0; }  →  "10"
 TEST_F(ShellE2EFixture, MX_TC_08_E2E_IdentityFold_OuterVar)
 {
     EXPECT_EQ(runLines({"var x = 10;", "{ print x + 0; }"}), "10\n");
 }
 
-// MX-TC-09 : var a = 1 + 2; print a;  →  "3"
+// MX-TC-09 : E2E — var a = 1 + 2; print a;  →  "3"
 TEST_F(ShellE2EFixture, MX_TC_09_E2E_FoldedInit_PrintsCorrect)
 {
     EXPECT_EQ(runLines({"var a = 1 + 2;", "print a;"}), "3\n");
 }
 
-// MX-TC-10 : var a = 1 + 2; var b = 3; print a + b;  →  "6"
+// MX-TC-10 : E2E — var a = 1 + 2; var b = 3; print a + b;  →  "6"
 TEST_F(ShellE2EFixture, MX_TC_10_E2E_TwoFoldedVars_Sum)
 {
     EXPECT_EQ(runLines({"var a = 1 + 2;", "var b = 3;", "print a + b;"}), "6\n");
 }
 
-// MX-TC-11 : var x = 4; print x * 1;  →  "4"
+// MX-TC-11 : E2E — var x = 4; print x * 1;  →  "4"
 TEST_F(ShellE2EFixture, MX_TC_11_E2E_MultiplyOne_PrintsVar)
 {
     EXPECT_EQ(runLines({"var x = 4;", "print x * 1;"}), "4\n");
 }
 
-// MX-TC-12 : var limit = 2 + 1; for (...) { print i; }  →  "0\n1\n2\n"
+// MX-TC-12 : E2E — var limit = 2 + 1; for (...) { print i; }  →  "0\n1\n2\n"
 TEST_F(ShellE2EFixture, MX_TC_12_E2E_FoldedLimit_ForLoop)
 {
     EXPECT_EQ(
@@ -743,13 +723,13 @@ TEST_F(ShellE2EFixture, MX_TC_12_E2E_FoldedLimit_ForLoop)
     );
 }
 
-// MX-TC-13 : var x = 3; { var y = x * 0; print y; }  →  "0"
+// MX-TC-13 : E2E — var x = 3; { var y = x * 0; print y; }  →  "0"
 TEST_F(ShellE2EFixture, MX_TC_13_E2E_PureVarTimesZero_PrintsZero)
 {
     EXPECT_EQ(runLines({"var x = 3;", "{ var y = x * 0; print y; }"}), "0\n");
 }
 
-// MX-TC-14 : var x = 5; print (2 + 3) * x;  →  "25"
+// MX-TC-14 : E2E — var x = 5; print (2 + 3) * x;  →  "25"
 TEST_F(ShellE2EFixture, MX_TC_14_E2E_PartialFold_RuntimeEval)
 {
     EXPECT_EQ(runLines({"var x = 5;", "print (2 + 3) * x;"}), "25\n");
