@@ -1,842 +1,101 @@
-﻿# CodeFab 프로젝트 통합 설계서 (v1)
+# CodeFabInterpreter
 
-## 담당자 - Role
-송용길님    Tokenizer    TokenType, Token Class, Lexer, Tokenize 테스트
+Custom Language를 해석하고 실행하는 인터프리터입니다.
 
-김홍원님    Expression Parser    LiteralExpr, VariableExpr, UnaryExpr, BinaryExpr, AssignExpr, GroupingExpr
+---
 
-심민구님    Statement Parser + Checker    VarStmt, PrintStmt, BlockStmt, IfStmt, ForStmt, Checker
+## 아키텍처
 
-이지윤님    Executor + Prompt Shell    Environment, Scope, Runtime Error, Executor, Shell
-
-
-## 1. 프로젝트 개요
-
-### CodeFab 이란?
-
--   Interpreter(인터프리터)를 의미
--   Python처럼 코드를 읽고 즉시 실행
--   Custom Language를 해석하고 실행하는 엔진
-
-### 최종 목표
-
-1.  Custom Language 개발
-2.  Interpreter 개발
-3.  Prompt Shell 개발
-4.  테스트 스크립트 통과
-
-------------------------------------------------------------------------
-
-# 2. 전체 아키텍처
-
-``` text
+```
 사용자 입력
     ↓
-Prompt Shell
+FactoryShell       ← 실행 모드 분기 (REPL / FILE / DEBUG)
     ↓
-Assembler
+Tokenizer          ← 소스 코드 → Token List
     ↓
-Checker
+Parser             ← Token List → AST
     ↓
-Executor
+Checker            ← AST 정적 분석 (중복 선언, 자기 초기화 등)
+    ↓
+Executor           ← AST 실행, Scope 관리, Runtime Error 처리
     ↓
 실행 결과 출력
 ```
 
-Prompt Shell에서 한 줄 입력될 때마다
-
-Assembler → Checker → Executor
-
-파이프라인이 수행된다.
-
-------------------------------------------------------------------------
-
-# 3. Unit 구조
-
-## Assembler
-
-역할 - Source Code → AST 변환
-
-구성
-
-``` text
-Assembler
- ├─ Tokenizer
- └─ Parser
-```
-
-산출물 - Token List - AST
-
-------------------------------------------------------------------------
-
-## Checker
-
-역할 - AST 의미 분석 - 실행 전 오류 검출
-
-검사 항목 - 중복 선언 - 자기 초기화 참조 - 선언 전 사용(선택) - 기타
-정적 오류
-
-------------------------------------------------------------------------
-
-## Executor
-
-역할 - AST 실행 - Scope 관리 - Runtime Error 처리
-
-------------------------------------------------------------------------
-
-## Prompt Shell
-
-역할 - 사용자 입력 수신 - 파이프라인 호출
-
-------------------------------------------------------------------------
-
-# 4. Token 설계
-
-## TokenType
-
-``` cpp
-enum class TokenType
-{
-    LEFT_PAREN,
-    RIGHT_PAREN,
-
-    LEFT_BRACE,
-    RIGHT_BRACE,
-
-    COMMA,
-    DOT,
-    SEMICOLON,
-
-    PLUS,
-    MINUS,
-    STAR,
-    SLASH,
-
-    EQUAL,
-    GREATER,
-    LESS,
-
-    IDENTIFIER,
-    STRING,
-    NUMBER,
-
-    VAR,
-    PRINT,
-
-    IF,
-    ELSE,
-
-    FOR,
-
-    TRUE,
-    FALSE,
-
-    AND,
-    OR,
-
-    EOF_TOKEN
-};
-```
-
-------------------------------------------------------------------------
-
-## Token Class
-
-``` cpp
-class Token
-{
-public:
-    TokenType type;
-
-    std::string lexeme;
-
-    int line;
-
-    std::variant<
-        std::monostate,
-        double,
-        std::string,
-        bool
-    > literal;
-};
-```
-
-------------------------------------------------------------------------
-
-## Tokenizer Interface
-
-``` cpp
-class Tokenizer
-{
-public:
-    std::vector<Token>
-    tokenize(const std::string& source);
-};
-```
-
-------------------------------------------------------------------------
-
-# 5. AST 구조
-
-## Expr
-
-값을 계산하는 노드
-
-``` cpp
-LiteralExpr
-VariableExpr
-UnaryExpr
-BinaryExpr
-AssignExpr
-GroupingExpr
-```
-
-------------------------------------------------------------------------
-
-## LiteralExpr
-
-``` cpp
-class LiteralExpr : public Expr
-{
-    Value value;
-};
-```
-
-------------------------------------------------------------------------
-
-## VariableExpr
-
-``` cpp
-class VariableExpr : public Expr
-{
-    Token name;
-};
-```
-
-------------------------------------------------------------------------
-
-## UnaryExpr
-
-``` cpp
-class UnaryExpr : public Expr
-{
-    Token op;
-    Expr* right;
-};
-```
-
-------------------------------------------------------------------------
-
-## BinaryExpr
-
-``` cpp
-class BinaryExpr : public Expr
-{
-    Expr* left;
-    Token op;
-    Expr* right;
-};
-```
-
-------------------------------------------------------------------------
-
-## AssignExpr
-
-``` cpp
-class AssignExpr : public Expr
-{
-    Token name;
-    Expr* value;
-};
-```
-
-------------------------------------------------------------------------
-
-## GroupingExpr
-
-``` cpp
-class GroupingExpr : public Expr
-{
-    Expr* expression;
-};
-```
-
-------------------------------------------------------------------------
-
-# 6. Statement 구조
-
-## Statement 종류
-
-``` cpp
-ExpressionStmt
-PrintStmt
-VarDeclareStmt
-BlockStmt
-IfStmt
-ForStmt
-```
-
-------------------------------------------------------------------------
-
-## ExpressionStmt
-
-``` cpp
-class ExpressionStmt : public Stmt
-{
-    Expr* expression;
-};
-```
-
-------------------------------------------------------------------------
-
-## PrintStmt
-
-``` cpp
-class PrintStmt : public Stmt
-{
-    Expr* expression;
-};
-```
-
-------------------------------------------------------------------------
-
-## VarDeclareStmt
-
-``` cpp
-class VarDeclareStmt : public Stmt
-{
-    Token name;
-    Expr* initializer;
-};
-```
-
-------------------------------------------------------------------------
-
-## BlockStmt
-
-``` cpp
-class BlockStmt : public Stmt
-{
-    std::vector<Stmt*> statements;
-};
-```
-
-------------------------------------------------------------------------
-
-## IfStmt
-
-``` cpp
-class IfStmt : public Stmt
-{
-    Expr* condition;
-
-    Stmt* thenBranch;
-
-    Stmt* elseBranch;
-};
-```
-
-------------------------------------------------------------------------
-
-## ForStmt
-
-``` cpp
-class ForStmt : public Stmt
-{
-    Stmt* init;
-
-    Expr* condition;
-
-    Expr* increment;
-
-    Stmt* body;
-};
-```
-
-------------------------------------------------------------------------
-
-# 7. AST 규칙
-
-허용
-
-``` text
-Stmt
- ├─ Expr
- └─ Stmt
-```
-
-금지
-
-``` text
-Expr
- └─ Stmt
-```
-
-규칙
-
--   Expr 내부에 Stmt 금지
--   AST Root는 항상 Stmt
--   Token은 노드가 아니라 필드
-
-------------------------------------------------------------------------
-
-# 8. Environment 구조
-
-## Scope 구조
-
-``` text
-Global Scope
-      ↑
-Local Scope
-      ↑
-Local Scope
-```
-
-------------------------------------------------------------------------
-
-## Environment
-
-``` cpp
-class Environment
-{
-public:
-    std::unordered_map<
-        std::string,
-        Value
-    > values;
-
-    Environment* parent;
-};
-```
-
-------------------------------------------------------------------------
-
-## 변수 탐색
-
-``` text
-현재 Scope
- ↓
-부모 Scope
- ↓
-부모 Scope
- ↓
-Global Scope
-```
-
-------------------------------------------------------------------------
-
-## Shadowing 허용
-
-``` cpp
-var x = "global";
-
-{
-    var x = "inner";
-}
-```
-
-------------------------------------------------------------------------
-
-# 9. Value 구조
-
-``` cpp
-using Value =
-std::variant<
-    std::monostate,
-    double,
-    std::string,
-    bool
->;
-```
-
-지원 타입
-
--   Number
--   String
--   Boolean
--   Nil
-
-------------------------------------------------------------------------
-
-# 10. Checker 설계
-
-## 역할
-
-AST DFS 순회
-
-------------------------------------------------------------------------
-
-## 검사 항목
-
-### 중복 선언
-
-``` cpp
-{
-    var a = 1;
-    var a = 2;
-}
-```
-
-오류
-
-------------------------------------------------------------------------
-
-### 자기 초기화
-
-``` cpp
-{
-    var a = a;
-}
-```
-
-오류
-
-------------------------------------------------------------------------
-
-## 알고리즘
-
-``` text
-DFS
- ↓
-Scope 생성
- ↓
-선언 확인
- ↓
-오류 보고
-```
-
-------------------------------------------------------------------------
-
-# 11. Executor 설계
-
-## Expr 평가
-
-지원
-
--   Literal
--   Variable
--   Unary
--   Binary
--   Assign
--   Grouping
-
-------------------------------------------------------------------------
-
-## Statement 실행
-
-지원
-
--   Print
--   Var
--   Block
--   If
--   For
-
-------------------------------------------------------------------------
-
-## Runtime Error
-
-### Undefined Variable
-
-``` cpp
-print abc;
-```
-
-------------------------------------------------------------------------
-
-### Type Error
-
-``` cpp
-print 1 + "HI";
-```
-
-------------------------------------------------------------------------
-
-### Divide By Zero
-
-``` cpp
-print 10 / 0;
-```
-
-------------------------------------------------------------------------
-
-# 12. Prompt Shell
-
-예시
-
-``` text
->>> var a = 5;
->>> var b = 10;
->>> print a+b;
-
-15
-```
-
-동작
-
-``` text
-입력
- ↓
-Assembler
- ↓
-Checker
- ↓
-Executor
- ↓
-출력
-```
-
-------------------------------------------------------------------------
-
-# 13. 역할 분담 추천
-
-## A
-
-Tokenizer
-
-담당
-
--   TokenType
--   Token
--   Lexer
-
-------------------------------------------------------------------------
-
-## B
-
-Expression Parser
-
-담당
-
--   LiteralExpr
--   VariableExpr
--   UnaryExpr
--   BinaryExpr
--   AssignExpr
--   GroupingExpr
-
-------------------------------------------------------------------------
-
-## C
-
-Statement Parser + Checker
-
-담당
-
--   VarStmt
--   PrintStmt
--   IfStmt
--   ForStmt
--   BlockStmt
--   Checker
-
-------------------------------------------------------------------------
-
-## D
-
-Executor + Shell
-
-담당
-
--   Environment
--   Runtime Error
--   Executor
--   Prompt Shell
-
-------------------------------------------------------------------------
-
-# 14. 개발 룰
-
-## Rule 1
-
-코딩 전 반드시 확정
-
--   TokenType
--   Expr 종류
--   Stmt 종류
--   Environment 구조
--   Runtime Error 정책
-
-------------------------------------------------------------------------
-
-## Rule 2
-
-main 직접 Push 금지
-
-브랜치 예시
-
--   feature/tokenizer
--   feature/expr-parser
--   feature/stmt-checker
--   feature/executor
--   bugfix/console-encoding
-
-------------------------------------------------------------------------
-
-## Rule 3
-
-Claude 활용 원칙
-
-설계 → 사람이 결정
-
-구현 → Claude 활용
-
-------------------------------------------------------------------------
-
-## Rule 4
-
-TDD 우선
-
-기능 구현 전 테스트 작성
-
-------------------------------------------------------------------------
-
-## Rule 5
-
-커밋 메시지 헤더 규칙
-
-TDD 사이클 및 작업 유형에 따라 아래 헤더를 붙인다.
-
-| 헤더 | 사용 단계 / 상황 | 예시 |
-|---|---|---|
-| `[unitTest]` | TDD Red 단계 — 테스트 코드 작성 | `[unitTest] Add TC-01 ParsesNumberLiteral` |
-| `[feature]` | TDD Green 단계 — 기능 구현 | `[feature] Implement Expression Parser` |
-| `[refactoring]` | TDD Refactor 단계 — 코드 개선 | `[refactoring] Extract makeBinary helper` |
-| `[doc]` | 문서 추가 / 수정 | `[doc] Add TC_ExprParser specification` |
-| `[build]` | 빌드 환경 / 설정 변경 | `[build] Add /utf-8 compiler flag` |
-| `[fix]` | 버그 수정 | `[fix] Set console output code page to UTF-8` |
-
-------------------------------------------------------------------------
-
-# 15. 일정
-
-## Day1 오전
-
-09:00 \~ 10:30
-
-설계 확정
-
--   Token
--   Expr
--   Stmt
--   Environment
-
-10:30 \~ 12:00
-
-Claude 활용
-
-기본 코드 생성
-
-------------------------------------------------------------------------
-
-## Day1 오후
-
-병렬 개발
-
-A - Tokenizer
-
-B - Expr Parser
-
-C - Stmt Parser - Checker
-
-D - Executor - Shell
-
-------------------------------------------------------------------------
-
-## Day1 17:00
-
-1차 통합
-
-목표
-
-print 1 + 2 \* 3;
-
-------------------------------------------------------------------------
-
-## Day1 20:00
-
-2차 통합
-
-목표
-
-var a = 10; print a;
-
-------------------------------------------------------------------------
-
-## Day2 오전
-
-구현
-
--   if
--   for
--   Scope
--   Shadowing
-
-Runtime Error
-
--   Undefined Variable
--   Type Error
--   Divide By Zero
-
-------------------------------------------------------------------------
-
-## Day2 점심
-
-테스트 스크립트 전체 통과
-
-------------------------------------------------------------------------
-
-# 16. 최종 체크리스트
-
-\[ \] Tokenizer
-
-\[x\] LiteralExpr \[x\] VariableExpr \[x\] UnaryExpr \[x\] BinaryExpr \[x\] AssignExpr \[x\] GroupingExpr
-
-\[ \] VarStmt \[ \] PrintStmt \[ \] BlockStmt \[ \] IfStmt \[ \] ForStmt
-
-\[ \] Checker
-
-\[ \] Environment
-
-\[ \] Runtime Error
-
-\[ \] Prompt Shell
-
-\[ \] 테스트 스크립트 통과
-
-------------------------------------------------------------------------
-
-핵심
-
-AST 구조와 Environment 구조를 먼저 확정한다.
-
-설계가 고정되면 Claude를 활용해 병렬 개발한다.
-
-------------------------------------------------------------------------
-
-# 17. Custom Language 사용 방법
+### 컴포넌트 설명
+
+| 컴포넌트 | 역할 |
+|---|---|
+| `FactoryShell` | 실행 인자에 따라 REPL / FILE / DEBUG 모드 분기 |
+| `Shell` | REPL 대화형 실행, 멀티라인 brace 누적 처리 |
+| `FileRunner` | 소스 파일을 읽어 줄 단위로 누적 후 실행 |
+| `DebugShell` | 파일 실행 + 줄별 정지 / 명령어 입력 디버그 |
+| `Tokenizer` | 소스 코드를 Token List로 변환 |
+| `Parser` | Token List를 AST(Expr/Stmt 트리)로 변환 |
+| `Checker` | 실행 전 정적 오류 검출 |
+| `Executor` | AST 순회 실행, Environment(Scope) 관리 |
+
+---
 
 ## 실행 방법
 
-```
-# REPL 모드 (대화형)
+```bash
+# REPL 모드 — 대화형 입력
 ./CodeFabInterpreter
 
-# 종료
-> exit
-> quit
+# FILE 모드 — 소스 파일 실행
+./CodeFabInterpreter run <파일경로>
+
+# DEBUG 모드 — 줄별 정지 디버그
+./CodeFabInterpreter debug <파일경로>
 ```
 
-## 기본 문법
+### REPL 모드
+
+```
+> var x = 5;
+> print x;
+5
+> exit
+```
+
+멀티라인 블록은 자동 누적됩니다.
+
+```
+> if (x > 0) {
+...   print x;
+... }
+5
+```
+
+### DEBUG 모드 명령어
+
+| 명령어 | 설명 |
+|---|---|
+| `step` / `s` | 현재 줄 실행 후 다음 줄에서 정지 |
+| `next` / `n` | 블록 내부 진입 없이 다음 줄로 이동 |
+| `continue` / `c` | breakpoint까지 자유 실행 |
+| `break N` | N번째 줄에 breakpoint 설정 |
+| `remove N` | N번째 줄 breakpoint 해제 |
+| `breakpoints` | 설정된 breakpoint 목록 출력 |
+| `watch V` | 변수 V를 감시 등록 (정지 시 자동 출력) |
+| `unwatch V` | 변수 V 감시 해제 |
+| `watches` | 현재 감시 중인 변수 목록 및 값 출력 |
+| `inspect` | 현재 스코프의 모든 변수 출력 |
+
+---
+
+## 언어 문법
 
 모든 구문은 세미콜론(`;`)으로 끝나야 합니다.
 
-### 변수 선언
+### 변수 선언 및 할당
 
 ```
 var x = 10;
 var name = "hello";
 var flag = true;
+x = x + 1;
 ```
 
 ### 출력
@@ -844,13 +103,15 @@ var flag = true;
 ```
 print x;
 print x + 1;
+print "hello";
 ```
 
-### 산술 / 비교 / 논리 연산자
+### 연산자
 
 ```
 print 1 + 2 * 3;      // 7
 print 10 / 2 - 1;     // 4
+print 10 % 3;         // 1
 print 3 > 2;          // true
 print 3 < 2;          // false
 print true and false; // false
@@ -890,7 +151,7 @@ var result = add(3, 7);
 print result;   // 10
 ```
 
-#### 재귀 함수
+재귀 함수:
 
 ```
 func fact(n) {
@@ -901,37 +162,97 @@ func fact(n) {
 print fact(5);  // 120
 ```
 
-#### 빈 return (null 반환)
-
-```
-func doNothing() {
-    return;
-}
-```
-
-### 정적 배열
+### 배열
 
 `Array(n)` 으로 크기 n의 배열을 생성합니다. 초기값은 `null`입니다.
 
 ```
-var arr = Array(3);   // [null, null, null]
+var arr = Array(3);
 arr[0] = 10;
 arr[1] = 20;
 arr[2] = 30;
-print arr[1];         // 20
-
-// 변수 인덱스 사용
-var i = 2;
-print arr[i];         // 30
+print arr[1];   // 20
 ```
 
-## 특이사항
+### 스코프
+
+블록 `{}` 안에서 선언한 변수는 블록 밖에서 접근 불가합니다. 같은 이름의 변수를 안쪽 스코프에서 재선언(shadowing)할 수 있습니다.
+
+```
+var x = "global";
+{
+    var x = "inner";
+    print x;    // inner
+}
+print x;        // global
+```
+
+---
+
+## 개발 룰
+
+### 브랜치 전략
+
+`main` 직접 Push 금지. 브랜치를 생성 후 PR로 병합합니다.
+
+```
+feature/기능명
+bugfix/버그명
+refactor/리팩토링명
+```
+
+### 커밋 메시지 규칙
+
+헤더는 **소문자**로 작성합니다.
+
+| 헤더 | 허용 표기 | 사용 상황 | 예시 |
+|---|---|---|---|
+| `[feat]` | `[feat]` / `[feature]` | 기능 구현 | `[feat] Implement Expression Parser` |
+| `[test]` | `[test]` / `[unittest]` | 테스트 코드 작성 | `[test] Add TC-01 ParsesNumberLiteral` |
+| `[fix]` | `[fix]` | 버그 수정 | `[fix] Set console output code page to UTF-8` |
+| `[refactor]` | `[refactor]` / `[refactoring]` | 코드 개선 | `[refactor] Extract makeBinary helper` |
+| `[docs]` | `[docs]` / `[doc]` | 문서 추가 / 수정 | `[docs] Update README` |
+| `[build]` | `[build]` | 빌드 환경 / 설정 변경 | `[build] Add /utf-8 compiler flag` |
+| `[chore]` | `[chore]` | 그 외 잡무 (설정, 의존성 등) | `[chore] Update .gitignore` |
+
+---
+
+### PR & 리뷰
+
+#### A. PR 작성
+
+PR에는 아래 3가지를 반드시 포함합니다.
 
 | 항목 | 설명 |
-|------|------|
-| 세미콜론 필수 | 모든 구문은 `;` 으로 끝나야 합니다 |
-| `func` / `Func` | 함수 선언 키워드로 둘 다 사용 가능합니다 |
-| `Array(n)` 내장 함수 | 사용자가 `func Array(...)` 를 선언하면 내장 Array 가 오버라이드됩니다 |
-| 스코프 | 블록 `{}` 안에서 선언한 변수는 블록 밖에서 접근 불가합니다 |
-| 배열 타입 | 인덱스는 반드시 숫자여야 하며, 배열이 아닌 변수에 `[]` 사용 시 런타임 오류가 발생합니다 |
-| 미선언 함수 호출 | Checker 에서 잡지 않고 Executor 런타임에 오류를 발생시킵니다 |
+|---|---|
+| **변경 내용** | 무엇을 왜 바꿨는지 |
+| **확인 방법** | 빌드·실행·테스트 방법 |
+| **리뷰 포인트** | 리뷰어가 집중해서 봐야 할 부분 |
+
+#### B. 리뷰
+
+- 리뷰 요청 후 **3시간 이내** 1차 리뷰
+- 코멘트 확인 후 **2시간 이내** 응답
+- 리뷰 코멘트는 정중하게 작성
+
+#### C. Merge
+
+- 최소 **1명** 승인 후 Merge
+- 핵심 기능은 **2명 이상** 리뷰
+
+---
+
+### 코드 품질
+
+#### A. 검증
+
+- Merge 전 직접 실행 또는 테스트 수행
+
+#### B. Git 관리
+
+- Push 전 최신 코드 Pull
+- 충돌 여부 확인 후 작업
+
+#### C. 코드 정리
+
+- PR 전 코드 포맷팅 수행
