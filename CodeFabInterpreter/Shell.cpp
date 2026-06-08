@@ -20,19 +20,43 @@ static std::string toLower(std::string s)
 // -----------------------------------------------------------------------
 // 공통 헬퍼 — brace 누적 (Shell / FileRunner / DebugShell 공유)
 // -----------------------------------------------------------------------
-// braceDepth <= 0 이 되면 true 반환 (실행 가능한 완성 문장)
-// 아직 열린 블록이 있으면 false 반환 (계속 누적)
+// braceDepth <= 0 && pendingControl <= 0 이면 true (실행 가능한 완성 문장)
+// pendingControl: 최상위에서 아직 바디를 받지 못한 if/for 개수
+//   - if/for 키워드(최상위) 등장 시 ++
+//   - 최상위에서 첫 { 등장 시 -- (블록 바디 수신)
+//   - 최상위에서 ; 등장 시 -- (인라인 바디 수신)
+//   - else 는 카운트 변화 없음 (직전 if 의 pending 을 그대로 승계)
+// parenDepth: for(;;) 안의 ; 가 pendingControl 을 줄이지 않도록 보호
 static bool accumulateBraces(const std::string& line,
                               std::string& accumulated,
-                              int& braceDepth)
+                              int& braceDepth,
+                              int& pendingControl,
+                              int& parenDepth)
 {
     try
     {
         Tokenizer tok;
         for (const auto& t : tok.tokenize(line))
         {
-            if (t.type == TokenType::LEFT_BRACE)       ++braceDepth;
-            else if (t.type == TokenType::RIGHT_BRACE) --braceDepth;
+            if (t.type == TokenType::LEFT_PAREN)
+                ++parenDepth;
+            else if (t.type == TokenType::RIGHT_PAREN)
+                --parenDepth;
+            else if (t.type == TokenType::LEFT_BRACE)
+            {
+                // 최상위에서 { 가 열릴 때 pending 중인 제어구조에 블록 바디 할당
+                if (braceDepth == 0 && pendingControl > 0)
+                    --pendingControl;
+                ++braceDepth;
+            }
+            else if (t.type == TokenType::RIGHT_BRACE)
+                --braceDepth;
+            else if ((t.type == TokenType::IF || t.type == TokenType::FOR)
+                     && braceDepth == 0 && parenDepth == 0)
+                ++pendingControl;
+            else if (t.type == TokenType::SEMICOLON
+                     && braceDepth == 0 && parenDepth == 0 && pendingControl > 0)
+                --pendingControl;
         }
     }
     catch (...) {}
@@ -40,7 +64,7 @@ static bool accumulateBraces(const std::string& line,
     if (!accumulated.empty()) accumulated += '\n';
     accumulated += line;
 
-    if (braceDepth <= 0)
+    if (braceDepth <= 0 && pendingControl <= 0)
     {
         braceDepth = 0;
         return true;
@@ -55,7 +79,9 @@ static bool accumulateBraces(const std::string& line,
 void Shell::run()
 {
     std::string accumulated;
-    int braceDepth = 0;
+    int braceDepth     = 0;
+    int pendingControl = 0;
+    int parenDepth     = 0;
 
     while (true)
     {
@@ -69,10 +95,13 @@ void Shell::run()
 
         if (accumulated.empty() && (toLower(trimmed) == "exit" || toLower(trimmed) == "quit")) break;
 
-        if (accumulateBraces(line, accumulated, braceDepth))
+        if (accumulateBraces(line, accumulated, braceDepth, pendingControl, parenDepth))
         {
             runLine(accumulated);
             accumulated.clear();
+            braceDepth     = 0;
+            pendingControl = 0;
+            parenDepth     = 0;
         }
     }
 }
@@ -145,11 +174,13 @@ void FileRunner::run(const std::string& filepath)
 void FileRunner::runSource(const std::vector<std::string>& lines)
 {
     std::string accumulated;
-    int braceDepth = 0;
+    int braceDepth     = 0;
+    int pendingControl = 0;
+    int parenDepth     = 0;
 
     for (const std::string& srcLine : lines)
     {
-        if (!accumulateBraces(srcLine, accumulated, braceDepth)) continue;
+        if (!accumulateBraces(srcLine, accumulated, braceDepth, pendingControl, parenDepth)) continue;
 
         try
         {
@@ -174,6 +205,9 @@ void FileRunner::runSource(const std::vector<std::string>& lines)
             return;
         }
         accumulated.clear();
+        braceDepth     = 0;
+        pendingControl = 0;
+        parenDepth     = 0;
     }
 }
 
@@ -204,8 +238,10 @@ void DebugShell::runSource(const std::vector<std::string>& lines,
     } guard{ executor };
 
     std::string accumulated;
-    int braceDepth  = 0;
-    int startLineNo = 0;
+    int braceDepth     = 0;
+    int pendingControl = 0;
+    int parenDepth     = 0;
+    int startLineNo    = 0;
     std::string startSrcLine;
 
     for (size_t i = 0; i < lines.size(); ++i)
@@ -220,7 +256,7 @@ void DebugShell::runSource(const std::vector<std::string>& lines,
             startSrcLine = srcLine;
         }
 
-        if (!accumulateBraces(srcLine, accumulated, braceDepth)) continue;
+        if (!accumulateBraces(srcLine, accumulated, braceDepth, pendingControl, parenDepth)) continue;
 
         ctrl.setLineContext(startLineNo, startSrcLine);
 
@@ -247,6 +283,9 @@ void DebugShell::runSource(const std::vector<std::string>& lines,
             return;
         }
         accumulated.clear();
+        braceDepth     = 0;
+        pendingControl = 0;
+        parenDepth     = 0;
     }
 }
 

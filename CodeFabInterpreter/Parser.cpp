@@ -264,6 +264,10 @@ std::unique_ptr<Expr> Parser::parseAssignment()
             write->value = std::move(value);
             return write;
         }
+
+        throw std::runtime_error(
+            "[" + std::to_string(op.line) + "번째 줄] "
+            "잘못된 할당 대상입니다.");
     }
     return expr;
 }
