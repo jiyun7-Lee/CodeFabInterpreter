@@ -560,6 +560,63 @@ TEST(IntegrationTest, IT_22_FileMode_DanglingElse)
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "bbq\n");
 }
 
+// ----------------------------------------------------------------
+// 4-8. 중첩 인라인 if — 파일 모드 (Bug: pendingControl ; 로 1만 감소)
+// if (true) if (true) if (true) print "x";
+// → "x\n"
+// ----------------------------------------------------------------
+TEST(IntegrationTest, IT_23_FileMode_NestedInlineIf)
+{
+    FileRunner runner;
+    testing::internal::CaptureStdout();
+    runner.runSource({"if (true) if (true) if (true) print \"x\";"});
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "x\n");
+}
+
+// ----------------------------------------------------------------
+// 4-9. else 블록이 다음 줄에 오는 멀티라인 — 파일 모드
+// if (true)
+// {
+//   print "a";
+// }
+// else
+// {
+//   print "b";
+// }
+// → "a\n"  (if 바디 실행, else 블록도 정상 누적됨)
+// ----------------------------------------------------------------
+TEST(IntegrationTest, IT_24_FileMode_ElseBlockNextLine)
+{
+    // 파서 검증 1: 단일 줄 if-else 블록
+    {
+        Shell shell;
+        testing::internal::CaptureStdout();
+        shell.runLine("if (true) { print \"a\"; } else { print \"b\"; }");
+        EXPECT_EQ(testing::internal::GetCapturedStdout(), "a\n") << "single-line if-else block failed";
+    }
+    // 파서 검증 2: 멀티라인 if-else 블록
+    {
+        Shell shell;
+        testing::internal::CaptureStdout();
+        shell.runLine("if (true)\n{\n  print \"a\";\n}\nelse\n{\n  print \"b\";\n}");
+        EXPECT_EQ(testing::internal::GetCapturedStdout(), "a\n") << "multi-line if-else block failed";
+    }
+
+    FileRunner runner;
+    testing::internal::CaptureStdout();
+    runner.runSource({
+        "if (true)",
+        "{",
+        "  print \"a\";",
+        "}",
+        "else",
+        "{",
+        "  print \"b\";",
+        "}"
+    });
+    EXPECT_EQ(testing::internal::GetCapturedStdout(), "a\n");
+}
+
 // ================================================================
 // 5. 종합 시나리오 — REPL / 파일 / 디버그 모드 전체 통합
 // 동일 소스를 세 가지 실행 경로로 모두 돌려 결과를 검증한다
