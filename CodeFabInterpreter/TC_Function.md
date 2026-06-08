@@ -25,6 +25,8 @@
 | TC-FN-12  | UndefinedFunctionCallThrows    | Negative | 🟢 Green  |
 | TC-FN-13  | CallWithTooManyArgsThrows      | Negative | 🟢 Green  |
 | TC-FN-14  | NullReturnUsedInExprThrows     | Negative | 🟢 Green  |
+| TC-FN-15  | EmptyReturnYieldsNull          | Positive | 🟢 Green  |
+| TC-FN-16  | ReturnOutsideFunctionErrorIncludesLineNumber | Negative | 🟢 Green  |
 
 ---
 
