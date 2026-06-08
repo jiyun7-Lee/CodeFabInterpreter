@@ -70,10 +70,10 @@ void Shell::runLine(const std::string& source)
 }
 
 // -----------------------------------------------------------------------
-// 공통 헬퍼 — 파일 읽기 (FileRunner / DebugShell 공유)
+// 공통 헬퍼 — 파일 읽기 / 줄 결합 (FileRunner / DebugShell 공유)
 // -----------------------------------------------------------------------
-// nullopt → 파일 없음, "" → 빈 파일 (정상), "..." → 내용 있는 파일
-static std::optional<std::string> readFile(const std::string& filepath)
+// nullopt → 파일 없음, {} → 빈 파일 (정상), {...} → 내용 있는 파일
+static std::optional<std::vector<std::string>> readFile(const std::string& filepath)
 {
     std::ifstream file(filepath);
     if (!file.is_open())
@@ -81,8 +81,15 @@ static std::optional<std::string> readFile(const std::string& filepath)
         std::cout << "Error: File Not Found '" << filepath << "'\n";
         return std::nullopt;
     }
-    return std::string((std::istreambuf_iterator<char>(file)),
-                        std::istreambuf_iterator<char>());
+    std::vector<std::string> lines;
+    std::string line;
+    while (std::getline(file, line))
+    {
+        if (!line.empty() && line.back() == '\r')
+            line.pop_back();
+        lines.push_back(std::move(line));
+    }
+    return lines;
 }
 
 // -----------------------------------------------------------------------
@@ -91,35 +98,37 @@ static std::optional<std::string> readFile(const std::string& filepath)
 
 void FileRunner::run(const std::string& filepath)
 {
-    auto source = readFile(filepath);
-    if (!source.has_value()) return;
-    runSource(*source);
+    auto lines = readFile(filepath);
+    if (!lines.has_value()) return;
+    runSource(*lines);
 }
 
-void FileRunner::runSource(const std::string& source)
+void FileRunner::runSource(const std::vector<std::string>& lines)
 {
-    try
+    for (const std::string& line : lines)
     {
-        Tokenizer tokenizer;
-        auto tokens = tokenizer.tokenize(source);
-
-        Parser parser;
-        auto stmts = parser.parse(tokens);
-
-        Checker checker;
-        if (!checker.check(stmts))
+        try
         {
-            for (const auto& err : checker.getErrors())
-                std::cout << "[Checker] " << err << "\n";
+            Tokenizer tokenizer;
+            auto tokens = tokenizer.tokenize(line);
+
+            Parser parser;
+            auto stmts = parser.parse(tokens);
+
+            if (!checker.check(stmts))
+            {
+                for (const auto& err : checker.getErrors())
+                    std::cout << "[Checker] " << err << "\n";
+                return;
+            }
+
+            executor.execute(stmts);
+        }
+        catch (const std::exception& e)
+        {
+            std::cout << "[Error] " << e.what() << "\n";
             return;
         }
-
-        Executor executor;
-        executor.execute(stmts);
-    }
-    catch (const std::exception& e)
-    {
-        std::cout << "[Error] " << e.what() << "\n";
     }
 }
 
@@ -129,13 +138,20 @@ void FileRunner::runSource(const std::string& source)
 
 void DebugShell::run(const std::string& filepath)
 {
-    auto source = readFile(filepath);
-    if (!source.has_value()) return;
+    auto lines = readFile(filepath);
+    if (!lines.has_value()) return;
+
+    std::string source;
+    for (size_t i = 0; i < lines->size(); ++i)
+    {
+        if (i > 0) source += '\n';
+        source += (*lines)[i];
+    }
 
     try
     {
         Tokenizer tokenizer;
-        auto tokens = tokenizer.tokenize(*source);
+        auto tokens = tokenizer.tokenize(source);
 
         Parser parser;
         auto stmts = parser.parse(tokens);
