@@ -45,9 +45,26 @@ public:
         int effectiveLine = currentLineNo_ > 0 ? currentLineNo_ : stmt->line;
         if (state_ == ExecutionState::RUNNING && breakpoints_.isBreakpoint(effectiveLine))
         {
-            state_        = ExecutionState::PAUSED;
-            capturedLine  = effectiveLine;
+            state_       = ExecutionState::PAUSED;
+            capturedLine = effectiveLine;
         }
+    }
+};
+
+// -----------------------------------------------------------------------
+// Fixture
+// -----------------------------------------------------------------------
+
+class DebugShellTest : public ::testing::Test
+{
+protected:
+    DebugShell shell;
+    Tokenizer  tokenizer;
+    Parser     parser;
+
+    std::vector<std::unique_ptr<Stmt>> parse(const std::string& src)
+    {
+        return parser.parse(tokenizer.tokenize(src));
     }
 };
 
@@ -55,12 +72,9 @@ public:
 // TC-DSHELL-01: setLineContext 후 effectiveLine 기반으로 breakpoint 체크
 // stmt->line = 1이지만 setLineContext(3)이면 breakpoint(3)에서 정지해야 함
 // -----------------------------------------------------------------------
-TEST(DebugShellTest, TC_DSHELL_01_SetLineContext_EffectiveLineForBreakpoint)
+TEST_F(DebugShellTest, TC_DSHELL_01_SetLineContext_EffectiveLineForBreakpoint)
 {
-    Tokenizer tokenizer;
-    auto tokens = tokenizer.tokenize("print 1;");  // stmt->line = 1
-    Parser parser;
-    auto stmts = parser.parse(tokens);
+    auto stmts = parse("print 1;");
 
     EffectiveLineController ctrl;
     ctrl.addBreakpoint(3);
@@ -78,17 +92,13 @@ TEST(DebugShellTest, TC_DSHELL_01_SetLineContext_EffectiveLineForBreakpoint)
 }
 
 // TC-DSHELL-02: setLineContext 없을 때 stmt->line으로 fallback
-TEST(DebugShellTest, TC_DSHELL_02_EffectiveLine_FallbackToStmtLine)
+TEST_F(DebugShellTest, TC_DSHELL_02_EffectiveLine_FallbackToStmtLine)
 {
-    Tokenizer tokenizer;
-    auto tokens = tokenizer.tokenize("print 1;\nprint 2;");
-    Parser parser;
-    auto stmts = parser.parse(tokens);
+    auto stmts = parse("print 1;\nprint 2;");
 
     EffectiveLineController ctrl;
     ctrl.addBreakpoint(2);
     ctrl.setRunning();
-    // setLineContext 미호출 → effectiveLine = stmt->line
 
     Executor executor;
     executor.setDebugController(&ctrl);
@@ -102,13 +112,12 @@ TEST(DebugShellTest, TC_DSHELL_02_EffectiveLine_FallbackToStmtLine)
 
 // TC-DSHELL-03: [DEBUG] 출력 형식 — "N번째 줄에서 정지 -> 'srcLine'"
 // fake stdin으로 "step" 주입하여 stdin 블로킹 해소
-TEST(DebugShellTest, TC_DSHELL_03_DebugOutputFormat)
+TEST_F(DebugShellTest, TC_DSHELL_03_DebugOutputFormat)
 {
     std::istringstream fakeInput("step\nstep\n");
     auto* origCin = std::cin.rdbuf(fakeInput.rdbuf());
 
     DebugController ctrl;
-    DebugShell shell;
     testing::internal::CaptureStdout();
     shell.runSource({"var a = 1;", "print a;"}, ctrl);
     std::string out = testing::internal::GetCapturedStdout();
@@ -120,10 +129,9 @@ TEST(DebugShellTest, TC_DSHELL_03_DebugOutputFormat)
 }
 
 // TC-DSHELL-04: runSource — 줄 간 변수 공유 (DebugShell도 FileRunner와 동일)
-TEST(DebugShellTest, TC_DSHELL_04_VariableSharingAcrossLines)
+TEST_F(DebugShellTest, TC_DSHELL_04_VariableSharingAcrossLines)
 {
     NonBlockingController ctrl;
-    DebugShell shell;
 
     testing::internal::CaptureStdout();
     shell.runSource({"var a = 10;", "print a;"}, ctrl);
@@ -131,10 +139,9 @@ TEST(DebugShellTest, TC_DSHELL_04_VariableSharingAcrossLines)
 }
 
 // TC-DSHELL-05: runSource — 빈 줄은 건너뜀 (정지 및 실행 대상 제외)
-TEST(DebugShellTest, TC_DSHELL_05_EmptyLinesSkipped)
+TEST_F(DebugShellTest, TC_DSHELL_05_EmptyLinesSkipped)
 {
     RecordingController ctrl;
-    DebugShell shell;
 
     testing::internal::CaptureStdout();
     shell.runSource({"var a = 1;", "", "print a;"}, ctrl);
@@ -148,12 +155,11 @@ TEST(DebugShellTest, TC_DSHELL_05_EmptyLinesSkipped)
 
 // TC-DSHELL-06: run() — "[DEBUG] 소스코드 로딩: <filepath>" 출력
 // 빈 파일로 테스트하여 runSource 내 stdin 블로킹 없음
-TEST(DebugShellTest, TC_DSHELL_06_LoadingMessage)
+TEST_F(DebugShellTest, TC_DSHELL_06_LoadingMessage)
 {
     const std::string tmpPath = "test_debug_loading.tmp";
-    { std::ofstream f(tmpPath); }  // 빈 파일 생성
+    { std::ofstream f(tmpPath); }
 
-    DebugShell shell;
     testing::internal::CaptureStdout();
     shell.run(tmpPath);
     std::string out = testing::internal::GetCapturedStdout();
