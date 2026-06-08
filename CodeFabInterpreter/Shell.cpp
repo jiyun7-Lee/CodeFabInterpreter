@@ -46,6 +46,11 @@ static bool accumulateBraces(const std::string& line,
 {
     try
     {
+        // 빈 줄(공백만 있는 줄)은 else 없이 구문을 끝냈다는 신호
+        // → pendingElse 를 해제해 REPL 에서 무한 대기에 빠지지 않도록 함
+        if (s.pendingElse > 0 && line.find_first_not_of(" \t\r\n") == std::string::npos)
+            s.pendingElse = 0;
+
         int thisLineControls = 0; // 이 줄에서 추가된 if/for pending 수
         Tokenizer tok;
         for (const auto& t : tok.tokenize(line))
