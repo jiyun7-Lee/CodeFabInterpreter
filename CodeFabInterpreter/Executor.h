@@ -20,6 +20,7 @@ class Executor
 {
 public:
     void execute(const std::vector<std::unique_ptr<Stmt>>& statements);
+    void execute(const std::vector<std::unique_ptr<Stmt>>& statements, Environment& env);
     void setDebugController(DebugController* ctrl) { debug_ = ctrl; }
 
 private:
