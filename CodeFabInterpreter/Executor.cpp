@@ -216,15 +216,10 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
                 if (e->op.type == TokenType::PLUS)    return l + r;
                 if (e->op.type == TokenType::MINUS)   return l - r;
                 if (e->op.type == TokenType::STAR)    return l * r;
-                if (e->op.type == TokenType::SLASH)
+                if (e->op.type == TokenType::SLASH || e->op.type == TokenType::PERCENT)
                 {
                     if (r == 0.0) throw std::runtime_error("0으로 나눈 오류");
-                    return l / r;
-                }
-                if (e->op.type == TokenType::PERCENT)
-                {
-                    if (r == 0.0) throw std::runtime_error("0으로 나눈 오류");
-                    return std::fmod(l, r);
+                    return e->op.type == TokenType::SLASH ? l / r : std::fmod(l, r);
                 }
                 if (e->op.type == TokenType::LESS)    return l < r;
                 if (e->op.type == TokenType::GREATER) return l > r;
