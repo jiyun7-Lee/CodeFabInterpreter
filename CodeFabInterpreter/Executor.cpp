@@ -202,6 +202,13 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         switch (e->op.type)
         {
             case TokenType::PLUS:
+            {
+                if (std::holds_alternative<std::string>(lv) && std::holds_alternative<std::string>(rv))
+                    return std::get<std::string>(lv) + std::get<std::string>(rv);
+                if (std::holds_alternative<double>(lv) && std::holds_alternative<double>(rv))
+                    return std::get<double>(lv) + std::get<double>(rv);
+                throw std::runtime_error("'+' 연산자는 숫자+숫자 또는 문자열+문자열만 지원합니다.");
+            }
             case TokenType::MINUS:
             case TokenType::STAR:
             case TokenType::SLASH:
@@ -213,7 +220,6 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
                     throw std::runtime_error("피연산자는 반드시 숫자여야 한다.");
                 double l = std::get<double>(lv);
                 double r = std::get<double>(rv);
-                if (e->op.type == TokenType::PLUS)    return l + r;
                 if (e->op.type == TokenType::MINUS)   return l - r;
                 if (e->op.type == TokenType::STAR)    return l * r;
                 if (e->op.type == TokenType::SLASH || e->op.type == TokenType::PERCENT)
@@ -261,6 +267,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         for (size_t i = 0; i < fn.params.size(); ++i)
             fnEnv.define(fn.params[i].lexeme, evaluateExpr(e->args[i].get(), env));
 
+        DepthGuard g(depth_);  // 추가
         try { executeStatement(fn.body.get(), &fnEnv); }
         catch (const ReturnSignal& ret) { return ret.value; }
         return std::monostate{};

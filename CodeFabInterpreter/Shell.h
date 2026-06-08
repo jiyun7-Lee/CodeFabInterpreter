@@ -1,5 +1,6 @@
-#pragma once
+﻿#pragma once
 #include <string>
+#include <vector>
 #include "Executor.h"
 #include "Checker.h"
 #include "DebugController.h"
@@ -24,7 +25,10 @@ class FileRunner
 {
 public:
     void run(const std::string& filepath);
-    void runSource(const std::string& source);
+    void runSource(const std::vector<std::string>& lines);
+private:
+    Executor executor;
+    Checker  checker;
 };
 
 // -----------------------------------------------------------------------

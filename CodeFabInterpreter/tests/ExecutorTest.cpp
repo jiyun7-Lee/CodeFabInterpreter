@@ -392,6 +392,53 @@ TEST(ExecutorTest, UndefinedVariable)
 	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
 }
 
+// TC8-2: string + string → 문자열 연결 출력
+TEST(ExecutorTest, StringConcatenation)
+{
+	// print "Hello, " + "CodeFab!";  → "Hello, CodeFab!\n"
+	auto left  = std::make_unique<LiteralExpr>(); left->value  = std::string("Hello, ");
+	auto right = std::make_unique<LiteralExpr>(); right->value = std::string("CodeFab!");
+
+	Token plusOp; plusOp.type = TokenType::PLUS;
+	auto binExpr = std::make_unique<BinaryExpr>();
+	binExpr->left  = std::move(left);
+	binExpr->op    = plusOp;
+	binExpr->right = std::move(right);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(binExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	testing::internal::CaptureStdout();
+	executor.execute(stmts);
+	EXPECT_EQ(testing::internal::GetCapturedStdout(), "Hello, CodeFab!\n");
+}
+
+// TC8-3: boolean * boolean → RuntimeError
+TEST(ExecutorTest, BooleanArithmeticError)
+{
+	auto left  = std::make_unique<LiteralExpr>(); left->value  = true;
+	auto right = std::make_unique<LiteralExpr>(); right->value = true;
+
+	Token starOp; starOp.type = TokenType::STAR;
+	auto binExpr = std::make_unique<BinaryExpr>();
+	binExpr->left  = std::move(left);
+	binExpr->op    = starOp;
+	binExpr->right = std::move(right);
+
+	auto printStmt = std::make_unique<PrintStmt>();
+	printStmt->expression = std::move(binExpr);
+
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(printStmt));
+
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
+}
+
 // TC9: 타입 불일치 연산(number + string 등) 시 RuntimeError가 발생하는지 확인
 TEST(ExecutorTest, TypeError)
 {
@@ -640,7 +687,7 @@ TEST(ExecutorTest, ErrorMessage_UndefinedVariable)
     }
 }
 
-// TC-ErrMsg-2: 타입 불일치 → "[N번째 줄] 피연산자는 반드시 숫자여야 한다."
+// TC-ErrMsg-2: 타입 불일치(number + string) → "[N번째 줄] '+' 연산자는 ..."
 TEST(ExecutorTest, ErrorMessage_TypeError)
 {
     Tokenizer tz;
@@ -653,7 +700,7 @@ TEST(ExecutorTest, ErrorMessage_TypeError)
     } catch (const std::runtime_error& e) {
         std::string msg = e.what();
         EXPECT_NE(msg.find("번째 줄"), std::string::npos) << "줄 번호 없음: " << msg;
-        EXPECT_NE(msg.find("피연산자"), std::string::npos) << "메시지 형식 불일치: " << msg;
+        EXPECT_NE(msg.find("'+' 연산자는"), std::string::npos) << "메시지 형식 불일치: " << msg;
     }
 }
 
