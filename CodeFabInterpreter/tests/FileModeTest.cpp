@@ -53,3 +53,4 @@ TEST(FileModeTest, TC_FILE_05_RuntimeError_StopsExecution)
     std::string out = testing::internal::GetCapturedStdout();
     EXPECT_EQ(out.find("99"), std::string::npos);
 }
+
