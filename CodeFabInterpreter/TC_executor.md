@@ -35,8 +35,8 @@
 | TC19   | AssignUndeclaredVarThrows     | Negative | 🟢 Green  |
 | TC20   | NullReturnArithmeticThrows    | Negative | 🟢 Green  |
 | TC21   | VarNoInitializerPrintsNull    | Positive | 🟢 Green  |
-| TC22   | ModuloByZero                  | Negative | 🔴 Red    |
-| TC3+   | ArithmeticExpr (% 케이스 2개) | Positive | 🔴 Red    |
+| TC22   | ModuloByZero                  | Negative | 🟢 Green  |
+| TC3+   | ArithmeticExpr (% 케이스 2개) | Positive | 🟢 Green  |
 
 ---
 
@@ -553,7 +553,7 @@ null(monostate) + 숫자 산술 연산 시 `std::runtime_error` 가 발생하는
 | Act | `executor.execute(stmts)` 호출 |
 | Assert | `ASSERT_THROW(..., std::runtime_error)` |
 
-**🔴 Red**: Executor PERCENT case 미구현 — Executor 구현 후 Green 전환 예정
+**🟢 Green**: Executor PERCENT case 추가 (`fmod` 사용, `r==0` 시 throw)
 
 ---
 
@@ -566,7 +566,7 @@ TC3 케이스 테이블에 모듈러 연산 케이스 2개 추가:
 | 모듈러    | `10.0 % 3.0`| `1`     |
 | 피제수 0  | `0.0 % 5.0` | `0`     |
 
-**🔴 Red**: Executor PERCENT case 미구현 — Executor 구현 후 Green 전환 예정
+**🟢 Green**: Executor PERCENT case 추가 (`fmod` 사용)
 
 ---
 

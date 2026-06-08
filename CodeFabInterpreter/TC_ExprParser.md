@@ -12,7 +12,7 @@
 - 입력: 수동으로 구성한 `std::vector<Token>`
 - 출력: `ExpressionStmt`로 래핑된 `Expr*` 를 `dynamic_cast` 로 검증
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **TC-01~21 Green / TC-22 🔴 Red** (Parser PERCENT 미구현)
+- 현재 상태: **Green** (TC-01~22 전체 통과)
 
 ---
 
@@ -41,7 +41,7 @@
 | TC-19 | UnterminatedGroupingThrows | `(1 + 2` | runtime_error throw | 🟢 Green |
 | TC-20 | EmptyGroupingThrows | `();` | runtime_error throw | 🟢 Green |
 | TC-21 | MissingAssignValueThrows | `a =;` | runtime_error throw | 🟢 Green |
-| TC-22 | ParsesModulo | `10 % 3;` | BinaryExpr(PERCENT) | 🔴 Red |
+| TC-22 | ParsesModulo | `10 % 3;` | BinaryExpr(PERCENT) | 🟢 Green |
 
 ---
 
@@ -500,7 +500,7 @@ ExpressionStmt
 | Act | `parser.parse(tokens)` 호출 |
 | Assert | `BinaryExpr` 이고 `op.type` == `PERCENT`, 좌우 피연산자 == `LiteralExpr(10.0)` / `LiteralExpr(3.0)` |
 
-**🔴 Red**: `parseFactor()` 의 `match({STAR, SLASH})` 에 `PERCENT` 미포함 — Parser 구현 후 Green 전환 예정
+**🟢 Green**: `parseFactor()` 의 `match({STAR, SLASH, PERCENT})` 로 처리
 
 ---
 
