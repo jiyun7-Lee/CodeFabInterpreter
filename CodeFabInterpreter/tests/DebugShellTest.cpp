@@ -107,9 +107,10 @@ TEST(DebugShellTest, TC_DSHELL_03_DebugOutputFormat)
     std::istringstream fakeInput("step\nstep\n");
     auto* origCin = std::cin.rdbuf(fakeInput.rdbuf());
 
+    DebugController ctrl;
     DebugShell shell;
     testing::internal::CaptureStdout();
-    shell.runSource({"var a = 1;", "print a;"});
+    shell.runSource({"var a = 1;", "print a;"}, ctrl);
     std::string out = testing::internal::GetCapturedStdout();
 
     std::cin.rdbuf(origCin);
@@ -125,7 +126,7 @@ TEST(DebugShellTest, TC_DSHELL_04_VariableSharingAcrossLines)
     DebugShell shell;
 
     testing::internal::CaptureStdout();
-    shell.runSource({"var a = 10;", "print a;"}, &ctrl);
+    shell.runSource({"var a = 10;", "print a;"}, ctrl);
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "10\n");
 }
 
@@ -136,7 +137,7 @@ TEST(DebugShellTest, TC_DSHELL_05_EmptyLinesSkipped)
     DebugShell shell;
 
     testing::internal::CaptureStdout();
-    shell.runSource({"var a = 1;", "", "print a;"}, &ctrl);
+    shell.runSource({"var a = 1;", "", "print a;"}, ctrl);
     testing::internal::GetCapturedStdout();
 
     // 줄 1, 줄 3에서만 정지 — 빈 줄 2는 건너뜀
