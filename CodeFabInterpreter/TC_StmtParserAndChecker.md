@@ -12,7 +12,7 @@
 - Checker: `check(stmts)` 반환값(bool) + `getErrors()` 크기로 검증
 - 표현식 서브트리는 **FakeExprParser** 가 토큰 1개를 소비해 `LiteralExpr` 반환 (B파트 독립성 확보)
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **🟢 Green**
+- 현재 상태: **🟢 Green** (Parser 35개 / Checker 23개)
 
 ---
 
@@ -46,6 +46,15 @@
 | P-TC-24 | ForWithEmptyBlock | `for (...) {}` | body == 빈 BlockStmt | 🟢 Green |
 | P-TC-25 | MultipleStatements | `var a = 1; print a;` | stmts.size() == 2 | 🟢 Green |
 | P-TC-26 | EmptyInput | EOF만 | stmts.size() == 0 | 🟢 Green |
+| P-TC-27 | VarNoInitializerParsed | `var x;` | initializer == nullptr | 🟢 Green |
+| P-TC-28 | ElseIfChaining | `if (a) {} else if (b) {}` | elseBranch == IfStmt | 🟢 Green |
+| P-TC-29 | ForExpressionStmtInit | `for (i = 0; i; i) print i;` | init == ExpressionStmt | 🟢 Green |
+| P-TC-30 | ForMissingLeftParenThrows | `for var i ...` | runtime_error | 🟢 Green |
+| P-TC-31 | ForMissingRightParenThrows | `for(var i=0; 1; 2 EOF` | runtime_error | 🟢 Green |
+| P-TC-32 | FuncMissingNameThrows | `func (a) {}` | runtime_error | 🟢 Green |
+| P-TC-33 | FuncMissingLeftParenThrows | `func foo a) {}` | runtime_error | 🟢 Green |
+| P-TC-34 | FuncMissingBodyThrows | `func foo(a) EOF` | runtime_error | 🟢 Green |
+| P-TC-35 | ReturnMissingSemicolonThrows | `return 1 EOF` | runtime_error | 🟢 Green |
 
 ## TC 목록 — Checker
 
@@ -63,6 +72,17 @@
 | C-TC-10 | EmptyAST | `(빈 입력)` | true (OK) | 🟢 Green |
 | C-TC-11 | MultipleDistinctVars | `var a = 1; var b = 2;` | true (OK) | 🟢 Green |
 | C-TC-12 | VarInsideIfBlock | `if (true) { var x = 1; }` | true (OK) | 🟢 Green |
+| C-TC-13 | SelfReferenceInGrouping | `var a = (a + 1);` | false (오류) | 🟢 Green |
+| C-TC-14 | SelfReferenceInUnary | `var a = -a;` | false (오류) | 🟢 Green |
+| C-TC-15 | ReturnInNestedBlockOutsideFunc | `{ return 5; }` | false (오류) | 🟢 Green |
+| C-TC-16 | DuplicateParamInFuncExtended | `func foo(a, b, a) {}` | false (오류) | 🟢 Green |
+| C-TC-17 | DuplicateVarInsideIf | if 블록 내 `var x=1; var x=2;` | false (오류) | 🟢 Green |
+| C-TC-18 | DuplicateVarInsideFor | for 바디 내 `var x=1; var x=2;` | false (오류) | 🟢 Green |
+| C-TC-19 | ForInitSelfReference | `for (var i = i; ...)` | false (오류) | 🟢 Green |
+| C-TC-20 | NestedBlock3LevelDuplicate | `{ { { var a=1; var a=2; } } }` | false (오류) | 🟢 Green |
+| C-TC-21 | NoInitializerNoError | `var a;` | true (OK) | 🟢 Green |
+| C-TC-22 | ForScopeCleanupAllowsRedecl | `for (var i=0;...) {} var i=1;` | true (OK) | 🟢 Green |
+| C-TC-23 | NestedIfShadowing | `{ var a=1; if(x){ var a=2; } }` | true (OK) | 🟢 Green |
 
 ---
 
@@ -882,18 +902,147 @@ IfStmt
 
 ---
 
-## 추가 예정 TC
+---
 
-| ID | 설명 | 입력 예시 | 비고 |
-|---|---|---|---|
-| P-TC-27 | 초기값 없는 변수 선언 | `var a;` | initializer == nullptr (리팩토링으로 허용 추가됨) |
-| P-TC-28 | else-if 체이닝 | `if (a) {} else if (b) {}` | elseBranch == IfStmt |
-| P-TC-29 | for ExpressionStmt init | `for (i = 0; i < 3; i = i+1) print i;` | var 없는 init 케이스 |
-| P-TC-30 | for 여는 괄호 누락 | `for var i = 0; ...` | runtime_error |
-| P-TC-31 | for 닫는 괄호 누락 | `for (var i = 0; i < 3; i = i+1 print i;` | runtime_error |
-| C-TC-13 | 중첩 블록 깊이 3 중복 | `{ { { var a=1; var a=2; } } }` | 가장 내부 스코프에서 중복 감지 |
-| C-TC-14 | 그루핑 내부 자기 참조 | `var a = (a + 1);` | GroupingExpr 내부 탐색 |
-| C-TC-15 | 단항 표현식 내부 자기 참조 | `var a = !a;` | UnaryExpr 내부 탐색 |
-| C-TC-16 | 초기값 없는 선언 체크 | `var a;` | initializer 없으면 자기참조 검사 생략 → true |
-| C-TC-17 | for 루프 이후 같은 이름 재선언 | `for (var i=0;...) print i; var i=1;` | for 스코프 pop 후 OK |
-| C-TC-18 | 중첩 if 내 변수 선언 충돌 | `{ var a=1; if(x){ var a=2; } }` | shadowing → OK |
+### P-TC-27 VarNoInitializerParsed
+
+**목적**: 초기값 없는 변수 선언 `var x;` 이 `initializer == nullptr` 인 `VarDeclareStmt` 로 파싱되는지 확인
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `VAR IDENTIFIER("x") SEMICOLON EOF` 토큰 시퀀스 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `name.lexeme == "x"`, `initializer == nullptr` |
+
+---
+
+### P-TC-28 ElseIfChaining
+
+**목적**: `else if` 체이닝에서 outer IfStmt 의 `elseBranch` 가 `IfStmt` 인지 확인
+
+**입력 토큰**
+```
+IF ( a ) { } ELSE IF ( b ) { } EOF
+```
+
+**기대 AST**
+```
+IfStmt (outer)
+├── thenBranch: BlockStmt
+└── elseBranch: IfStmt (inner)
+                ├── thenBranch: BlockStmt
+                └── elseBranch: nullptr
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `if (a) {} else if (b) {}` 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `outer->elseBranch` 가 `IfStmt` |
+
+---
+
+### P-TC-29 ForExpressionStmtInit
+
+**목적**: for 문 init 이 `var` 없는 `ExpressionStmt` (대입식)일 때 `VarDeclareStmt` 가 아닌 `ExpressionStmt` 로 파싱되는지 확인
+
+**입력 토큰**
+```
+FOR ( i = 0 ; i ; i ) print i ; EOF
+```
+
+**기대 AST**
+```
+ForStmt
+├── init:      ExpressionStmt  (VarDeclareStmt 가 아님)
+├── condition: (non-null Expr*)
+├── increment: (non-null Expr*)
+└── body:      PrintStmt
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `for (i = 0; i; i) print i;` 토큰 시퀀스 (첫 토큰이 VAR 아님) |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `dynamic_cast<VarDeclareStmt*>(s->init.get()) == nullptr`, `dynamic_cast<ExpressionStmt*>(s->init.get()) != nullptr` |
+
+---
+
+## TC 상세 — Checker (추가분)
+
+### C-TC-20 NestedBlock3LevelDuplicate
+
+**목적**: 3단계 이상 중첩 블록의 가장 내부에서도 중복 선언이 감지되는지 확인
+
+**입력 AST**
+```
+BlockStmt
+└── BlockStmt
+    └── BlockStmt
+        ├── VarDeclareStmt(a = 1.0)
+        └── VarDeclareStmt(a = 2.0)  ← 중복
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 3단계 중첩 블록 AST 구성 |
+| Act | `checker.check(stmts)` 호출 |
+| Assert | 반환값 `false`, `getErrors().size() >= 1` |
+
+---
+
+### C-TC-21 NoInitializerNoError
+
+**목적**: 초기값 없는 변수 선언 `var a;` 에서 자기 참조 검사가 생략되어 오류가 발생하지 않는지 확인
+
+**입력 AST**
+```
+VarDeclareStmt(a, initializer=nullptr)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `makeVarDecl("a")` (초기값 없음) |
+| Act | `checker.check(stmts)` 호출 |
+| Assert | 반환값 `true` |
+
+---
+
+### C-TC-22 ForScopeCleanupAllowsRedecl
+
+**목적**: for 루프 종료 후 for-init 스코프가 정리되어, 바깥 스코프에서 같은 이름으로 재선언이 가능한지 확인
+
+**입력 AST**
+```
+[
+  ForStmt(init: VarDeclareStmt(i=0), body: BlockStmt{}),
+  VarDeclareStmt(i = 1.0)   ← for 스코프 pop 후 동일 이름 재선언
+]
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | for 루프 후 `var i=1;` AST 구성 |
+| Act | `checker.check(stmts)` 호출 |
+| Assert | 반환값 `true` |
+
+---
+
+### C-TC-23 NestedIfShadowing
+
+**목적**: 블록 내부의 if 분기에서 외부 블록과 같은 이름의 변수를 선언해도 shadowing 으로 허용되는지 확인
+
+**입력 AST**
+```
+BlockStmt
+├── VarDeclareStmt(a = 1.0)          ← 외부 블록
+└── IfStmt
+    └── thenBranch: BlockStmt
+                    └── VarDeclareStmt(a = 2.0)  ← shadowing
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `{ var a=1; if(true){ var a=2; } }` AST 구성 |
+| Act | `checker.check(stmts)` 호출 |
+| Assert | 반환값 `true` |

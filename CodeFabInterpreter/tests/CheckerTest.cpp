@@ -352,3 +352,59 @@ TEST(CheckerTest, C_TC_19_ForInitSelfReference)
     )));
     EXPECT_GE(checker.getErrors().size(), 1u);
 }
+
+// C-TC-20 : { { { var a=1; var a=2; } } }  →  Error (3단계 중첩에서도 중복 감지)
+TEST(CheckerTest, C_TC_20_NestedBlock3LevelDuplicate)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeBlock(S(
+            makeBlock(S(
+                makeBlock(S(
+                    makeVarDecl("a", makeLit(1.0)),
+                    makeVarDecl("a", makeLit(2.0))
+                ))
+            ))
+        ))
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-21 : var a;  (초기값 없음)  →  OK (자기 참조 검사 대상 없음)
+TEST(CheckerTest, C_TC_21_NoInitializerNoError)
+{
+    Checker checker;
+    EXPECT_TRUE(checker.check(S(
+        makeVarDecl("a")
+    )));
+}
+
+// C-TC-22 : for (var i=0; ...) {} 이후 var i=1;  →  OK (for 스코프 정리 후 재선언 가능)
+TEST(CheckerTest, C_TC_22_ForScopeCleanupAllowsRedecl)
+{
+    Checker checker;
+    EXPECT_TRUE(checker.check(S(
+        makeFor(
+            makeVarDecl("i", makeLit(0.0)),
+            makeLit(1.0),
+            makeLit(0.0),
+            makeBlock(S())
+        ),
+        makeVarDecl("i", makeLit(1.0))
+    )));
+}
+
+// C-TC-23 : { var a=1; if(x){ var a=2; } }  →  OK (중첩 if 내 shadowing 허용)
+TEST(CheckerTest, C_TC_23_NestedIfShadowing)
+{
+    Checker checker;
+    EXPECT_TRUE(checker.check(S(
+        makeBlock(S(
+            makeVarDecl("a", makeLit(1.0)),
+            makeIf(
+                makeLit(1.0),
+                makeBlock(S(makeVarDecl("a", makeLit(2.0))))
+            )
+        ))
+    )));
+}
