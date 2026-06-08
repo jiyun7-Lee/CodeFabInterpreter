@@ -12,7 +12,7 @@
 - 입력: 수동으로 구성한 `std::vector<Token>`
 - 출력: `ExpressionStmt`로 래핑된 `Expr*` 를 `dynamic_cast` 로 검증
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **Green** (TC-01~17 전체 통과)
+- 현재 상태: **TC-01~21 Green / TC-22 🔴 Red** (Parser PERCENT 미구현)
 
 ---
 
@@ -37,6 +37,11 @@
 | TC-15 | ParsesDivision | `6 / 2;` | BinaryExpr (나눗셈) | 🟢 Green |
 | TC-16 | ParsesComparisonLess | `3 < 5;` | BinaryExpr (비교 <) | 🟢 Green |
 | TC-17 | ParsesLogicalOr | `a or b;` | BinaryExpr (논리 or) | 🟢 Green |
+| TC-18 | MissingRightOperandThrows | `1 +` | runtime_error throw | 🟢 Green |
+| TC-19 | UnterminatedGroupingThrows | `(1 + 2` | runtime_error throw | 🟢 Green |
+| TC-20 | EmptyGroupingThrows | `();` | runtime_error throw | 🟢 Green |
+| TC-21 | MissingAssignValueThrows | `a =;` | runtime_error throw | 🟢 Green |
+| TC-22 | ParsesModulo | `10 % 3;` | BinaryExpr(PERCENT) | 🔴 Red |
 
 ---
 
@@ -470,8 +475,37 @@ ExpressionStmt
 
 ---
 
+---
+
+### TC-22 ParsesModulo
+
+**목적**: 모듈러 연산자 `%` 가 BinaryExpr(PERCENT) 로 파싱되는지 확인 (Issue #27)
+
+**입력 토큰**
+```
+NUMBER("10", 10.0) → PERCENT("%") → NUMBER("3", 3.0) → SEMICOLON → EOF
+```
+
+**기대 AST**
+```
+ExpressionStmt
+└── BinaryExpr(PERCENT)
+    ├── left:  LiteralExpr(10.0)
+    └── right: LiteralExpr(3.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `10 % 3` 에 해당하는 토큰 시퀀스 구성 |
+| Act | `parser.parse(tokens)` 호출 |
+| Assert | `BinaryExpr` 이고 `op.type` == `PERCENT`, 좌우 피연산자 == `LiteralExpr(10.0)` / `LiteralExpr(3.0)` |
+
+**🔴 Red**: `parseFactor()` 의 `match({STAR, SLASH})` 에 `PERCENT` 미포함 — Parser 구현 후 Green 전환 예정
+
+---
+
 ## 추가 예정 TC
 
 | ID | 설명 | 입력 예시 | 비고 |
 |---|---|---|---|
-| TC-18 | 좌결합 검증 | `1 + 2 + 3;` | BinaryExpr(PLUS, BinaryExpr(PLUS,1,2), 3) |
+| TC-23 | 좌결합 검증 | `1 + 2 + 3;` | BinaryExpr(PLUS, BinaryExpr(PLUS,1,2), 3) |

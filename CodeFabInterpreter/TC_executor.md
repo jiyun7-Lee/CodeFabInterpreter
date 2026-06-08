@@ -34,6 +34,9 @@
 | TC18   | NullArithmeticThrows          | Negative | 🟢 Green  |
 | TC19   | AssignUndeclaredVarThrows     | Negative | 🟢 Green  |
 | TC20   | NullReturnArithmeticThrows    | Negative | 🟢 Green  |
+| TC21   | VarNoInitializerPrintsNull    | Positive | 🟢 Green  |
+| TC22   | ModuloByZero                  | Negative | 🔴 Red    |
+| TC3+   | ArithmeticExpr (% 케이스 2개) | Positive | 🔴 Red    |
 
 ---
 
@@ -530,6 +533,40 @@ null(monostate) + 숫자 산술 연산 시 `std::runtime_error` 가 발생하는
 | Assert | `ASSERT_THROW(..., std::runtime_error)` |
 
 **구현 상태** : 완료
+
+---
+
+### TC22 — ModuloByZero
+
+**목적**
+`10.0 % 0.0` 연산 시 `std::runtime_error` 가 발생하는지 확인 (Issue #27)
+
+**사전 조건**
+- `BinaryExpr { LiteralExpr(10.0) PERCENT LiteralExpr(0.0) }`
+
+**기대 결과**
+- `std::runtime_error` 발생
+
+| 단계 | 내용 |
+|------|------|
+| Arrange | LiteralExpr(10.0), LiteralExpr(0.0), BinaryExpr(PERCENT) 수동 구성 |
+| Act | `executor.execute(stmts)` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**🔴 Red**: Executor PERCENT case 미구현 — Executor 구현 후 Green 전환 예정
+
+---
+
+### TC3 ArithmeticExpr — % 케이스 추가 (Issue #27)
+
+TC3 케이스 테이블에 모듈러 연산 케이스 2개 추가:
+
+| 케이스    | 연산식        | 기대 결과 |
+|---------|-------------|---------|
+| 모듈러    | `10.0 % 3.0`| `1`     |
+| 피제수 0  | `0.0 % 5.0` | `0`     |
+
+**🔴 Red**: Executor PERCENT case 미구현 — Executor 구현 후 Green 전환 예정
 
 ---
 

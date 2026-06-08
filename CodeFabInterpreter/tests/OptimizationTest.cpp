@@ -414,6 +414,29 @@ TEST(OptimizationTest, CF_TC_10_MultiplyBy1_YieldsVar)
     EXPECT_EQ(var->name.lexeme, "x");
 }
 
+// CF-TC-14 : var x = 9.0 % 4.0;  →  LiteralExpr{1.0}  (패턴 A: %)
+TEST(OptimizationTest, CF_TC_14_BinaryPercent_FoldsToLiteral)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(9.0), TokenType::PERCENT, makeLit(4.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_TRUE(isLiteralDouble(decl->initializer, 1.0));
+}
+
+// CF-TC-15 : var x = 5.0 % 0.0;  →  BinaryExpr 그대로 유지 (0 나누기 비폴딩)
+TEST(OptimizationTest, CF_TC_15_ModuloByZero_NotFolded)
+{
+    auto stmts = S(makeVarDecl("x", makeBin(makeLit(5.0), TokenType::PERCENT, makeLit(0.0))));
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(decl, nullptr);
+    EXPECT_EQ(dynamic_cast<LiteralExpr*>(decl->initializer.get()), nullptr);
+    EXPECT_NE(dynamic_cast<BinaryExpr*>(decl->initializer.get()), nullptr);
+}
+
 // CF-TC-11 : var x = 5.0 / 0.0;  →  BinaryExpr 그대로 유지 (0 나누기 비폴딩)
 TEST(OptimizationTest, CF_TC_11_DivByZero_NotFolded)
 {
