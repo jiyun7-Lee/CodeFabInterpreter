@@ -22,18 +22,36 @@ static std::string toLower(std::string s)
 
 void Shell::run()
 {
-    std::string line;
+    std::string accumulated;
+    int braceDepth = 0;
+
     while (true)
     {
-        std::cout << "> " << std::flush;
+        std::cout << (accumulated.empty() ? "> " : "... ") << std::flush;
+        std::string line;
         if (!std::getline(std::cin, line)) break;
 
         std::string trimmed = line;
         while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
             trimmed.pop_back();
-        if (toLower(trimmed) == "exit" || toLower(trimmed) == "quit") break;
 
-        runLine(line);
+        if (accumulated.empty() && (toLower(trimmed) == "exit" || toLower(trimmed) == "quit")) break;
+
+        for (char c : line)
+        {
+            if (c == '{') ++braceDepth;
+            else if (c == '}') --braceDepth;
+        }
+
+        if (!accumulated.empty()) accumulated += '\n';
+        accumulated += line;
+
+        if (braceDepth <= 0)
+        {
+            braceDepth = 0;
+            runLine(accumulated);
+            accumulated.clear();
+        }
     }
 }
 
