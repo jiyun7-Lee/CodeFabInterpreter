@@ -79,6 +79,9 @@ Executor           ← AST 실행, Scope 관리, Runtime Error 처리
 | `remove N` | N번째 줄 breakpoint 해제 |
 | `breakpoints` | 설정된 breakpoint 목록 출력 |
 | `watch V` | 변수 V를 감시 등록 (정지 시 자동 출력) |
+| `unwatch V` | 변수 V 감시 해제 |
+| `watches` | 현재 감시 중인 변수 목록 및 값 출력 |
+| `inspect` | 현재 스코프의 모든 변수 출력 |
 
 ---
 
@@ -200,11 +203,56 @@ refactor/리팩토링명
 
 ### 커밋 메시지 규칙
 
-| 헤더 | 사용 상황 | 예시 |
-|---|---|---|
-| `[unitTest]` | TDD Red — 테스트 코드 작성 | `[unitTest] Add TC-01 ParsesNumberLiteral` |
-| `[feature]` | TDD Green — 기능 구현 | `[feature] Implement Expression Parser` |
-| `[refactoring]` | TDD Refactor — 코드 개선 | `[refactoring] Extract makeBinary helper` |
-| `[fix]` | 버그 수정 | `[fix] Set console output code page to UTF-8` |
-| `[doc]` | 문서 추가 / 수정 | `[doc] Update README` |
-| `[build]` | 빌드 환경 / 설정 변경 | `[build] Add /utf-8 compiler flag` |
+헤더는 **소문자**로 작성합니다.
+
+| 헤더 | 허용 표기 | 사용 상황 | 예시 |
+|---|---|---|---|
+| `[feat]` | `[feat]` / `[feature]` | 기능 구현 | `[feat] Implement Expression Parser` |
+| `[test]` | `[test]` / `[unittest]` | 테스트 코드 작성 | `[test] Add TC-01 ParsesNumberLiteral` |
+| `[fix]` | `[fix]` | 버그 수정 | `[fix] Set console output code page to UTF-8` |
+| `[refactor]` | `[refactor]` / `[refactoring]` | 코드 개선 | `[refactor] Extract makeBinary helper` |
+| `[docs]` | `[docs]` / `[doc]` | 문서 추가 / 수정 | `[docs] Update README` |
+| `[build]` | `[build]` | 빌드 환경 / 설정 변경 | `[build] Add /utf-8 compiler flag` |
+| `[chore]` | `[chore]` | 그 외 잡무 (설정, 의존성 등) | `[chore] Update .gitignore` |
+
+---
+
+### PR & 리뷰
+
+#### A. PR 작성
+
+PR에는 아래 3가지를 반드시 포함합니다.
+
+| 항목 | 설명 |
+|---|---|
+| **변경 내용** | 무엇을 왜 바꿨는지 |
+| **확인 방법** | 빌드·실행·테스트 방법 |
+| **리뷰 포인트** | 리뷰어가 집중해서 봐야 할 부분 |
+
+#### B. 리뷰
+
+- 리뷰 요청 후 **3시간 이내** 1차 리뷰
+- 코멘트 확인 후 **2시간 이내** 응답
+- 리뷰 코멘트는 정중하게 작성
+
+#### C. Merge
+
+- 최소 **1명** 승인 후 Merge
+- 핵심 기능은 **2명 이상** 리뷰
+
+---
+
+### 코드 품질
+
+#### A. 검증
+
+- Merge 전 직접 실행 또는 테스트 수행
+
+#### B. Git 관리
+
+- Push 전 최신 코드 Pull
+- 충돌 여부 확인 후 작업
+
+#### C. 코드 정리
+
+- PR 전 코드 포맷팅 수행
