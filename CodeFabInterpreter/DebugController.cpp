@@ -121,10 +121,12 @@ void WatchManager::printInspect(const Environment* env) const
 
 void DebugController::beforeExecute(Stmt* stmt, Environment* env, int depth)
 {
+    int effectiveLine = currentLineNo_ > 0 ? currentLineNo_ : stmt->line;
+
     // RUNNING 중 breakpoint 도달 시 PAUSED로 전환
     if (state_ == ExecutionState::RUNNING)
     {
-        if (breakpoints_.isBreakpoint(stmt->line))
+        if (breakpoints_.isBreakpoint(effectiveLine))
             state_ = ExecutionState::PAUSED;
         else
             return;
@@ -141,7 +143,8 @@ void DebugController::beforeExecute(Stmt* stmt, Environment* env, int depth)
     if (!watches_.empty())
         watches_.printWatches(env);
 
-    std::cout << "[Debug] 줄 " << stmt->line << " 에서 정지\n";
+    std::cout << "[DEBUG] " << effectiveLine << "번째 줄에서 정지 -> '"
+              << currentSrcLine_ << "'\n";
     std::cout << "> " << std::flush;
 
     std::string cmd;
