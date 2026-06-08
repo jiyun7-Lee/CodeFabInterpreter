@@ -655,13 +655,15 @@ TEST(IntegrationTest, IT_COMP_01_REPLMode)
     input += "exit\n";
 
     std::istringstream iss(input);
-    std::streambuf* origCin = std::cin.rdbuf(iss.rdbuf());
+    struct CinGuard {
+        std::streambuf* orig;
+        ~CinGuard() { std::cin.rdbuf(orig); }
+    } guard{ std::cin.rdbuf(iss.rdbuf()) };
 
     Shell shell;
     testing::internal::CaptureStdout();
     shell.run();
     std::string out = testing::internal::GetCapturedStdout();
-    std::cin.rdbuf(origCin);
 
     // "> " / "... " 프롬프트 제거 후 프로그램 출력만 추출
     std::string clean;
