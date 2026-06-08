@@ -1,5 +1,6 @@
 ﻿#include "Executor.h"
 #include "DebugController.h"
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
 
@@ -204,6 +205,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
             case TokenType::MINUS:
             case TokenType::STAR:
             case TokenType::SLASH:
+            case TokenType::PERCENT:
             case TokenType::LESS:
             case TokenType::GREATER:
             {
@@ -218,6 +220,11 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
                 {
                     if (r == 0.0) throw std::runtime_error("0으로 나눈 오류");
                     return l / r;
+                }
+                if (e->op.type == TokenType::PERCENT)
+                {
+                    if (r == 0.0) throw std::runtime_error("0으로 나눈 오류");
+                    return std::fmod(l, r);
                 }
                 if (e->op.type == TokenType::LESS)    return l < r;
                 if (e->op.type == TokenType::GREATER) return l > r;

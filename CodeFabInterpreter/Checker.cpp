@@ -1,4 +1,5 @@
 ﻿#include "Checker.h"
+#include <cmath>
 #include <unordered_set>
 #include <unordered_map>
 
@@ -66,7 +67,8 @@ static void foldExpr(std::unique_ptr<Expr>& exprRef)
                 case TokenType::PLUS:    result = Value{l + r};  foldable = true; break;
                 case TokenType::MINUS:   result = Value{l - r};  foldable = true; break;
                 case TokenType::STAR:    result = Value{l * r};  foldable = true; break;
-                case TokenType::SLASH:   if (r != 0.0) { result = Value{l / r}; foldable = true; } break;
+                case TokenType::SLASH:   if (r != 0.0) { result = Value{l / r};              foldable = true; } break;
+                case TokenType::PERCENT: if (r != 0.0) { result = Value{std::fmod(l, r)};   foldable = true; } break;
                 case TokenType::LESS:    result = Value{l < r};  foldable = true; break;
                 case TokenType::GREATER: result = Value{l > r};  foldable = true; break;
                 default: break;
