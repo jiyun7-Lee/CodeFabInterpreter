@@ -12,7 +12,7 @@
 - 입력: `std::string` 소스 코드
 - 출력: `std::vector<Token>` — 각 Token의 `type`, `lexeme`, `literal`, `line` 검증
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **Green** (TC-01~13 전체 통과)
+- 현재 상태: **Green** (TC-01~26 전체 통과)
 
 ---
 
@@ -29,10 +29,23 @@
 | TC-07 | StringLiteralHasCorrectValue | `"\"hello\""` | literal == "hello" (string) | 🟢 Green |
 | TC-08 | IntegerLiteralHasCorrectValue | `"123"` | literal == 123.0 (double) | 🟢 Green |
 | TC-09 | FloatLiteralHasCorrectValue | `"3.14"` | literal == 3.14 (double) | 🟢 Green |
-| TC-10 | KeywordsAreNotIdentifiers | 키워드 9개 나열 | 각 keyword → 고유 TokenType | 🟢 Green |
+| TC-10 | KeywordsAreNotIdentifiers | 키워드 12개 나열 (func/return/Func 포함) | 각 keyword → 고유 TokenType | 🟢 Green |
 | TC-11 | IdentifierStartingWithKeywordIsIdentifier | `"variable iffy forge"` | 모두 IDENTIFIER | 🟢 Green |
 | TC-12 | NewlineIncrementsLineNumber | `"+\n-\n*"` | line 1, 2, 3 순서 | 🟢 Green |
 | TC-13 | BangTokenHasCorrectLexeme | `"!"` | BANG, lexeme == "!" | 🟢 Green |
+| TC-14 | StringLexemeIncludesQuotes | `"\"hello\""` | lexeme == `"\"hello\""` | 🟢 Green |
+| TC-15 | NumberLexemeMatchesSource | `"3.14"` | lexeme == "3.14" | 🟢 Green |
+| TC-16 | UnderscoreIdentifierIsRecognized | `"_count"` | IDENTIFIER, lexeme == "_count" | 🟢 Green |
+| TC-17 | MultilineSourceHasCorrectTypeAndLine | `"var\nx\n=\n1"` | type + line 복합 검증 | 🟢 Green |
+| TC-18 | FuncKeywordIsRecognized | `"func"` | FUNC, lexeme == "func" | 🟢 Green |
+| TC-19 | ReturnKeywordIsRecognized | `"return"` | RETURN, lexeme == "return" | 🟢 Green |
+| TC-20 | LeftBracketIsRecognized | `"["` | LEFT_BRACKET, lexeme == "[" | 🟢 Green |
+| TC-21 | RightBracketIsRecognized | `"]"` | RIGHT_BRACKET, lexeme == "]" | 🟢 Green |
+| TC-22 | UnterminatedStringLiteralThrows | `"\"hello"` | runtime_error throw | 🟢 Green |
+| TC-23 | MultilineStringHasStartLineNumber | `"\"line1\nline2\""` | token.line == 1 (시작 줄) | 🟢 Green |
+| TC-24 | UnknownCharacterThrows | `"@"` | runtime_error throw | 🟢 Green |
+| TC-25 | UnknownCharMidSourceThrows | `"var @ x"` | runtime_error throw | 🟢 Green |
+| TC-26 | PercentTokenIsRecognized | `"%"` | PERCENT, lexeme == "%" | 🟢 Green |
 
 ---
 
@@ -248,16 +261,16 @@ NUMBER, literal == 3.14  (double)
 
 ### TC-10 KeywordsAreNotIdentifiers
 
-**목적**: 9개의 예약어가 IDENTIFIER가 아닌 각자의 고유 TokenType으로 인식되는지 확인
+**목적**: 모든 예약어가 IDENTIFIER가 아닌 각자의 고유 TokenType으로 인식되는지 확인 (`func`/`Func` 양쪽 표기 포함)
 
 **입력 소스**
 ```
-var print if else for true false and or
+var print if else for true false and or func return Func
 ```
 
 **기대 토큰 시퀀스**
 ```
-VAR → PRINT → IF → ELSE → FOR → TRUE → FALSE → AND → OR → EOF_TOKEN
+VAR → PRINT → IF → ELSE → FOR → TRUE → FALSE → AND → OR → FUNC → RETURN → FUNC → EOF_TOKEN
 ```
 
 | 단계 | 내용 |
@@ -339,11 +352,286 @@ BANG, lexeme == "!"
 
 ---
 
-## 추가 예정 TC
+### TC-14 StringLexemeIncludesQuotes
 
-| ID | 설명 | 입력 예시 | 비고 |
-|---|---|---|---|
-| TC-14 | 문자열 lexeme이 따옴표를 포함한다 | `"hello"` | lexeme == `"\"hello\""` |
-| TC-15 | 숫자 lexeme이 소스 문자열과 일치한다 | `3.14` | lexeme == `"3.14"` |
-| TC-16 | 밑줄(_)로 시작하는 식별자 인식 | `_count` | IDENTIFIER, lexeme == "_count" |
-| TC-17 | 여러 줄에 걸친 소스의 복합 검증 | `var\nx\n=\n1` | type + line 복합 검증 |
+**목적**: 문자열 토큰의 lexeme이 따옴표를 포함한 원문 그대로임을 확인
+
+**입력 소스**
+```
+"hello"
+```
+
+**기대 결과**
+```
+STRING, lexeme == "\"hello\""
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 큰따옴표로 감싼 문자열 소스 구성 |
+| Act | `tokenizer.tokenize(source)` 호출 |
+| Assert | `tokens[0].lexeme` == `"\"hello\""` |
+
+---
+
+### TC-15 NumberLexemeMatchesSource
+
+**목적**: 숫자 토큰의 lexeme이 소스의 원문 문자열과 일치하는지 확인
+
+**입력 소스**
+```
+3.14
+```
+
+**기대 결과**
+```
+NUMBER, lexeme == "3.14"
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 소수점 숫자 소스 구성 |
+| Act | `tokenizer.tokenize(source)` 호출 |
+| Assert | `tokens[0].lexeme` == "3.14" |
+
+---
+
+### TC-16 UnderscoreIdentifierIsRecognized
+
+**목적**: 밑줄(`_`)로 시작하는 식별자가 IDENTIFIER로 인식되는지 확인
+
+**입력 소스**
+```
+_count
+```
+
+**기대 결과**
+```
+IDENTIFIER, lexeme == "_count"
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `_` 로 시작하는 식별자 소스 구성 |
+| Act | `tokenizer.tokenize(source)` 호출 |
+| Assert | `tokens[0].type` == IDENTIFIER, `tokens[0].lexeme` == "_count" |
+
+---
+
+### TC-17 MultilineSourceHasCorrectTypeAndLine
+
+**목적**: 여러 줄에 걸친 소스에서 type과 line이 동시에 올바른지 복합 검증
+
+**입력 소스**
+```
+var\nx\n=\n1
+```
+
+**기대 결과**
+```
+VAR(line=1) → IDENTIFIER(line=2) → EQUAL(line=3) → NUMBER(line=4)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `\n` 으로 구분된 4줄 소스 구성 |
+| Act | `tokenizer.tokenize(source)` 호출 |
+| Assert | 각 토큰의 `type` 과 `line` 이 모두 기대값과 일치 |
+
+---
+
+### TC-18 FuncKeywordIsRecognized
+
+**목적**: `func` 키워드가 FUNC 타입으로 인식되고 lexeme이 `"func"`인지 확인
+
+**입력 소스**
+```
+func
+```
+
+**기대 결과**
+```
+FUNC, lexeme == "func"
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `func` 단일 키워드 소스 구성 |
+| Act | `tokenizer.tokenize("func")` 호출 |
+| Assert | `tokens[0].type` == FUNC, `tokens[0].lexeme` == "func" |
+
+---
+
+### TC-19 ReturnKeywordIsRecognized
+
+**목적**: `return` 키워드가 RETURN 타입으로 인식되고 lexeme이 `"return"`인지 확인
+
+**입력 소스**
+```
+return
+```
+
+**기대 결과**
+```
+RETURN, lexeme == "return"
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `return` 단일 키워드 소스 구성 |
+| Act | `tokenizer.tokenize("return")` 호출 |
+| Assert | `tokens[0].type` == RETURN, `tokens[0].lexeme` == "return" |
+
+---
+
+### TC-20 LeftBracketIsRecognized
+
+**목적**: `[` 문자가 LEFT_BRACKET 타입으로 인식되고 lexeme이 `"["`인지 확인
+
+**입력 소스**
+```
+[
+```
+
+**기대 결과**
+```
+LEFT_BRACKET, lexeme == "["
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `[` 단일 문자 소스 구성 |
+| Act | `tokenizer.tokenize("[")` 호출 |
+| Assert | `tokens[0].type` == LEFT_BRACKET, `tokens[0].lexeme` == "[" |
+
+---
+
+### TC-21 RightBracketIsRecognized
+
+**목적**: `]` 문자가 RIGHT_BRACKET 타입으로 인식되고 lexeme이 `"]"`인지 확인
+
+**입력 소스**
+```
+]
+```
+
+**기대 결과**
+```
+RIGHT_BRACKET, lexeme == "]"
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `]` 단일 문자 소스 구성 |
+| Act | `tokenizer.tokenize("]")` 호출 |
+| Assert | `tokens[0].type` == RIGHT_BRACKET, `tokens[0].lexeme` == "]" |
+
+---
+
+### TC-22 UnterminatedStringLiteralThrows
+
+**목적**: 닫는 `"` 없이 끝난 문자열 리터럴 입력 시 `std::runtime_error`를 throw하는지 확인
+
+**입력 소스**
+```
+"hello  (닫는 " 없음)
+```
+
+**기대 결과**
+```
+std::runtime_error throw
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 닫는 따옴표가 없는 소스 구성 |
+| Act | `tokenizer.tokenize("\"hello")` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+---
+
+### TC-23 MultilineStringHasStartLineNumber
+
+**목적**: 여러 줄에 걸친 문자열 토큰의 `line`이 닫는 `"` 줄이 아닌 시작 줄임을 확인
+
+**입력 소스**
+```
+"line1\nline2"   (1번 줄 시작, 2번 줄 종료)
+```
+
+**기대 결과**
+```
+STRING, line == 1  (시작 줄)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 개행을 포함한 문자열 소스 구성 |
+| Act | `tokenizer.tokenize(source)` 호출 |
+| Assert | `tokens[0].type` == STRING, `tokens[0].line` == 1 |
+
+---
+
+### TC-24 UnknownCharacterThrows
+
+**목적**: 인식할 수 없는 단일 문자 입력 시 `std::runtime_error`를 throw하는지 확인
+
+**입력 소스**
+```
+@
+```
+
+**기대 결과**
+```
+std::runtime_error throw
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 알 수 없는 문자 소스 구성 |
+| Act | `tokenizer.tokenize("@")` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+---
+
+### TC-25 UnknownCharMidSourceThrows
+
+**목적**: 유효한 토큰 사이에 알 수 없는 문자가 끼어있을 때도 `std::runtime_error`를 throw하는지 확인
+
+**입력 소스**
+```
+var @ x
+```
+
+**기대 결과**
+```
+std::runtime_error throw
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | 유효 토큰 사이에 `@` 를 삽입한 소스 구성 |
+| Act | `tokenizer.tokenize("var @ x")` 호출 |
+| Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+---
+
+### TC-26 PercentTokenIsRecognized
+
+**목적**: `%` 문자가 PERCENT 타입으로 인식되고 lexeme이 `"%"`인지 확인 (Issue #27 — 모듈러 연산자)
+
+**입력 소스**
+```
+%
+```
+
+**기대 결과**
+```
+PERCENT, lexeme == "%"
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `%` 단일 문자 소스 구성 |
+| Act | `tokenizer.tokenize("%")` 호출 |
+| Assert | `tokens[0].type` == PERCENT, `tokens[0].lexeme` == "%" |

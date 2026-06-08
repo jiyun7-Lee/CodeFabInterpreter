@@ -316,7 +316,7 @@ std::unique_ptr<Expr> Parser::parseTerm()
 std::unique_ptr<Expr> Parser::parseFactor()
 {
     auto expr = parseUnary();
-    while (match({ TokenType::STAR, TokenType::SLASH }))
+    while (match({ TokenType::STAR, TokenType::SLASH, TokenType::PERCENT }))
     {
         Token op = previous();
         expr = makeBinary(std::move(expr), op, parseUnary());

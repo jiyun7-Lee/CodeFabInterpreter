@@ -128,10 +128,12 @@ TEST(ExecutorTest, ArithmeticExpr)
 {
 	struct Case { double l; TokenType op; double r; std::string expected; };
 	std::vector<Case> cases = {
-		{ 3.0,  TokenType::PLUS,  4.0, "7\n"  },
-		{ 10.0, TokenType::MINUS, 3.0, "7\n"  },
-		{ 2.0,  TokenType::STAR,  5.0, "10\n" },
-		{ 9.0,  TokenType::SLASH, 3.0, "3\n"  },
+		{ 3.0,  TokenType::PLUS,    4.0, "7\n"  },
+		{ 10.0, TokenType::MINUS,   3.0, "7\n"  },
+		{ 2.0,  TokenType::STAR,    5.0, "10\n" },
+		{ 9.0,  TokenType::SLASH,   3.0, "3\n"  },
+		{ 10.0, TokenType::PERCENT, 3.0, "1\n"  },
+		{ 0.0,  TokenType::PERCENT, 5.0, "0\n"  },
 	};
 
 	for (const auto& c : cases)
@@ -839,6 +841,22 @@ TEST(ExecutorTest, LogicalOr)
 		Executor executor;
 		ASSERT_NO_THROW(executor.execute(stmts));
 	}
+}
+
+// TC22: 0으로 나누기 모듈러 연산 시 RuntimeError가 발생하는지 확인
+TEST(ExecutorTest, ModuloByZero)
+{
+	auto left  = std::make_unique<LiteralExpr>(); left->value  = 10.0;
+	auto right = std::make_unique<LiteralExpr>(); right->value = 0.0;
+	Token op; op.type = TokenType::PERCENT;
+	auto bin = std::make_unique<BinaryExpr>();
+	bin->left = std::move(left); bin->op = op; bin->right = std::move(right);
+	auto stmt = std::make_unique<PrintStmt>();
+	stmt->expression = std::move(bin);
+	std::vector<std::unique_ptr<Stmt>> stmts;
+	stmts.push_back(std::move(stmt));
+	Executor executor;
+	ASSERT_THROW(executor.execute(stmts), std::runtime_error);
 }
 
 // TC21: 초기화 없는 var 선언 후 print → "null\n"

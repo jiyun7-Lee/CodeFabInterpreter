@@ -594,6 +594,40 @@ TEST(ExprParser, MissingAssignValueThrows)
 }
 
 // -----------------------------------------------------------------------
+// TC 22 : 모듈러 연산자 파싱
+// 입력  : 10 % 3;
+// 기대  : ExpressionStmt → BinaryExpr(PERCENT, LiteralExpr(10.0), LiteralExpr(3.0))
+// -----------------------------------------------------------------------
+TEST(ExprParser, ParsesModulo)
+{
+    // Arrange: "10 % 3" 에 해당하는 토큰 시퀀스 구성
+    std::vector<Token> tokens = {
+        tok(TokenType::NUMBER,    "10", 10.0),
+        tok(TokenType::PERCENT,   "%"),
+        tok(TokenType::NUMBER,    "3",  3.0),
+        tok(TokenType::SEMICOLON, ";"),
+        eof()
+    };
+    Parser parser;
+
+    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    auto stmts = parser.parse(tokens);
+
+    // Assert: BinaryExpr 이고 operator 가 PERCENT, 좌우 피연산자가 올바른지 확인
+    auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->op.type, TokenType::PERCENT);
+
+    auto* left = dynamic_cast<LiteralExpr*>(bin->left.get());
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(std::get<double>(left->value), 10.0);
+
+    auto* right = dynamic_cast<LiteralExpr*>(bin->right.get());
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(std::get<double>(right->value), 3.0);
+}
+
+// -----------------------------------------------------------------------
 // TC 17 : 논리 or 파싱
 // 입력  : a or b;
 // 기대  : ExpressionStmt → BinaryExpr(OR, VariableExpr(a), VariableExpr(b))
