@@ -97,6 +97,33 @@ TEST(StepTest, TC_STEP_02_NextSkipsBlockInternals)
     EXPECT_EQ(ctrl.pausedLines[2], 5);
 }
 
+// TC-STEP-03: continue — 다음 breakpoint까지 실행
+// breakpoint at 줄 3, 줄 1에서 continue → 줄 3에서 정지
+TEST(StepTest, TC_STEP_03_ContinueRunsToBreakpoint)
+{
+    Tokenizer tokenizer;
+    auto tokens = tokenizer.tokenize("print 1;\nprint 2;\nprint 3;");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+
+    ScriptedController ctrl;
+    using Cmd = ScriptedController::Cmd;
+    ctrl.addBreakpoint(3);
+    ctrl.script = { Cmd::CONT }; // 줄 1(STEP 초기 정지): continue
+
+    Executor executor;
+    executor.setDebugController(&ctrl);
+
+    testing::internal::CaptureStdout();
+    executor.execute(stmts);
+    testing::internal::GetCapturedStdout();
+
+    // 줄 1(step 초기) → continue → breakpoint 줄 3
+    ASSERT_EQ(ctrl.pausedLines.size(), 2u);
+    EXPECT_EQ(ctrl.pausedLines[0], 1);
+    EXPECT_EQ(ctrl.pausedLines[1], 3);
+}
+
 // TC-STEP-04: next — 함수 호출 body 진입 없이 다음 Stmt에서 정지 ("next-over-call 버그" 수정 검증)
 // func foo() {\nprint 99;\n}\nfoo();\nprint 2;
 // 줄 1(func): step → 줄 4(foo()): next → 줄 5(print 2): cont
@@ -124,32 +151,4 @@ TEST(StepTest, TC_STEP_04_NextSkipsFunctionBody)
     EXPECT_EQ(ctrl.pausedLines[0], 1);
     EXPECT_EQ(ctrl.pausedLines[1], 4);
     EXPECT_EQ(ctrl.pausedLines[2], 5);
-}
-
-
-// TC-STEP-03: continue — 다음 breakpoint까지 실행
-// breakpoint at 줄 3, 줄 1에서 continue → 줄 3에서 정지
-TEST(StepTest, TC_STEP_03_ContinueRunsToBreakpoint)
-{
-    Tokenizer tokenizer;
-    auto tokens = tokenizer.tokenize("print 1;\nprint 2;\nprint 3;");
-    Parser parser;
-    auto stmts = parser.parse(tokens);
-
-    ScriptedController ctrl;
-    using Cmd = ScriptedController::Cmd;
-    ctrl.addBreakpoint(3);
-    ctrl.script = { Cmd::CONT }; // 줄 1(STEP 초기 정지): continue
-
-    Executor executor;
-    executor.setDebugController(&ctrl);
-
-    testing::internal::CaptureStdout();
-    executor.execute(stmts);
-    testing::internal::GetCapturedStdout();
-
-    // 줄 1(step 초기) → continue → breakpoint 줄 3
-    ASSERT_EQ(ctrl.pausedLines.size(), 2u);
-    EXPECT_EQ(ctrl.pausedLines[0], 1);
-    EXPECT_EQ(ctrl.pausedLines[1], 3);
 }
