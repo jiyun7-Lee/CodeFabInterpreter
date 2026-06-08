@@ -55,6 +55,7 @@
 | P-TC-33 | FuncMissingLeftParenThrows | `func foo a) {}` | runtime_error | 🟢 Green |
 | P-TC-34 | FuncMissingBodyThrows | `func foo(a) EOF` | runtime_error | 🟢 Green |
 | P-TC-35 | ReturnMissingSemicolonThrows | `return 1 EOF` | runtime_error | 🟢 Green |
+| P-TC-36 | VarMissingNameThrows | `var = 1;` (이름 누락) | runtime_error | 🟢 Green |
 
 ## TC 목록 — Checker
 

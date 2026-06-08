@@ -1,4 +1,4 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 #include "../Parser.h"
 
 // ================================================================
@@ -32,8 +32,8 @@ static Token makeEof(int line = 1)
 
 // ================================================================
 // FakeExprParser
-// B파트 미구현 상태에서 Stmt 파싱 테스트용.
-// parseExpression() 호출 시 현재 토큰 1개 소비 후 LiteralExpr 반환.
+// Statement 파싱 테스트에서 Expression 파서를 격리하기 위한 Test Double.
+// parseExpression() 호출 시 문장 경계(; ) })까지 토큰을 소비하고 LiteralExpr 반환.
 // ================================================================
 class FakeExprParser : public Parser
 {
@@ -68,13 +68,12 @@ protected:
 };
 
 // ================================================================
-// VarDeclareStmt
+// VarDeclareStmt (P-TC-01~05)
 // ================================================================
 
 // P-TC-01 : var a = 3;  →  VarDeclareStmt, name="a", initializer == LiteralExpr(3.0)
 TEST_F(ParserStmtTest, P_TC_01_VarWithNumber)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("a"),
         makeTok(TokenType::EQUAL, "="), makeNum(3.0),
@@ -93,7 +92,6 @@ TEST_F(ParserStmtTest, P_TC_01_VarWithNumber)
 // P-TC-02 : var abc = "hello";  →  VarDeclareStmt, name="abc", initializer == LiteralExpr("hello")
 TEST_F(ParserStmtTest, P_TC_02_VarWithString)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("abc"),
         makeTok(TokenType::EQUAL, "="), makeStr("hello"),
@@ -112,7 +110,6 @@ TEST_F(ParserStmtTest, P_TC_02_VarWithString)
 // P-TC-03 : var flag = true;  →  VarDeclareStmt, name="flag", initializer == LiteralExpr(true)
 TEST_F(ParserStmtTest, P_TC_03_VarWithBool)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("flag"),
         makeTok(TokenType::EQUAL, "="), makeBoolTok(true),
@@ -131,7 +128,6 @@ TEST_F(ParserStmtTest, P_TC_03_VarWithBool)
 // P-TC-04 : var a = b + 1;  →  initializer != null
 TEST_F(ParserStmtTest, P_TC_04_VarWithExpr)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("a"),
         makeTok(TokenType::EQUAL, "="), makeId("b"),
@@ -146,7 +142,6 @@ TEST_F(ParserStmtTest, P_TC_04_VarWithExpr)
 // P-TC-05 : var a = 3  (세미콜론 없음)  →  parse 오류
 TEST_F(ParserStmtTest, P_TC_05_VarMissingSemicolon)
 {
-
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::VAR, "var"), makeId("a"),
@@ -158,13 +153,12 @@ TEST_F(ParserStmtTest, P_TC_05_VarMissingSemicolon)
 }
 
 // ================================================================
-// PrintStmt
+// PrintStmt (P-TC-06~08)
 // ================================================================
 
 // P-TC-06 : print a;  →  PrintStmt, expression != null
 TEST_F(ParserStmtTest, P_TC_06_PrintVariable)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::PRINT, "print"), makeId("a"),
         makeTok(TokenType::SEMICOLON, ";"), makeEof()
@@ -178,7 +172,6 @@ TEST_F(ParserStmtTest, P_TC_06_PrintVariable)
 // P-TC-07 : print a + b;  →  PrintStmt, expression != null
 TEST_F(ParserStmtTest, P_TC_07_PrintExpression)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::PRINT, "print"), makeId("a"),
         makeTok(TokenType::PLUS, "+"), makeId("b"),
@@ -193,7 +186,6 @@ TEST_F(ParserStmtTest, P_TC_07_PrintExpression)
 // P-TC-08 : print a  (세미콜론 없음)  →  parse 오류
 TEST_F(ParserStmtTest, P_TC_08_PrintMissingSemicolon)
 {
-
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::PRINT, "print"), makeId("a"),
@@ -204,13 +196,12 @@ TEST_F(ParserStmtTest, P_TC_08_PrintMissingSemicolon)
 }
 
 // ================================================================
-// BlockStmt
+// BlockStmt (P-TC-09~13)
 // ================================================================
 
 // P-TC-09 : {}  →  BlockStmt, statements.size() == 0
 TEST_F(ParserStmtTest, P_TC_09_EmptyBlock)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::LEFT_BRACE, "{"),
         makeTok(TokenType::RIGHT_BRACE, "}"),
@@ -225,7 +216,6 @@ TEST_F(ParserStmtTest, P_TC_09_EmptyBlock)
 // P-TC-10 : { print a; }  →  statements.size() == 1
 TEST_F(ParserStmtTest, P_TC_10_BlockOneStmt)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::LEFT_BRACE, "{"),
         makeTok(TokenType::PRINT, "print"), makeId("a"), makeTok(TokenType::SEMICOLON, ";"),
@@ -241,7 +231,6 @@ TEST_F(ParserStmtTest, P_TC_10_BlockOneStmt)
 // P-TC-11 : { print a; print b; }  →  statements.size() == 2
 TEST_F(ParserStmtTest, P_TC_11_BlockMultipleStmts)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::LEFT_BRACE, "{"),
         makeTok(TokenType::PRINT, "print"), makeId("a"), makeTok(TokenType::SEMICOLON, ";"),
@@ -258,7 +247,6 @@ TEST_F(ParserStmtTest, P_TC_11_BlockMultipleStmts)
 // P-TC-12 : { { print a; } }  →  중첩 BlockStmt
 TEST_F(ParserStmtTest, P_TC_12_NestedBlock)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::LEFT_BRACE, "{"),
           makeTok(TokenType::LEFT_BRACE, "{"),
@@ -277,7 +265,6 @@ TEST_F(ParserStmtTest, P_TC_12_NestedBlock)
 // P-TC-13 : { print a;  (닫는 중괄호 없음)  →  parse 오류
 TEST_F(ParserStmtTest, P_TC_13_BlockMissingClosingBrace)
 {
-
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::LEFT_BRACE, "{"),
@@ -289,13 +276,12 @@ TEST_F(ParserStmtTest, P_TC_13_BlockMissingClosingBrace)
 }
 
 // ================================================================
-// IfStmt
+// IfStmt (P-TC-14~20)
 // ================================================================
 
 // P-TC-14 : if (a > 0) print a;  →  IfStmt, elseBranch == null
 TEST_F(ParserStmtTest, P_TC_14_IfWithoutElse)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -313,7 +299,6 @@ TEST_F(ParserStmtTest, P_TC_14_IfWithoutElse)
 // P-TC-15 : if (a > 0) print a; else print b;  →  elseBranch != null
 TEST_F(ParserStmtTest, P_TC_15_IfWithElse)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -331,7 +316,6 @@ TEST_F(ParserStmtTest, P_TC_15_IfWithElse)
 // P-TC-16 : if (a > 0) { print a; }  →  thenBranch == BlockStmt
 TEST_F(ParserStmtTest, P_TC_16_IfWithBlockBody)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -349,7 +333,6 @@ TEST_F(ParserStmtTest, P_TC_16_IfWithBlockBody)
 // P-TC-17 : if (a > 0) { } else { }  →  thenBranch, elseBranch 모두 BlockStmt
 TEST_F(ParserStmtTest, P_TC_17_IfElseBothBlocks)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -368,7 +351,6 @@ TEST_F(ParserStmtTest, P_TC_17_IfElseBothBlocks)
 // P-TC-18 : if (a > 0) if (b > 0) print b;  →  중첩 IfStmt
 TEST_F(ParserStmtTest, P_TC_18_NestedIf)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::IF, "if"),
         makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
@@ -386,7 +368,6 @@ TEST_F(ParserStmtTest, P_TC_18_NestedIf)
 // P-TC-19 : if a > 0) print a;  (여는 괄호 없음)  →  parse 오류
 TEST_F(ParserStmtTest, P_TC_19_IfMissingLeftParen)
 {
-
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::IF, "if"),
@@ -401,7 +382,6 @@ TEST_F(ParserStmtTest, P_TC_19_IfMissingLeftParen)
 // P-TC-20 : if (a > 0 print a;  (닫는 괄호 없음)  →  parse 오류
 TEST_F(ParserStmtTest, P_TC_20_IfMissingRightParen)
 {
-
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::IF, "if"),
@@ -414,13 +394,12 @@ TEST_F(ParserStmtTest, P_TC_20_IfMissingRightParen)
 }
 
 // ================================================================
-// ForStmt
+// ForStmt (P-TC-21~24)
 // ================================================================
 
 // P-TC-21 : for (var i = 0; i < 3; i = i+1) print i;  →  모든 필드 != null
 TEST_F(ParserStmtTest, P_TC_21_ForAllParts)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::FOR, "for"),
         makeTok(TokenType::LEFT_PAREN, "("),
@@ -444,7 +423,6 @@ TEST_F(ParserStmtTest, P_TC_21_ForAllParts)
 // P-TC-22 : for (...) { print i; }  →  body == BlockStmt
 TEST_F(ParserStmtTest, P_TC_22_ForWithBlockBody)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::FOR, "for"),
         makeTok(TokenType::LEFT_PAREN, "("),
@@ -467,7 +445,6 @@ TEST_F(ParserStmtTest, P_TC_22_ForWithBlockBody)
 // P-TC-23 : condition 뒤 세미콜론 없음  →  parse 오류
 TEST_F(ParserStmtTest, P_TC_23_ForMissingSemicolon)
 {
-
     EXPECT_THROW(
         p.parse({
             makeTok(TokenType::FOR, "for"),
@@ -486,7 +463,6 @@ TEST_F(ParserStmtTest, P_TC_23_ForMissingSemicolon)
 // P-TC-24 : for (...) {}  →  body == 빈 BlockStmt
 TEST_F(ParserStmtTest, P_TC_24_ForWithEmptyBlock)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::FOR, "for"),
         makeTok(TokenType::LEFT_PAREN, "("),
@@ -507,13 +483,12 @@ TEST_F(ParserStmtTest, P_TC_24_ForWithEmptyBlock)
 }
 
 // ================================================================
-// 복수 문장
+// 복수 문장 / 빈 입력 (P-TC-25~26)
 // ================================================================
 
 // P-TC-25 : var a = 1; print a;  →  statements.size() == 2
 TEST_F(ParserStmtTest, P_TC_25_MultipleStatements)
 {
-
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("a"),
         makeTok(TokenType::EQUAL, "="), makeNum(1.0),
@@ -527,119 +502,16 @@ TEST_F(ParserStmtTest, P_TC_25_MultipleStatements)
 // P-TC-26 : EOF만 있는 경우  →  statements.size() == 0
 TEST_F(ParserStmtTest, P_TC_26_EmptyInput)
 {
-
     auto stmts = p.parse({ makeEof() });
     EXPECT_EQ(stmts.size(), 0u);
 }
 
 // ================================================================
-// Negative UT
+// 추가 파싱 케이스 (P-TC-27~29)
 // ================================================================
 
-// P-TC-27 : var = 1;  (이름 누락)  →  parse 오류
-TEST_F(ParserStmtTest, VarMissingNameThrows)
-{
-    ASSERT_THROW(
-        p.parse({
-            makeTok(TokenType::VAR,       "var"),
-            makeTok(TokenType::EQUAL,     "="),
-            makeNum(1.0),
-            makeTok(TokenType::SEMICOLON, ";"),
-            makeEof()
-        }),
-        std::runtime_error
-    );
-}
-
-// P-TC-28 : for var i ...  (여는 괄호 없음)  →  parse 오류
-TEST_F(ParserStmtTest, ForMissingLeftParenThrows)
-{
-    ASSERT_THROW(
-        p.parse({
-            makeTok(TokenType::FOR, "for"),
-            makeTok(TokenType::VAR, "var"),
-            makeEof()
-        }),
-        std::runtime_error
-    );
-}
-
-// P-TC-29 : for(var i=0; 1; 2  EOF  (닫는 괄호 없음)  →  parse 오류
-TEST_F(ParserStmtTest, ForMissingRightParenThrows)
-{
-    ASSERT_THROW(
-        p.parse({
-            makeTok(TokenType::FOR,       "for"),
-            makeTok(TokenType::LEFT_PAREN,"("),
-            makeTok(TokenType::VAR,       "var"), makeId("i"),
-            makeTok(TokenType::EQUAL,     "="), makeNum(0.0),
-            makeTok(TokenType::SEMICOLON, ";"),
-            makeNum(1.0), makeTok(TokenType::SEMICOLON, ";"),
-            makeNum(2.0),
-            makeEof()
-        }),
-        std::runtime_error
-    );
-}
-
-// P-TC-30 : func (a) {}  (이름 누락)  →  parse 오류
-TEST_F(ParserStmtTest, FuncMissingNameThrows)
-{
-    ASSERT_THROW(
-        p.parse({
-            makeTok(TokenType::FUNC,      "func"),
-            makeTok(TokenType::LEFT_PAREN,"("),
-            makeEof()
-        }),
-        std::runtime_error
-    );
-}
-
-// P-TC-31 : func foo a) {}  (여는 괄호 없음)  →  parse 오류
-TEST_F(ParserStmtTest, FuncMissingLeftParenThrows)
-{
-    ASSERT_THROW(
-        p.parse({
-            makeTok(TokenType::FUNC, "func"),
-            makeId("foo"),
-            makeId("a"),
-            makeEof()
-        }),
-        std::runtime_error
-    );
-}
-
-// P-TC-32 : func foo(a)  EOF  (본문 없음)  →  parse 오류
-TEST_F(ParserStmtTest, FuncMissingBodyThrows)
-{
-    ASSERT_THROW(
-        p.parse({
-            makeTok(TokenType::FUNC,       "func"),
-            makeId("foo"),
-            makeTok(TokenType::LEFT_PAREN, "("),
-            makeId("a"),
-            makeTok(TokenType::RIGHT_PAREN,")"),
-            makeEof()
-        }),
-        std::runtime_error
-    );
-}
-
-// P-TC-33 : return 1  EOF  (세미콜론 없음)  →  parse 오류
-TEST_F(ParserStmtTest, ReturnMissingSemicolonThrows)
-{
-    ASSERT_THROW(
-        p.parse({
-            makeTok(TokenType::RETURN, "return"),
-            makeNum(1.0),
-            makeEof()
-        }),
-        std::runtime_error
-    );
-}
-
-// P-TC-34 : var x;  (초기화 없음)  →  VarDeclareStmt, initializer == nullptr
-TEST_F(ParserStmtTest, VarNoInitializerParsed)
+// P-TC-27 : var x;  (초기화 없음)  →  VarDeclareStmt, initializer == nullptr
+TEST_F(ParserStmtTest, P_TC_27_VarNoInitializerParsed)
 {
     auto stmts = p.parse({
         makeTok(TokenType::VAR, "var"), makeId("x"),
@@ -693,4 +565,110 @@ TEST_F(ParserStmtTest, P_TC_29_ForExpressionStmtInit)
     EXPECT_NE(s->condition,  nullptr);
     EXPECT_NE(s->increment,  nullptr);
     EXPECT_NE(s->body,       nullptr);
+}
+
+// ================================================================
+// 파싱 오류 케이스 (P-TC-30~36)
+// ================================================================
+
+// P-TC-30 : for var i ...  (여는 괄호 없음)  →  parse 오류
+TEST_F(ParserStmtTest, P_TC_30_ForMissingLeftParenThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FOR, "for"),
+            makeTok(TokenType::VAR, "var"),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-31 : for(var i=0; 1; 2  EOF  (닫는 괄호 없음)  →  parse 오류
+TEST_F(ParserStmtTest, P_TC_31_ForMissingRightParenThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FOR,       "for"),
+            makeTok(TokenType::LEFT_PAREN,"("),
+            makeTok(TokenType::VAR,       "var"), makeId("i"),
+            makeTok(TokenType::EQUAL,     "="), makeNum(0.0),
+            makeTok(TokenType::SEMICOLON, ";"),
+            makeNum(1.0), makeTok(TokenType::SEMICOLON, ";"),
+            makeNum(2.0),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-32 : func (a) {}  (이름 누락)  →  parse 오류
+TEST_F(ParserStmtTest, P_TC_32_FuncMissingNameThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FUNC,      "func"),
+            makeTok(TokenType::LEFT_PAREN,"("),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-33 : func foo a) {}  (여는 괄호 없음)  →  parse 오류
+TEST_F(ParserStmtTest, P_TC_33_FuncMissingLeftParenThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FUNC, "func"),
+            makeId("foo"),
+            makeId("a"),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-34 : func foo(a)  EOF  (본문 없음)  →  parse 오류
+TEST_F(ParserStmtTest, P_TC_34_FuncMissingBodyThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::FUNC,       "func"),
+            makeId("foo"),
+            makeTok(TokenType::LEFT_PAREN, "("),
+            makeId("a"),
+            makeTok(TokenType::RIGHT_PAREN,")"),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-35 : return 1  EOF  (세미콜론 없음)  →  parse 오류
+TEST_F(ParserStmtTest, P_TC_35_ReturnMissingSemicolonThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::RETURN, "return"),
+            makeNum(1.0),
+            makeEof()
+        }),
+        std::runtime_error
+    );
+}
+
+// P-TC-36 : var = 1;  (이름 누락)  →  parse 오류
+TEST_F(ParserStmtTest, P_TC_36_VarMissingNameThrows)
+{
+    ASSERT_THROW(
+        p.parse({
+            makeTok(TokenType::VAR,       "var"),
+            makeTok(TokenType::EQUAL,     "="),
+            makeNum(1.0),
+            makeTok(TokenType::SEMICOLON, ";"),
+            makeEof()
+        }),
+        std::runtime_error
+    );
 }
