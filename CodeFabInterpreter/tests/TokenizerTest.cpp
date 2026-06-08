@@ -365,6 +365,18 @@ TEST_F(TokenizerFixture, RightBracketIsRecognized)
 }
 
 // ──────────────────────────────────────────────
+// 연산자: '%' 가 PERCENT 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, PercentTokenIsRecognized)
+{
+    const auto tokens = tokenizer.tokenize("%");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::PERCENT);
+    EXPECT_EQ(tokens[0].lexeme, "%");
+}
+
+// ──────────────────────────────────────────────
 // lexeme: 밑줄(_)로 시작하는 식별자를 IDENTIFIER로 인식한다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, UnderscoreIdentifierIsRecognized)
