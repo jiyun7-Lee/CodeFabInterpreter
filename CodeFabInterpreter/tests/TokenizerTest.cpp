@@ -20,6 +20,14 @@ protected:
             [](const Token& t) { return t.type; });
         return types;
     }
+
+    void checkSingleToken(const std::string& src, TokenType expectedType)
+    {
+        const auto tokens = tokenizer.tokenize(src);
+        ASSERT_GE(tokens.size(), 1u)             << "input: " << src;
+        EXPECT_EQ(tokens[0].type,   expectedType) << "input: " << src;
+        EXPECT_EQ(tokens[0].lexeme, src)          << "input: " << src;
+    }
 };
 
 // ──────────────────────────────────────────────
@@ -213,11 +221,7 @@ TEST_F(TokenizerFixture, IdentifierStartingWithKeywordIsIdentifier)
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, BangTokenHasCorrectLexeme)
 {
-    const auto tokens = tokenizer.tokenize("!");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::BANG);
-    EXPECT_EQ(tokens[0].lexeme, "!");
+    checkSingleToken("!", TokenType::BANG);
 }
 
 // ──────────────────────────────────────────────
@@ -321,11 +325,7 @@ TEST_F(TokenizerFixture, NumberLexemeMatchesSource)
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, FuncKeywordIsRecognized)
 {
-    const auto tokens = tokenizer.tokenize("func");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::FUNC);
-    EXPECT_EQ(tokens[0].lexeme, "func");
+    checkSingleToken("func", TokenType::FUNC);
 }
 
 // ──────────────────────────────────────────────
@@ -333,11 +333,7 @@ TEST_F(TokenizerFixture, FuncKeywordIsRecognized)
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, ReturnKeywordIsRecognized)
 {
-    const auto tokens = tokenizer.tokenize("return");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::RETURN);
-    EXPECT_EQ(tokens[0].lexeme, "return");
+    checkSingleToken("return", TokenType::RETURN);
 }
 
 // ──────────────────────────────────────────────
@@ -345,11 +341,7 @@ TEST_F(TokenizerFixture, ReturnKeywordIsRecognized)
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, LeftBracketIsRecognized)
 {
-    const auto tokens = tokenizer.tokenize("[");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::LEFT_BRACKET);
-    EXPECT_EQ(tokens[0].lexeme, "[");
+    checkSingleToken("[", TokenType::LEFT_BRACKET);
 }
 
 // ──────────────────────────────────────────────
@@ -357,11 +349,7 @@ TEST_F(TokenizerFixture, LeftBracketIsRecognized)
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, RightBracketIsRecognized)
 {
-    const auto tokens = tokenizer.tokenize("]");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::RIGHT_BRACKET);
-    EXPECT_EQ(tokens[0].lexeme, "]");
+    checkSingleToken("]", TokenType::RIGHT_BRACKET);
 }
 
 // ──────────────────────────────────────────────
@@ -369,11 +357,7 @@ TEST_F(TokenizerFixture, RightBracketIsRecognized)
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, PercentTokenIsRecognized)
 {
-    const auto tokens = tokenizer.tokenize("%");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::PERCENT);
-    EXPECT_EQ(tokens[0].lexeme, "%");
+    checkSingleToken("%", TokenType::PERCENT);
 }
 
 // ──────────────────────────────────────────────
