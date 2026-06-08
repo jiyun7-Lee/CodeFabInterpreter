@@ -126,6 +126,7 @@ TEST(StepTest, TC_STEP_04_NextSkipsFunctionBody)
     EXPECT_EQ(ctrl.pausedLines[2], 5);
 }
 
+
 // TC-STEP-03: continue — 다음 breakpoint까지 실행
 // breakpoint at 줄 3, 줄 1에서 continue → 줄 3에서 정지
 TEST(StepTest, TC_STEP_03_ContinueRunsToBreakpoint)

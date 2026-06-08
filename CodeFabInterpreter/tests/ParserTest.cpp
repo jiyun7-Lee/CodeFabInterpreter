@@ -637,3 +637,60 @@ TEST_F(ParserStmtTest, ReturnMissingSemicolonThrows)
         std::runtime_error
     );
 }
+
+// P-TC-34 : var x;  (초기화 없음)  →  VarDeclareStmt, initializer == nullptr
+TEST_F(ParserStmtTest, VarNoInitializerParsed)
+{
+    auto stmts = p.parse({
+        makeTok(TokenType::VAR, "var"), makeId("x"),
+        makeTok(TokenType::SEMICOLON, ";"), makeEof()
+    });
+    ASSERT_EQ(stmts.size(), 1u);
+    auto* s = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(s->name.lexeme, "x");
+    EXPECT_EQ(s->initializer, nullptr);
+}
+
+// P-TC-28 : if (a) {} else if (b) {}  →  elseBranch == IfStmt
+TEST_F(ParserStmtTest, P_TC_28_ElseIfChaining)
+{
+    auto stmts = p.parse({
+        makeTok(TokenType::IF, "if"),
+        makeTok(TokenType::LEFT_PAREN, "("), makeId("a"), makeTok(TokenType::RIGHT_PAREN, ")"),
+        makeTok(TokenType::LEFT_BRACE, "{"), makeTok(TokenType::RIGHT_BRACE, "}"),
+        makeTok(TokenType::ELSE, "else"),
+        makeTok(TokenType::IF, "if"),
+        makeTok(TokenType::LEFT_PAREN, "("), makeId("b"), makeTok(TokenType::RIGHT_PAREN, ")"),
+        makeTok(TokenType::LEFT_BRACE, "{"), makeTok(TokenType::RIGHT_BRACE, "}"),
+        makeEof()
+    });
+    ASSERT_EQ(stmts.size(), 1u);
+    auto* outer = dynamic_cast<IfStmt*>(stmts[0].get());
+    ASSERT_NE(outer, nullptr);
+    ASSERT_NE(outer->elseBranch, nullptr);
+    EXPECT_NE(dynamic_cast<IfStmt*>(outer->elseBranch.get()), nullptr);
+}
+
+// P-TC-29 : for (i = 0; i; i) print i;  →  init == ExpressionStmt (var 없는 초기식)
+TEST_F(ParserStmtTest, P_TC_29_ForExpressionStmtInit)
+{
+    auto stmts = p.parse({
+        makeTok(TokenType::FOR, "for"),
+        makeTok(TokenType::LEFT_PAREN, "("),
+        makeId("i"), makeTok(TokenType::EQUAL, "="), makeNum(0.0),
+        makeTok(TokenType::SEMICOLON, ";"),
+        makeId("i"), makeTok(TokenType::SEMICOLON, ";"),
+        makeId("i"), makeTok(TokenType::RIGHT_PAREN, ")"),
+        makeTok(TokenType::PRINT, "print"), makeId("i"), makeTok(TokenType::SEMICOLON, ";"),
+        makeEof()
+    });
+    ASSERT_EQ(stmts.size(), 1u);
+    auto* s = dynamic_cast<ForStmt*>(stmts[0].get());
+    ASSERT_NE(s, nullptr);
+    EXPECT_EQ(dynamic_cast<VarDeclareStmt*>(s->init.get()), nullptr);
+    EXPECT_NE(dynamic_cast<ExpressionStmt*>(s->init.get()), nullptr);
+    EXPECT_NE(s->condition,  nullptr);
+    EXPECT_NE(s->increment,  nullptr);
+    EXPECT_NE(s->body,       nullptr);
+}

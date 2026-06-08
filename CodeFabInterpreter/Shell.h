@@ -1,7 +1,9 @@
-#pragma once
+﻿#pragma once
 #include <string>
+#include <vector>
 #include "Executor.h"
 #include "Checker.h"
+#include "DebugController.h"
 
 // -----------------------------------------------------------------------
 // Shell — REPL 모드
@@ -23,7 +25,19 @@ class FileRunner
 {
 public:
     void run(const std::string& filepath);
-    void runSource(const std::string& source);
+    void runSource(const std::vector<std::string>& lines);
+private:
+    Executor executor;
+    Checker  checker;
+};
+
+// -----------------------------------------------------------------------
+// DebugShell — 디버그 모드
+// -----------------------------------------------------------------------
+class DebugShell
+{
+public:
+    void run(const std::string& filepath);
 };
 
 // -----------------------------------------------------------------------

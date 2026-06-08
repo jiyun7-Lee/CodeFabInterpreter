@@ -20,6 +20,14 @@ protected:
             [](const Token& t) { return t.type; });
         return types;
     }
+
+    void checkSingleToken(const std::string& src, TokenType expectedType)
+    {
+        const auto tokens = tokenizer.tokenize(src);
+        ASSERT_GE(tokens.size(), 1u)             << "input: " << src;
+        EXPECT_EQ(tokens[0].type,   expectedType) << "input: " << src;
+        EXPECT_EQ(tokens[0].lexeme, src)          << "input: " << src;
+    }
 };
 
 // ──────────────────────────────────────────────
@@ -179,11 +187,14 @@ TEST_F(TokenizerFixture, KeywordsAreNotIdentifiers)
         TokenType::FALSE,
         TokenType::AND,
         TokenType::OR,
+        TokenType::FUNC,
+        TokenType::RETURN,
+        TokenType::FUNC,
         TokenType::EOF_TOKEN
     };
 
     EXPECT_EQ(
-        extractTypes(tokenizer.tokenize("var print if else for true false and or")),
+        extractTypes(tokenizer.tokenize("var print if else for true false and or func return Func")),
         expectedTypes
     );
 }
@@ -210,11 +221,7 @@ TEST_F(TokenizerFixture, IdentifierStartingWithKeywordIsIdentifier)
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, BangTokenHasCorrectLexeme)
 {
-    const auto tokens = tokenizer.tokenize("!");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::BANG);
-    EXPECT_EQ(tokens[0].lexeme, "!");
+    checkSingleToken("!", TokenType::BANG);
 }
 
 // ──────────────────────────────────────────────
@@ -311,6 +318,46 @@ TEST_F(TokenizerFixture, NumberLexemeMatchesSource)
     ASSERT_GE(tokens.size(), 1u);
     EXPECT_EQ(tokens[0].type,   TokenType::NUMBER);
     EXPECT_EQ(tokens[0].lexeme, "3.14");
+}
+
+// ──────────────────────────────────────────────
+// 예약어: func 키워드가 FUNC 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, FuncKeywordIsRecognized)
+{
+    checkSingleToken("func", TokenType::FUNC);
+}
+
+// ──────────────────────────────────────────────
+// 예약어: return 키워드가 RETURN 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, ReturnKeywordIsRecognized)
+{
+    checkSingleToken("return", TokenType::RETURN);
+}
+
+// ──────────────────────────────────────────────
+// 연산자: '[' 가 LEFT_BRACKET 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, LeftBracketIsRecognized)
+{
+    checkSingleToken("[", TokenType::LEFT_BRACKET);
+}
+
+// ──────────────────────────────────────────────
+// 연산자: ']' 가 RIGHT_BRACKET 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, RightBracketIsRecognized)
+{
+    checkSingleToken("]", TokenType::RIGHT_BRACKET);
+}
+
+// ──────────────────────────────────────────────
+// 연산자: '%' 가 PERCENT 타입으로 인식된다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, PercentTokenIsRecognized)
+{
+    checkSingleToken("%", TokenType::PERCENT);
 }
 
 // ──────────────────────────────────────────────

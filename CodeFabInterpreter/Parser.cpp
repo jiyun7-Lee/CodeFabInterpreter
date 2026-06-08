@@ -209,15 +209,16 @@ std::unique_ptr<Stmt> Parser::parseReturnStatement()
 {
     // RETURN 은 이미 소비된 상태로 진입. 문법: return expr? ;
     // 다음 토큰이 ; 이면 값 없는 return (null 반환)
-    int stmtLine = previous().line;
+    Token keyword = previous();
     std::unique_ptr<Expr> value;
     if (!check(TokenType::SEMICOLON))
         value = parseExpression();
     consume(TokenType::SEMICOLON, "';' 가 필요합니다.");
 
-    auto stmt   = std::make_unique<ReturnStmt>();
-    stmt->line  = stmtLine;
-    stmt->value = std::move(value);
+    auto stmt         = std::make_unique<ReturnStmt>();
+    stmt->line        = keyword.line;
+    stmt->keyword     = keyword;
+    stmt->value       = std::move(value);
     return stmt;
 }
 
@@ -315,7 +316,7 @@ std::unique_ptr<Expr> Parser::parseTerm()
 std::unique_ptr<Expr> Parser::parseFactor()
 {
     auto expr = parseUnary();
-    while (match({ TokenType::STAR, TokenType::SLASH }))
+    while (match({ TokenType::STAR, TokenType::SLASH, TokenType::PERCENT }))
     {
         Token op = previous();
         expr = makeBinary(std::move(expr), op, parseUnary());

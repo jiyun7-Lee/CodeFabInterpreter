@@ -1,6 +1,16 @@
 ﻿#include "Executor.h"
+#include "DebugController.h"
+#include <cmath>
 #include <iostream>
 #include <stdexcept>
+
+// ReturnSignal 등 예외 발생 시에도 depth_ 가 복원되도록 보장
+struct DepthGuard
+{
+    int& depth;
+    DepthGuard(int& d) : depth(d) { ++depth; }
+    ~DepthGuard()                 { --depth; }
+};
 
 static bool isTruthy(const Value& val)
 {
@@ -29,6 +39,7 @@ void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 void Executor::executeStatement(Stmt* stmt, Environment* env)
 {
     if (stmt->line != 0) currentLine_ = stmt->line;
+    if (debug_) debug_->beforeExecute(stmt, env, depth_);
 
     if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
     {
@@ -51,6 +62,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
 
     if (auto* s = dynamic_cast<IfStmt*>(stmt))
     {
+        DepthGuard g(depth_);
         if (isTruthy(evaluateExpr(s->condition.get(), env)))
             executeStatement(s->thenBranch.get(), env);
         else if (s->elseBranch)
@@ -64,6 +76,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
         // Executor도 대응하는 Environment를 생성해 distance 값과 환경 체인을 일치시킨다.
         Environment forEnv;
         forEnv.parent = env;
+        DepthGuard g(depth_);
         if (s->init)
             executeStatement(s->init.get(), &forEnv);
         while (!s->condition || isTruthy(evaluateExpr(s->condition.get(), &forEnv)))
@@ -79,6 +92,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
     {
         Environment blockEnv;
         blockEnv.parent = env;
+        DepthGuard g(depth_);
         for (const auto& st : s->statements)
             executeStatement(st.get(), &blockEnv);
         return;
@@ -188,9 +202,17 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         switch (e->op.type)
         {
             case TokenType::PLUS:
+            {
+                if (std::holds_alternative<std::string>(lv) && std::holds_alternative<std::string>(rv))
+                    return std::get<std::string>(lv) + std::get<std::string>(rv);
+                if (std::holds_alternative<double>(lv) && std::holds_alternative<double>(rv))
+                    return std::get<double>(lv) + std::get<double>(rv);
+                throw std::runtime_error("'+' 연산자는 숫자+숫자 또는 문자열+문자열만 지원합니다.");
+            }
             case TokenType::MINUS:
             case TokenType::STAR:
             case TokenType::SLASH:
+            case TokenType::PERCENT:
             case TokenType::LESS:
             case TokenType::GREATER:
             {
@@ -198,13 +220,12 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
                     throw std::runtime_error("피연산자는 반드시 숫자여야 한다.");
                 double l = std::get<double>(lv);
                 double r = std::get<double>(rv);
-                if (e->op.type == TokenType::PLUS)    return l + r;
                 if (e->op.type == TokenType::MINUS)   return l - r;
                 if (e->op.type == TokenType::STAR)    return l * r;
-                if (e->op.type == TokenType::SLASH)
+                if (e->op.type == TokenType::SLASH || e->op.type == TokenType::PERCENT)
                 {
                     if (r == 0.0) throw std::runtime_error("0으로 나눈 오류");
-                    return l / r;
+                    return e->op.type == TokenType::SLASH ? l / r : std::fmod(l, r);
                 }
                 if (e->op.type == TokenType::LESS)    return l < r;
                 if (e->op.type == TokenType::GREATER) return l > r;
@@ -246,6 +267,7 @@ Value Executor::evaluateExpr(Expr* expr, Environment* env)
         for (size_t i = 0; i < fn.params.size(); ++i)
             fnEnv.define(fn.params[i].lexeme, evaluateExpr(e->args[i].get(), env));
 
+        DepthGuard g(depth_);  // 추가
         try { executeStatement(fn.body.get(), &fnEnv); }
         catch (const ReturnSignal& ret) { return ret.value; }
         return std::monostate{};

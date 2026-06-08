@@ -280,6 +280,20 @@ TEST(CheckerTest, ReturnInNestedBlockOutsideFunc)
     EXPECT_GE(checker.getErrors().size(), 1u);
 }
 
+static std::unique_ptr<Stmt> makeFor(
+    std::unique_ptr<Stmt> init,
+    std::unique_ptr<Expr> cond,
+    std::unique_ptr<Expr> inc,
+    std::unique_ptr<Stmt> body)
+{
+    auto s        = std::make_unique<ForStmt>();
+    s->init       = std::move(init);
+    s->condition  = std::move(cond);
+    s->increment  = std::move(inc);
+    s->body       = std::move(body);
+    return s;
+}
+
 // C-TC-16 : func foo(a, b, a) {}  (비연속 파라미터 중복)  →  Error
 TEST(CheckerTest, DuplicateParamInFuncExtended)
 {
@@ -288,4 +302,109 @@ TEST(CheckerTest, DuplicateParamInFuncExtended)
         makeFuncDecl("foo", {"a", "b", "a"}, makeBlock(S()))
     )));
     EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-17 : if 블록 내부 중복 var  →  Error
+TEST(CheckerTest, C_TC_17_DuplicateVarInsideIf)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeIf(
+            makeLit(1.0),
+            makeBlock(S(
+                makeVarDecl("x", makeLit(1.0)),
+                makeVarDecl("x", makeLit(2.0))
+            ))
+        )
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-18 : for 바디 블록 내부 중복 var  →  Error
+TEST(CheckerTest, C_TC_18_DuplicateVarInsideFor)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeFor(
+            makeVarDecl("i", makeLit(0.0)),
+            makeLit(1.0),
+            makeLit(0.0),
+            makeBlock(S(
+                makeVarDecl("x", makeLit(1.0)),
+                makeVarDecl("x", makeLit(2.0))
+            ))
+        )
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-19 : for init 에서 자기 참조 var  →  Error
+TEST(CheckerTest, C_TC_19_ForInitSelfReference)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeFor(
+            makeVarDecl("i", makeVar("i")),
+            makeLit(1.0),
+            makeLit(0.0),
+            makeBlock(S())
+        )
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-20 : { { { var a=1; var a=2; } } }  →  Error (3단계 중첩에서도 중복 감지)
+TEST(CheckerTest, C_TC_20_NestedBlock3LevelDuplicate)
+{
+    Checker checker;
+    EXPECT_FALSE(checker.check(S(
+        makeBlock(S(
+            makeBlock(S(
+                makeBlock(S(
+                    makeVarDecl("a", makeLit(1.0)),
+                    makeVarDecl("a", makeLit(2.0))
+                ))
+            ))
+        ))
+    )));
+    EXPECT_GE(checker.getErrors().size(), 1u);
+}
+
+// C-TC-21 : var a;  (초기값 없음)  →  OK (자기 참조 검사 대상 없음)
+TEST(CheckerTest, C_TC_21_NoInitializerNoError)
+{
+    Checker checker;
+    EXPECT_TRUE(checker.check(S(
+        makeVarDecl("a")
+    )));
+}
+
+// C-TC-22 : for (var i=0; ...) {} 이후 var i=1;  →  OK (for 스코프 정리 후 재선언 가능)
+TEST(CheckerTest, C_TC_22_ForScopeCleanupAllowsRedecl)
+{
+    Checker checker;
+    EXPECT_TRUE(checker.check(S(
+        makeFor(
+            makeVarDecl("i", makeLit(0.0)),
+            makeLit(1.0),
+            makeLit(0.0),
+            makeBlock(S())
+        ),
+        makeVarDecl("i", makeLit(1.0))
+    )));
+}
+
+// C-TC-23 : { var a=1; if(x){ var a=2; } }  →  OK (중첩 if 내 shadowing 허용)
+TEST(CheckerTest, C_TC_23_NestedIfShadowing)
+{
+    Checker checker;
+    EXPECT_TRUE(checker.check(S(
+        makeBlock(S(
+            makeVarDecl("a", makeLit(1.0)),
+            makeIf(
+                makeLit(1.0),
+                makeBlock(S(makeVarDecl("a", makeLit(2.0))))
+            )
+        ))
+    )));
 }
