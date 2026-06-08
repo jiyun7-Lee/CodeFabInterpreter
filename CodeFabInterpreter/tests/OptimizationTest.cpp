@@ -1,7 +1,29 @@
 ﻿// OptimizationTest.cpp — Chapter 4: 정적 바인딩(SB) 테스트
 #include <gtest/gtest.h>
+#include <gmock/gmock.h>
 #include "../Checker.h"
+#include "../Executor.h"
 #include "../Shell.h"
+
+// ================================================================
+// MockEnvironment — get / getAt 호출 행위를 검증하는 Test Double
+//
+// PDF 15p 요구사항:
+//   정적 바인딩: 스코프를 거슬러 올라가지 않고 계산된 위치로 즉시 접근했는지 검증
+//   → distance >= 0 이면 getAt(d, name) 경로만 사용, get() 은 호출되지 않아야 한다.
+// ================================================================
+class MockEnvironment : public Environment
+{
+public:
+    MOCK_METHOD(Value, get,   (const std::string& name, int line), (const, override));
+    MOCK_METHOD(Value, getAt, (int distance, const std::string& name), (const, override));
+
+    // 실제 구현 위임용 헬퍼 (ON_CALL WillByDefault 에서 사용)
+    Value realGet(const std::string& name, int line = 0) const
+    { return Environment::get(name, line); }
+    Value realGetAt(int distance, const std::string& name) const
+    { return Environment::getAt(distance, name); }
+};
 
 // ================================================================
 // AST 노드 생성 헬퍼
@@ -240,6 +262,55 @@ TEST(OptimizationTest, SB_TC_08_NestedBlock_ReadsOuterVar)
     EXPECT_EQ(testing::internal::GetCapturedStdout(), "10\n");
 }
 
+// SB-TC-10 : 글로벌 스코프 변수 참조 시 getAt(0) 호출, get() 미호출 (Test Double 행위 검증)
+// var x = 1; print x;
+// distance=0 → mock 이 globalEnv 역할 → mock.getAt(0, "x") 호출 / mock.get 미호출
+TEST(OptimizationTest, SB_TC_10_GlobalVar_UsesGetAt_NotGet)
+{
+    MockEnvironment mock;
+
+    ON_CALL(mock, getAt(testing::_, testing::_))
+        .WillByDefault([&mock](int d, const std::string& n) { return mock.realGetAt(d, n); });
+    ON_CALL(mock, get(testing::_, testing::_))
+        .WillByDefault([&mock](const std::string& n, int line) { return mock.realGet(n, line); });
+
+    EXPECT_CALL(mock, getAt(0, std::string("x"))).Times(1);
+    EXPECT_CALL(mock, get(testing::_, testing::_)).Times(0);
+
+    auto stmts = S(
+        makeVarDecl("x", makeLit(1.0)),
+        makePrint(makeVar("x"))
+    );
+    Checker checker;
+    checker.check(stmts);
+
+    Executor exec;
+    exec.execute(stmts, mock);
+}
+
+// SB-TC-11 : 블록 내부에서 외부 변수 참조 시 체인 순회(get) 미호출 (Test Double 행위 검증)
+// var x = 1; { print x; }
+// distance=1 → blockEnv.getAt(1,"x") 로 즉시 접근, mock.get 은 호출되지 않아야 한다.
+TEST(OptimizationTest, SB_TC_11_BlockVar_NoChainTraversal)
+{
+    MockEnvironment mock;
+
+    ON_CALL(mock, get(testing::_, testing::_))
+        .WillByDefault([&mock](const std::string& n, int line) { return mock.realGet(n, line); });
+
+    EXPECT_CALL(mock, get(testing::_, testing::_)).Times(0);
+
+    auto stmts = S(
+        makeVarDecl("x", makeLit(1.0)),
+        makeBlock(S(makePrint(makeVar("x"))))
+    );
+    Checker checker;
+    checker.check(stmts);
+
+    Executor exec;
+    exec.execute(stmts, mock);
+}
+
 // SB-TC-09 : for 루프 조건에서 외부 변수 참조 → 루프 정상 실행
 // var limit = 3;  for (var i = 0; i < limit; i = i+1) { print i; }
 // ForStmt forEnv 가 도입되어 Checker distance 와 런타임 체인이 일치
@@ -291,6 +362,36 @@ static bool isLiteralBool(const std::unique_ptr<Expr>& e, bool expected)
     auto* lit = dynamic_cast<LiteralExpr*>(e.get());
     return lit && std::holds_alternative<bool>(lit->value)
                && std::get<bool>(lit->value) == expected;
+}
+
+// BinaryExpr 노드 수를 재귀적으로 센다 — 상수 폴딩 전/후 계산 횟수 검증용
+static int countBinaryExprInExpr(const Expr* e)
+{
+    if (!e) return 0;
+    if (auto* bin = dynamic_cast<const BinaryExpr*>(e))
+        return 1
+            + countBinaryExprInExpr(bin->left.get())
+            + countBinaryExprInExpr(bin->right.get());
+    if (auto* grp = dynamic_cast<const GroupingExpr*>(e))
+        return countBinaryExprInExpr(grp->expression.get());
+    if (auto* unary = dynamic_cast<const UnaryExpr*>(e))
+        return countBinaryExprInExpr(unary->right.get());
+    return 0;
+}
+
+static int countBinaryExpr(const std::vector<std::unique_ptr<Stmt>>& stmts)
+{
+    int total = 0;
+    for (const auto& s : stmts)
+    {
+        if (auto* d = dynamic_cast<const VarDeclareStmt*>(s.get()))
+            total += countBinaryExprInExpr(d->initializer.get());
+        else if (auto* p = dynamic_cast<const PrintStmt*>(s.get()))
+            total += countBinaryExprInExpr(p->expression.get());
+        else if (auto* e = dynamic_cast<const ExpressionStmt*>(s.get()))
+            total += countBinaryExprInExpr(e->expression.get());
+    }
+    return total;
 }
 
 // ================================================================
@@ -483,6 +584,33 @@ TEST(OptimizationTest, CF_TC_13_FuncCallTimesZero_NotFolded)
     ASSERT_NE(decl, nullptr);
     EXPECT_EQ(dynamic_cast<LiteralExpr*>(decl->initializer.get()), nullptr);
     EXPECT_NE(dynamic_cast<BinaryExpr*>(decl->initializer.get()), nullptr);
+}
+
+// CF-TC-16 : var x = ((1+2)*(3-4))+((5*6)-(7/2))+(8+1);  — BinaryExpr 5개 → 폴딩 후 0개
+// PDF 15p 요구사항: "계산 횟수가 N회에서 0회로 줄었는지 검증"
+// 결과값: (3*(-1))+(30-3.5)+9 = -3+26.5+9 = 32.5
+TEST(OptimizationTest, CF_TC_16_BinaryCount_NToZero)
+{
+    // BinaryExpr 5개: (1+2), (3-4), (1+2)*(3-4), (5*6), ((1+2)*(3-4))+(5*6)
+    auto stmts = S(makeVarDecl("x",
+        makeBin(
+            makeBin(
+                makeBin(makeLit(1.0), TokenType::PLUS,  makeLit(2.0)),
+                TokenType::STAR,
+                makeBin(makeLit(3.0), TokenType::MINUS, makeLit(4.0))),
+            TokenType::PLUS,
+            makeBin(makeLit(5.0), TokenType::STAR, makeLit(6.0)))
+    ));
+
+    EXPECT_EQ(countBinaryExpr(stmts), 5);  // 폴딩 전: BinaryExpr 5개 (N = 5)
+
+    Checker checker;
+    ASSERT_TRUE(checker.check(stmts));
+
+    EXPECT_EQ(countBinaryExpr(stmts), 0);  // 폴딩 후: 0개 (런타임 계산 횟수 = 0)
+    // (1+2)*(3-4) + (5*6) = 3*(-1) + 30 = -3 + 30 = 27
+    EXPECT_TRUE(isLiteralDouble(
+        dynamic_cast<VarDeclareStmt*>(stmts[0].get())->initializer, 27.0));
 }
 
 // ================================================================

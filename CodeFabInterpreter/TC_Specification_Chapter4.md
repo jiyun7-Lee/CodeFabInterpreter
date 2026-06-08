@@ -12,11 +12,13 @@
 |------|------|
 | **AST 검사 TC** | `Checker`에 AST를 직접 주입 → `check()` 후 노드 타입·필드 값을 `dynamic_cast` + `EXPECT_EQ`로 검증 |
 | **E2E TC** | `Shell::runLine()` 경유 → `CaptureStdout()`으로 표준 출력 문자열 비교 |
-| **테스트 픽스처** | `MockEnvironment` 없음 — `Checker` 직접 생성. 필요한 AST 노드는 헬퍼 함수(`makeLit`, `makeVar`, `makeBin` 등)로 생성 |
+| **MockEnvironment TC** | gmock `MOCK_METHOD`로 `Environment::get`/`getAt` 오버라이드 → `EXPECT_CALL`로 호출 횟수·인자 검증. PDF 15p "스코프를 거슬러 올라가지 않고 즉시 접근했는지" 행위 검증용 |
+| **계산 횟수 TC** | `countBinaryExpr(stmts)` AST 카운터로 폴딩 전 N개 → 폴딩 후 0개 검증. PDF 15p "계산 횟수가 N회에서 0회로 줄었는지" 요건 충족 |
+| **테스트 픽스처** | `Checker` 직접 생성. AST 노드는 헬퍼 함수(`makeLit`, `makeVar`, `makeBin` 등)로 생성. MockEnvironment 주입 시 `Executor::execute(stmts, Environment&)` 오버로드 사용 |
 
 ---
 
-## 정적 바인딩 (SB) — 9개
+## 정적 바인딩 (SB) — 11개
 
 목적: `Checker`가 `VariableExpr`/`AssignExpr`의 `distance` 필드를 올바르게 기록하는지 확인.
 
@@ -39,9 +41,19 @@
 | SB-TC-08 | 중첩 블록에서 외부 변수 읽기 | `var x = 10; { print x; }` | `10` |
 | SB-TC-09 | for 루프 조건에서 외부 변수 참조 | `var limit = 3; for (var i = 0; i < limit; i = i+1) { print i; }` | `0\n1\n2` |
 
+### MockEnvironment 행위 검증 (2개)
+
+PDF 15p "스코프를 거슬러 올라가지 않고 계산된 위치로 즉시 접근했는지" 요건.  
+`MockEnvironment`(gmock)를 `Executor::execute(stmts, env)` 오버로드로 주입, `EXPECT_CALL`로 호출 경로 검증.
+
+| TC ID | 테스트명 | 입력 코드 | 검증 항목 | 기대값 |
+|-------|---------|----------|----------|--------|
+| SB-TC-10 | 글로벌 스코프 — `getAt` 호출, `get` 미호출 | `var x = 1; print x;` | `mock.getAt(0,"x")` 호출 횟수 / `mock.get` 호출 횟수 | `1` / `0` |
+| SB-TC-11 | 블록 스코프 — 체인 순회(`get`) 미호출 | `var x = 1; { print x; }` | `mock.get` 호출 횟수 | `0` (distance=1 경로 사용) |
+
 ---
 
-## 상수 폴딩 (CF) — 13개
+## 상수 폴딩 (CF) — 16개
 
 목적: `foldExpr()` 호출 후 AST 노드가 `LiteralExpr`로 교체되거나 항등식으로 단순화됐는지 확인.
 
@@ -54,7 +66,7 @@
 | **C** | 괄호(`GroupingExpr`) 안이 리터럴 → 괄호 제거 |
 | **D** | 항등식·흡수 법칙 (`+0`, `*1`, `*0`) |
 
-### AST 검사 (13개)
+### AST 검사 (16개)
 
 | TC ID | 테스트명 | 패턴 | 입력 AST | 기대 노드 | 기대값 |
 |-------|---------|------|---------|----------|--------|
@@ -71,10 +83,14 @@
 | CF-TC-11 | 0 나누기 비폴딩 | A (예외) | `5.0 / 0.0` | `BinaryExpr` (유지) | `LiteralExpr`가 아님 |
 | CF-TC-12 | 중첩 폴딩 | A+A | `(1.0 + 2.0) * 3.0` | `LiteralExpr<double>` | `9.0` |
 | CF-TC-13 | 함수 호출 `* 0.0` 비폴딩 | D (예외) | `f() * 0.0` | `BinaryExpr` (유지) | 사이드 이펙트 보호 |
+| CF-TC-14 | 이항 `%` 폴딩 | A | `9.0 % 4.0` | `LiteralExpr<double>` | `1.0` |
+| CF-TC-15 | `% 0.0` 비폴딩 | A (예외) | `5.0 % 0.0` | `BinaryExpr` (유지) | `LiteralExpr`가 아님 |
+| CF-TC-16 | 계산 횟수 N→0 검증 | A×5 | `(1+2)*(3-4)+(5*6)` | `countBinaryExpr` before→after | `5 → 0`, 결과값 `27.0` |
 
-> **CF-TC-11, CF-TC-13 음성 케이스 근거**  
-> - CF-TC-11: 스펙 "런타임 이전에 100% 확정 가능한 경우만 최적화" — `0` 나누기 결과는 런타임 의존적  
-> - CF-TC-13: `isPure()` 가드 — `FunctionCallExpr`/`AssignExpr`는 사이드 이펙트 보유, `x*0→0` 패턴 D 적용 불가
+> **음성 케이스 근거**  
+> - CF-TC-11, CF-TC-15: 스펙 "런타임 이전에 100% 확정 가능한 경우만 최적화" — `0` 나누기/모듈러 결과는 런타임 의존적  
+> - CF-TC-13: `isPure()` 가드 — `FunctionCallExpr`/`AssignExpr`는 사이드 이펙트 보유, `x*0→0` 패턴 D 적용 불가  
+> - CF-TC-16: PDF 15p "계산 횟수가 N회에서 0회로 줄었는지" 요건 — `countBinaryExpr` AST 카운터로 폴딩 전후 명시 검증
 
 ---
 
@@ -110,9 +126,9 @@
 
 ## 요약
 
-| 분류 | AST 검사 | E2E | 합계 |
-|------|---------|-----|-----|
-| 정적 바인딩 (SB) | 7 | 2 | **9** |
-| 상수 폴딩 (CF) | 13 | 0 | **13** |
-| 교차 검증 (MX) | 7 | 7 | **14** |
-| **총계** | **27** | **9** | **36** |
+| 분류 | AST 검사 | E2E | MockEnvironment | 합계 |
+|------|---------|-----|----------------|-----|
+| 정적 바인딩 (SB) | 7 | 2 | 2 | **11** |
+| 상수 폴딩 (CF) | 16 | 0 | 0 | **16** |
+| 교차 검증 (MX) | 7 | 7 | 0 | **14** |
+| **총계** | **30** | **9** | **2** | **41** |
