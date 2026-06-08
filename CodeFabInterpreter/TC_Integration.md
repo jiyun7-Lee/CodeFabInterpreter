@@ -164,7 +164,7 @@ print a;
 ## 4. 파일 모드 멀티라인 테스트 — FileRunner::runSource
 
 `accumulateBraces` 가 여러 줄을 누적해 완성 문장을 올바르게 판별하는지 검증.  
-`pendingControl` / `parenDepth` 추가로 아래 케이스들이 통과.
+`AccumState` (`pendingControl` / `parenDepth` / `pendingElse` 등) 로 아래 케이스들이 통과.
 
 | TC ID  | 테스트 함수명                        | 입력 구조 요약                                       | 기대 출력         | 상태     |
 |--------|--------------------------------------|-----------------------------------------------------|-------------------|----------|
@@ -175,16 +175,38 @@ print a;
 | IT_20  | IT_20_FileMode_BlockModifiesOuterVar | 블록 내부에서 외부 변수 수정 (파일 모드)              | `1\n`             | 🟢 Green |
 | IT_21  | IT_21_FileMode_NestedScope           | 중첩 블록에서 외부 변수 접근 (파일 모드)              | `AB\n`            | 🟢 Green |
 | IT_22  | IT_22_FileMode_DanglingElse          | dangling else 멀티라인 (파일 모드)                  | `bbq\n`           | 🟢 Green |
+| IT_23  | IT_23_FileMode_NestedInlineIf        | `if (a) if (b) if (c) print "x";` 중첩 인라인 if   | `x\n`             | 🟢 Green |
+| IT_24  | IT_24_FileMode_ElseBlockNextLine     | else 블록이 다음 줄에 오는 8줄 멀티라인              | `a\n`             | 🟢 Green |
 
-### accumulateBraces pendingControl 동작 원리
+### AccumState 동작 원리
 
-| 토큰 / 상황 | pendingControl 변화 | 비고 |
-|-------------|--------------------|-----------------------------|
-| `if` / `for` (최상위) | `++` | 바디 미수신 상태 등록 |
-| `{` (최상위, pendingControl > 0) | `--` | 블록 바디 수신 |
-| `;` (최상위·괄호 밖, pendingControl > 0) | `--` | 인라인 바디 수신 |
-| `else` | 변화 없음 | 직전 if pending 그대로 승계 |
-| `(` / `)` | parenDepth ±1 | `for(;;)` 내부 `;` 보호 |
+`AccumState` 는 `accumulateBraces` 호출 사이에 유지되는 누적 상태 전체를 담는다.
+
+| 필드 | 역할 |
+|------|------|
+| `braceDepth` | 열린 `{` 깊이 |
+| `pendingControl` | 최상위에서 바디를 아직 받지 못한 `if`/`for`/`else` 개수 |
+| `parenDepth` | `for(;;)` 내부 `;` 보호를 위한 `(` 깊이 |
+| `pendingElse` | if 블록 바디가 `}` 로 닫힌 뒤 `else` 를 기다리는 플래그 (0/1) |
+| `nextElseBody` | 다음에 열리는 최상위 `{` 가 else 바디임을 표시 |
+| `blockIsIf` | 현재 열린 최상위 블록이 if 바디 (닫힐 때 `pendingElse=1`) |
+| `blockIsElse` | 현재 열린 최상위 블록이 else 바디 (닫혀도 else 대기 없음) |
+| `lastControlWasIf` | 마지막 `pendingControl++` 이 `if` 였는지 (`for` 와 구분) |
+
+| 토큰 / 상황 | 상태 변화 | 비고 |
+|-------------|-----------|------|
+| `if` / `for` (최상위) | `pendingControl++`, `thisLineControls++` | 바디 미수신 상태 등록 |
+| `{` (최상위, `pendingControl > 0`) | `pendingControl--`, `blockIsIf` / `blockIsElse` 결정 | 블록 바디 수신 |
+| `}` → `braceDepth==0` & `blockIsIf` | `pendingElse=1` | else 대기 시작 |
+| `}` → `braceDepth==0` & `blockIsElse` | `pendingElse=0`, `pendingControl=0` | else 완료 |
+| `;` (최상위·괄호 밖, `pendingControl > 0`) | `pendingControl -= max(1, thisLineControls)` | 같은 줄 중첩 if 전체 닫음 |
+| `else` (`pendingElse > 0`) | `pendingElse=0`, `pendingControl++`, `nextElseBody=true` | else 블록 대기 |
+| `else` (`pendingElse==0`, `pendingControl==0`) | `pendingControl++`, `nextElseBody=true` | `;` 로 닫힌 if 의 else |
+| `EOF_TOKEN` (줄 끝) | `pendingElse` 변경 없음 | 다음 줄에서 else 를 볼 기회 유지 |
+| `(` / `)` | `parenDepth ±1` | `for(;;)` 내부 `;` 보호 |
+
+**완성 판정**: `braceDepth ≤ 0 && pendingControl ≤ 0 && pendingElse ≤ 0`  
+**post-loop flush**: 입력 끝에서 `pendingElse > 0` 만 남은 경우 (else 없는 if-블록) 즉시 실행
 
 ---
 
@@ -225,10 +247,71 @@ if (true)
 | 줄 | 이벤트 | pendingControl |
 |----|--------|----------------|
 | 1  | `if` (최상위) | 1 |
-| 2  | `if` (최상위) → 2 / `;` → 1 | 1 |
-| 3  | `else` 무시 / `;` → 0 | 0 → **완성** |
+| 2  | `if` (최상위) → 2 / `;` → max(1,1) 감소 → 1 | 1 |
+| 3  | `else` 무시 / `;` → max(1,0) 감소 → 0 | 0 → **완성** |
 
 **기대 출력** : `bbq`
+
+---
+
+### IT_23 — FileMode_NestedInlineIf
+
+**목적**  
+한 줄에 `if` 가 3개 중첩될 때 `;` 하나로 `pendingControl` 이 모두 감소해 정상 완성 판정이 나는지 확인 (Bug 1 수정 검증)
+
+**입력 줄 배열**
+```
+if (true) if (true) if (true) print "x";
+```
+
+**누적 흐름**
+
+| 토큰 | pendingControl | thisLineControls |
+|------|---------------|-----------------|
+| `if` (1번째) | 1 | 1 |
+| `if` (2번째) | 2 | 2 |
+| `if` (3번째) | 3 | 3 |
+| `;` | `3 - max(1,3) = 0` | 0 → **완성** |
+
+**기대 출력** : `x`
+
+---
+
+### IT_24 — FileMode_ElseBlockNextLine
+
+**목적**  
+`}` 가 자체 줄에 있고 `else {` 가 다음 줄에 오는 멀티라인 if-else 를 올바르게 누적하는지 확인 (Bug 2 수정 검증)
+
+**입력 줄 배열**
+```
+if (true)
+{
+  print "a";
+}
+else
+{
+  print "b";
+}
+```
+
+**누적 흐름**
+
+| 줄 | 이벤트 | braceDepth | pendingControl | pendingElse | 완성? |
+|----|--------|-----------|----------------|-------------|-------|
+| 1  | `if` → `pendingControl=1` | 0 | 1 | 0 | No |
+| 2  | `{` → blockIsIf=true, `pendingControl=0`, depth=1 | 1 | 0 | 0 | No |
+| 3  | `print "a";` (depth=1, 무시) | 1 | 0 | 0 | No |
+| 4  | `}` → depth=0, blockIsIf → `pendingElse=1` | 0 | 0 | 1 | No |
+| 5  | `else` (`pendingElse=1`) → `pendingElse=0`, `pendingControl=1`, `nextElseBody=true` | 0 | 1 | 0 | No |
+| 6  | `{` → blockIsElse=true, `pendingControl=0`, depth=1 | 1 | 0 | 0 | No |
+| 7  | `print "b";` (depth=1, 무시) | 1 | 0 | 0 | No |
+| 8  | `}` → depth=0, blockIsElse → `pendingElse=0` | 0 | 0 | 0 | **Yes** |
+
+**파서 검증 (runLine 직접 호출)**
+- 단일 줄: `if (true) { print "a"; } else { print "b"; }` → `a\n`
+- 멀티라인 문자열: `if (true)\n{\n  print "a";\n}\nelse\n{\n  print "b";\n}` → `a\n`
+
+**기대 출력** : `a`
 
 ---
 
@@ -303,6 +386,6 @@ public:
 | 정상 동작 (Shell::runLine) | 15 | IT_01 ~ IT_15 | 🟢 All Green |
 | 에러 검출 (Shell::runLine) | 9  | IT_E01 ~ IT_E09 | 🟢 All Green |
 | 디버그 모드 | 1  | IT_DBG_01 | 🟢 Green |
-| 파일 모드 멀티라인 (FileRunner) | 7  | IT_16 ~ IT_22 | 🟢 All Green |
+| 파일 모드 멀티라인 (FileRunner) | 9  | IT_16 ~ IT_24 | 🟢 All Green |
 | 종합 시나리오 | 3  | IT_COMP_01 ~ IT_COMP_03 | 🟢 All Green |
-| **합계** | **35** | | 🟢 **283/283 통과** |
+| **합계** | **37** | | 🟢 **285/285 통과** |
