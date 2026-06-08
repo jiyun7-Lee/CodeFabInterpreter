@@ -1,6 +1,15 @@
 ﻿#include "Executor.h"
+#include "DebugController.h"
 #include <iostream>
 #include <stdexcept>
+
+// ReturnSignal 등 예외 발생 시에도 depth_ 가 복원되도록 보장
+struct DepthGuard
+{
+    int& depth;
+    DepthGuard(int& d) : depth(d) { ++depth; }
+    ~DepthGuard()                 { --depth; }
+};
 
 static bool isTruthy(const Value& val)
 {
@@ -29,6 +38,7 @@ void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 void Executor::executeStatement(Stmt* stmt, Environment* env)
 {
     if (stmt->line != 0) currentLine_ = stmt->line;
+    if (debug_) debug_->beforeExecute(stmt, env, depth_);
 
     if (auto* s = dynamic_cast<ExpressionStmt*>(stmt))
     {
@@ -51,6 +61,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
 
     if (auto* s = dynamic_cast<IfStmt*>(stmt))
     {
+        DepthGuard g(depth_);
         if (isTruthy(evaluateExpr(s->condition.get(), env)))
             executeStatement(s->thenBranch.get(), env);
         else if (s->elseBranch)
@@ -64,6 +75,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
         // Executor도 대응하는 Environment를 생성해 distance 값과 환경 체인을 일치시킨다.
         Environment forEnv;
         forEnv.parent = env;
+        DepthGuard g(depth_);
         if (s->init)
             executeStatement(s->init.get(), &forEnv);
         while (!s->condition || isTruthy(evaluateExpr(s->condition.get(), &forEnv)))
@@ -79,6 +91,7 @@ void Executor::executeStatement(Stmt* stmt, Environment* env)
     {
         Environment blockEnv;
         blockEnv.parent = env;
+        DepthGuard g(depth_);
         for (const auto& st : s->statements)
             executeStatement(st.get(), &blockEnv);
         return;

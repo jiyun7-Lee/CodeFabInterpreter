@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <optional>
 #include <string>
 #include <algorithm>
 #include <cctype>
@@ -69,20 +70,30 @@ void Shell::runLine(const std::string& source)
 }
 
 // -----------------------------------------------------------------------
-// FileRunner
+// 공통 헬퍼 — 파일 읽기 (FileRunner / DebugShell 공유)
 // -----------------------------------------------------------------------
-
-void FileRunner::run(const std::string& filepath)
+// nullopt → 파일 없음, "" → 빈 파일 (정상), "..." → 내용 있는 파일
+static std::optional<std::string> readFile(const std::string& filepath)
 {
     std::ifstream file(filepath);
     if (!file.is_open())
     {
         std::cout << "Error: File Not Found '" << filepath << "'\n";
-        return;
+        return std::nullopt;
     }
-    std::string source((std::istreambuf_iterator<char>(file)),
+    return std::string((std::istreambuf_iterator<char>(file)),
                         std::istreambuf_iterator<char>());
-    runSource(source);
+}
+
+// -----------------------------------------------------------------------
+// FileRunner
+// -----------------------------------------------------------------------
+
+void FileRunner::run(const std::string& filepath)
+{
+    auto source = readFile(filepath);
+    if (!source.has_value()) return;
+    runSource(*source);
 }
 
 void FileRunner::runSource(const std::string& source)
@@ -104,6 +115,42 @@ void FileRunner::runSource(const std::string& source)
         }
 
         Executor executor;
+        executor.execute(stmts);
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << "[Error] " << e.what() << "\n";
+    }
+}
+
+// -----------------------------------------------------------------------
+// DebugShell
+// -----------------------------------------------------------------------
+
+void DebugShell::run(const std::string& filepath)
+{
+    auto source = readFile(filepath);
+    if (!source.has_value()) return;
+
+    try
+    {
+        Tokenizer tokenizer;
+        auto tokens = tokenizer.tokenize(*source);
+
+        Parser parser;
+        auto stmts = parser.parse(tokens);
+
+        Checker checker;
+        if (!checker.check(stmts))
+        {
+            for (const auto& err : checker.getErrors())
+                std::cout << "[Checker] " << err << "\n";
+            return;
+        }
+
+        DebugController controller;
+        Executor executor;
+        executor.setDebugController(&controller);
         executor.execute(stmts);
     }
     catch (const std::exception& e)
@@ -149,8 +196,15 @@ void FactoryShell::run(int argc, char** argv)
             break;
         }
         case ShellMode::DEBUG:
-            // Phase 4~7에서 구현
-            std::cout << "[Debug Mode] Not implemented yet\n";
+        {
+            if (argc < 3)
+            {
+                std::cout << "Error: 파일 경로가 필요합니다. 사용법: debug <파일경로>\n";
+                break;
+            }
+            DebugShell debugShell;
+            debugShell.run(argv[2]);
             break;
+        }
     }
 }

@@ -2,6 +2,7 @@
 #include <string>
 #include "Executor.h"
 #include "Checker.h"
+#include "DebugController.h"
 
 // -----------------------------------------------------------------------
 // Shell — REPL 모드
@@ -24,6 +25,15 @@ class FileRunner
 public:
     void run(const std::string& filepath);
     void runSource(const std::string& source);
+};
+
+// -----------------------------------------------------------------------
+// DebugShell — 디버그 모드
+// -----------------------------------------------------------------------
+class DebugShell
+{
+public:
+    void run(const std::string& filepath);
 };
 
 // -----------------------------------------------------------------------

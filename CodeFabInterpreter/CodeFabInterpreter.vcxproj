@@ -144,6 +144,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Checker.cpp" />
+    <ClCompile Include="DebugController.cpp" />
     <ClCompile Include="Environment.cpp" />
     <ClCompile Include="Executor.cpp" />
     <ClCompile Include="main.cpp" />
@@ -158,12 +159,17 @@
     <ClCompile Include="tests\FunctionTest.cpp" />
     <ClCompile Include="tests\OptimizationTest.cpp" />
     <ClCompile Include="tests\ParserTest.cpp" />
+    <ClCompile Include="tests\DebugInfraTest.cpp" />
+    <ClCompile Include="tests\BreakpointTest.cpp" />
+    <ClCompile Include="tests\WatchTest.cpp" />
+    <ClCompile Include="tests\StepTest.cpp" />
     <ClCompile Include="tests\ShellTest.cpp" />
     <ClCompile Include="tests\TokenizerTest.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Checker.h" />
+    <ClInclude Include="DebugController.h" />
     <ClInclude Include="Environment.h" />
     <ClInclude Include="Executor.h" />
     <ClInclude Include="Expr.h" />

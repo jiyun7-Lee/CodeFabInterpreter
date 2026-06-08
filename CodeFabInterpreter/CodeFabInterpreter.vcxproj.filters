@@ -63,6 +63,36 @@
     <ClCompile Include="tests\ArrayTest.cpp">
       <Filter>Test</Filter>
     </ClCompile>
+    <ClCompile Include="DebugController.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\OptimizationTest.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)..\..\lib\native\src\gtest\gtest-all.cc">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="$(MSBuildThisFileDirectory)..\..\lib\native\src\gmock\gmock-all.cc">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\BreakpointTest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\DebugInfraTest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\FactoryShellTest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\FileModeTest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\StepTest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
+    <ClCompile Include="tests\WatchTest.cpp">
+      <Filter>Test</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Checker.h">
@@ -93,6 +123,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="Value.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="DebugController.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
