@@ -38,11 +38,16 @@ void Shell::run()
 
         if (accumulated.empty() && (toLower(trimmed) == "exit" || toLower(trimmed) == "quit")) break;
 
-        for (char c : line)
+        try
         {
-            if (c == '{') ++braceDepth;
-            else if (c == '}') --braceDepth;
+            Tokenizer tok;
+            for (const auto& t : tok.tokenize(line))
+            {
+                if (t.type == TokenType::LEFT_BRACE)       ++braceDepth;
+                else if (t.type == TokenType::RIGHT_BRACE) --braceDepth;
+            }
         }
+        catch (...) {}
 
         if (!accumulated.empty()) accumulated += '\n';
         accumulated += line;
