@@ -271,6 +271,6 @@ PR에는 아래 3가지를 반드시 포함합니다.
 | [TC_executor.md](CodeFabInterpreter/TC_executor.md) | Executor | 27 |
 | [TC_Function.md](CodeFabInterpreter/TC_Function.md) | 함수 | 14 |
 | [TC_Array.md](CodeFabInterpreter/TC_Array.md) | 배열 | 12 |
-| [TC_Specification_Chapter4.md](CodeFabInterpreter/TC_Specification_Chapter4.md) | Chapter 4 최적화 | 41 |
+| [TC_Specification_Chapter4.md](CodeFabInterpreter/TC_Specification_Chapter4.md) | 최적화 | 41 |
 | [TC_Step.md](CodeFabInterpreter/TC_Step.md) | 디버그 Step | 4 |
 | [TC_Integration.md](CodeFabInterpreter/TC_Integration.md) | 통합 테스트 | 37 |
