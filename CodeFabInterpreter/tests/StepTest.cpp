@@ -123,3 +123,32 @@ TEST(StepTest, TC_STEP_03_ContinueRunsToBreakpoint)
     EXPECT_EQ(ctrl.pausedLines[0], 1);
     EXPECT_EQ(ctrl.pausedLines[1], 3);
 }
+
+// TC-STEP-04: next — 함수 호출 body 진입 없이 다음 Stmt에서 정지 ("next-over-call 버그" 수정 검증)
+// func foo() {\nprint 99;\n}\nfoo();\nprint 2;
+// 줄 1(func): step → 줄 4(foo()): next → 줄 5(print 2): cont
+// 버그 시: foo() body 안 줄 2(print 99)에서 잘못 정지됨
+TEST(StepTest, TC_STEP_04_NextSkipsFunctionBody)
+{
+    Tokenizer tokenizer;
+    auto tokens = tokenizer.tokenize("func foo() {\nprint 99;\n}\nfoo();\nprint 2;");
+    Parser parser;
+    auto stmts = parser.parse(tokens);
+
+    ScriptedController ctrl;
+    using Cmd = ScriptedController::Cmd;
+    ctrl.script = { Cmd::STEP, Cmd::NEXT };  // 줄1(func): step, 줄4(foo()): next
+
+    Executor executor;
+    executor.setDebugController(&ctrl);
+
+    testing::internal::CaptureStdout();
+    executor.execute(stmts);
+    testing::internal::GetCapturedStdout();
+
+    // func(1), foo()(4) → next → print 2(5)  — 총 3회 정지
+    ASSERT_EQ(ctrl.pausedLines.size(), 3u);
+    EXPECT_EQ(ctrl.pausedLines[0], 1);
+    EXPECT_EQ(ctrl.pausedLines[1], 4);
+    EXPECT_EQ(ctrl.pausedLines[2], 5);
+}
