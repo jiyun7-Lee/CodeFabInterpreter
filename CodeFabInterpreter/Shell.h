@@ -38,6 +38,10 @@ class DebugShell
 {
 public:
     void run(const std::string& filepath);
+    void runSource(const std::vector<std::string>& lines, DebugController& ctrl);
+private:
+    Executor executor;
+    Checker  checker;
 };
 
 // -----------------------------------------------------------------------

@@ -18,6 +18,37 @@ static std::string toLower(std::string s)
 }
 
 // -----------------------------------------------------------------------
+// 공통 헬퍼 — brace 누적 (Shell / FileRunner / DebugShell 공유)
+// -----------------------------------------------------------------------
+// braceDepth <= 0 이 되면 true 반환 (실행 가능한 완성 문장)
+// 아직 열린 블록이 있으면 false 반환 (계속 누적)
+static bool accumulateBraces(const std::string& line,
+                              std::string& accumulated,
+                              int& braceDepth)
+{
+    try
+    {
+        Tokenizer tok;
+        for (const auto& t : tok.tokenize(line))
+        {
+            if (t.type == TokenType::LEFT_BRACE)       ++braceDepth;
+            else if (t.type == TokenType::RIGHT_BRACE) --braceDepth;
+        }
+    }
+    catch (...) {}
+
+    if (!accumulated.empty()) accumulated += '\n';
+    accumulated += line;
+
+    if (braceDepth <= 0)
+    {
+        braceDepth = 0;
+        return true;
+    }
+    return false;
+}
+
+// -----------------------------------------------------------------------
 // Shell
 // -----------------------------------------------------------------------
 
@@ -38,23 +69,8 @@ void Shell::run()
 
         if (accumulated.empty() && (toLower(trimmed) == "exit" || toLower(trimmed) == "quit")) break;
 
-        try
+        if (accumulateBraces(line, accumulated, braceDepth))
         {
-            Tokenizer tok;
-            for (const auto& t : tok.tokenize(line))
-            {
-                if (t.type == TokenType::LEFT_BRACE)       ++braceDepth;
-                else if (t.type == TokenType::RIGHT_BRACE) --braceDepth;
-            }
-        }
-        catch (...) {}
-
-        if (!accumulated.empty()) accumulated += '\n';
-        accumulated += line;
-
-        if (braceDepth <= 0)
-        {
-            braceDepth = 0;
             runLine(accumulated);
             accumulated.clear();
         }
@@ -93,7 +109,7 @@ void Shell::runLine(const std::string& source)
 }
 
 // -----------------------------------------------------------------------
-// 공통 헬퍼 — 파일 읽기 / 줄 결합 (FileRunner / DebugShell 공유)
+// 공통 헬퍼 — 파일 읽기 (FileRunner / DebugShell 공유)
 // -----------------------------------------------------------------------
 // nullopt → 파일 없음, {} → 빈 파일 (정상), {...} → 내용 있는 파일
 static std::optional<std::vector<std::string>> readFile(const std::string& filepath)
@@ -128,12 +144,17 @@ void FileRunner::run(const std::string& filepath)
 
 void FileRunner::runSource(const std::vector<std::string>& lines)
 {
-    for (const std::string& line : lines)
+    std::string accumulated;
+    int braceDepth = 0;
+
+    for (const std::string& srcLine : lines)
     {
+        if (!accumulateBraces(srcLine, accumulated, braceDepth)) continue;
+
         try
         {
             Tokenizer tokenizer;
-            auto tokens = tokenizer.tokenize(line);
+            auto tokens = tokenizer.tokenize(accumulated);
 
             Parser parser;
             auto stmts = parser.parse(tokens);
@@ -152,6 +173,7 @@ void FileRunner::runSource(const std::vector<std::string>& lines)
             std::cout << "[Error] " << e.what() << "\n";
             return;
         }
+        accumulated.clear();
     }
 }
 
@@ -164,37 +186,67 @@ void DebugShell::run(const std::string& filepath)
     auto lines = readFile(filepath);
     if (!lines.has_value()) return;
 
-    std::string source;
-    for (size_t i = 0; i < lines->size(); ++i)
+    std::cout << "[DEBUG] 소스코드 로딩: " << filepath << "\n";
+    DebugController ctrl;
+    runSource(*lines, ctrl);
+}
+
+void DebugShell::runSource(const std::vector<std::string>& lines,
+                            DebugController& ctrl)
+{
+    executor.setDebugController(&ctrl);
+
+    // 정상 종료 / 조기 return / 예외 모든 경로에서 nullptr 복원 보장
+    struct CtrlGuard
     {
-        if (i > 0) source += '\n';
-        source += (*lines)[i];
-    }
+        Executor& ex;
+        ~CtrlGuard() { ex.setDebugController(nullptr); }
+    } guard{ executor };
 
-    try
+    std::string accumulated;
+    int braceDepth  = 0;
+    int startLineNo = 0;
+    std::string startSrcLine;
+
+    for (size_t i = 0; i < lines.size(); ++i)
     {
-        Tokenizer tokenizer;
-        auto tokens = tokenizer.tokenize(source);
+        const std::string& srcLine = lines[i];
+        if (srcLine.empty()) continue;
 
-        Parser parser;
-        auto stmts = parser.parse(tokens);
-
-        Checker checker;
-        if (!checker.check(stmts))
+        // 블록 시작 줄 기억 (디버그 출력용)
+        if (accumulated.empty())
         {
-            for (const auto& err : checker.getErrors())
-                std::cout << "[Checker] " << err << "\n";
-            return;
+            startLineNo  = static_cast<int>(i + 1);
+            startSrcLine = srcLine;
         }
 
-        DebugController controller;
-        Executor executor;
-        executor.setDebugController(&controller);
-        executor.execute(stmts);
-    }
-    catch (const std::exception& e)
-    {
-        std::cout << "[Error] " << e.what() << "\n";
+        if (!accumulateBraces(srcLine, accumulated, braceDepth)) continue;
+
+        ctrl.setLineContext(startLineNo, startSrcLine);
+
+        try
+        {
+            Tokenizer tokenizer;
+            auto tokens = tokenizer.tokenize(accumulated);
+
+            Parser parser;
+            auto stmts = parser.parse(tokens);
+
+            if (!checker.check(stmts))
+            {
+                for (const auto& err : checker.getErrors())
+                    std::cout << "[Checker] " << err << "\n";
+                return;
+            }
+
+            executor.execute(stmts);
+        }
+        catch (const std::exception& e)
+        {
+            std::cout << "[Error] " << e.what() << "\n";
+            return;
+        }
+        accumulated.clear();
     }
 }
 
