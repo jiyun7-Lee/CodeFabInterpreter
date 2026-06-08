@@ -196,6 +196,7 @@ protected:
 // ================================================================
 
 // SB-TC-01 : 글로벌 스코프 변수 참조 → distance = 0
+// scopes = [{x}], x at index 0 → distance = (1-1) - 0 = 0
 TEST_F(OptimizationCheckerFixture, SB_TC_01_GlobalVar_Distance0)
 {
     auto varExprPtr = makeVar("x");
@@ -212,6 +213,7 @@ TEST_F(OptimizationCheckerFixture, SB_TC_01_GlobalVar_Distance0)
 }
 
 // SB-TC-02 : 블록 1단계 안에서 외부 변수 참조 → distance = 1
+// scopes = [{x}, {}], x at index 0 → distance = (2-1) - 0 = 1
 TEST_F(OptimizationCheckerFixture, SB_TC_02_OneBlockDeep_Distance1)
 {
     auto varExprPtr = makeVar("x");
@@ -228,6 +230,7 @@ TEST_F(OptimizationCheckerFixture, SB_TC_02_OneBlockDeep_Distance1)
 }
 
 // SB-TC-03 : 블록 2단계 안에서 외부 변수 참조 → distance = 2
+// scopes = [{x}, {}, {}], x at index 0 → distance = (3-1) - 0 = 2
 TEST_F(OptimizationCheckerFixture, SB_TC_03_TwoBlocksDeep_Distance2)
 {
     auto varExprPtr = makeVar("x");
@@ -244,6 +247,7 @@ TEST_F(OptimizationCheckerFixture, SB_TC_03_TwoBlocksDeep_Distance2)
 }
 
 // SB-TC-04 : 내부 블록에서 섀도잉된 변수 참조 → distance = 0 (자기 스코프)
+// scopes = [{x}, {x}], 내부 x at index 1 → distance = (2-1) - 1 = 0
 TEST_F(OptimizationCheckerFixture, SB_TC_04_ShadowedVar_Distance0)
 {
     auto varExprPtr = makeVar("x");
@@ -263,6 +267,7 @@ TEST_F(OptimizationCheckerFixture, SB_TC_04_ShadowedVar_Distance0)
 }
 
 // SB-TC-05 : AssignExpr 대상 변수 distance 검증 → distance = 1
+// scopes = [{x}, {}], x at index 0 → distance = (2-1) - 0 = 1
 TEST_F(OptimizationCheckerFixture, SB_TC_05_AssignExpr_Distance1)
 {
     auto assignPtr  = makeAssignExpr("x", makeLit(2.0));
@@ -279,6 +284,7 @@ TEST_F(OptimizationCheckerFixture, SB_TC_05_AssignExpr_Distance1)
 }
 
 // SB-TC-06 : 미선언 변수 참조 → distance = -1 유지
+// 어떤 스코프에도 없으므로 초기값 -1 그대로
 TEST_F(OptimizationCheckerFixture, SB_TC_06_UndeclaredVar_DistanceMinus1)
 {
     auto varExprPtr = makeVar("y");
@@ -292,6 +298,7 @@ TEST_F(OptimizationCheckerFixture, SB_TC_06_UndeclaredVar_DistanceMinus1)
 }
 
 // SB-TC-07 : 같은 이름이 여러 블록에 존재할 때 가장 가까운 스코프 선택 → distance = 1
+// scopes = [{x}, {x}, {}], 중간 x at index 1 → distance = (3-1) - 1 = 1
 TEST_F(OptimizationCheckerFixture, SB_TC_07_NearestScope_Selected)
 {
     auto varExprPtr = makeVar("x");
@@ -499,14 +506,14 @@ TEST_F(OptimizationCheckerFixture, CF_TC_12_NestedFold_YieldsLiteral)
 }
 
 // CF-TC-13 : var y = f() * 0.0;  →  BinaryExpr 유지 (함수 호출 사이드 이펙트 보호)
+// Checker 는 미선언 함수 호출을 에러로 보지 않으므로 check() 는 true 반환
 TEST_F(OptimizationCheckerFixture, CF_TC_13_FuncCallTimesZero_NotFolded)
 {
     auto callExpr = std::make_unique<FunctionCallExpr>();
     callExpr->callee = idTok("f");
 
     auto stmts = S(makeVarDecl("y", makeBin(std::move(callExpr), TokenType::STAR, makeLit(0.0))));
-    ASSERT_TRUE(checker.check(stmts));
-    auto* decl = dynamic_cast<VarDeclareStmt*>(stmts[0].get());
+    auto* decl = checkAndGetVarDecl(stmts);
     ASSERT_NE(decl, nullptr);
     EXPECT_EQ(dynamic_cast<LiteralExpr*>(decl->initializer.get()), nullptr);
     EXPECT_NE(dynamic_cast<BinaryExpr*>(decl->initializer.get()), nullptr);
