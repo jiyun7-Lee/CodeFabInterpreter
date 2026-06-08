@@ -1,47 +1,53 @@
-﻿#pragma once
+#pragma once
 #include <string>
 #include <vector>
 #include "Executor.h"
 #include "Checker.h"
-#include "DebugController.h"
+
+class DebugController;  // forward declaration — Shell.h 포함 시 DebugController.h 전파 제거
+
+// -----------------------------------------------------------------------
+// BaseRunner — Executor/Checker 공유 베이스, 파이프라인 실행 담당
+// -----------------------------------------------------------------------
+class BaseRunner
+{
+protected:
+    Executor executor;
+    Checker  checker;
+
+    // tokenize → parse → check → execute 파이프라인
+    // 성공 시 true, Checker 에러 / 런타임 에러 시 false
+    bool executeSource(const std::string& source);
+};
 
 // -----------------------------------------------------------------------
 // Shell — REPL 모드
 // -----------------------------------------------------------------------
-class Shell
+class Shell : public BaseRunner
 {
 public:
     void run();
     void runLine(const std::string& source);
-private:
-    Executor executor;
-    Checker  checker;
 };
 
 // -----------------------------------------------------------------------
 // FileRunner — 파일 실행 모드
 // -----------------------------------------------------------------------
-class FileRunner
+class FileRunner : public BaseRunner
 {
 public:
     void run(const std::string& filepath);
     void runSource(const std::vector<std::string>& lines);
-private:
-    Executor executor;
-    Checker  checker;
 };
 
 // -----------------------------------------------------------------------
 // DebugShell — 디버그 모드
 // -----------------------------------------------------------------------
-class DebugShell
+class DebugShell : public BaseRunner
 {
 public:
     void run(const std::string& filepath);
     void runSource(const std::vector<std::string>& lines, DebugController& ctrl);
-private:
-    Executor executor;
-    Checker  checker;
 };
 
 // -----------------------------------------------------------------------
