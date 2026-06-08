@@ -25,9 +25,14 @@ static bool isTruthy(const Value& val)
 
 void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements)
 {
+    execute(statements, globalEnv);
+}
+
+void Executor::execute(const std::vector<std::unique_ptr<Stmt>>& statements, Environment& env)
+{
     for (const auto& stmt : statements)
     {
-        try { executeStatement(stmt.get(), &globalEnv); }
+        try { executeStatement(stmt.get(), &env); }
         catch (const std::runtime_error& e)
         {
             throw std::runtime_error(

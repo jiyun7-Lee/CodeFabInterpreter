@@ -49,13 +49,17 @@ class DebugController
 public:
     virtual ~DebugController() = default;
     virtual void beforeExecute(Stmt* stmt, Environment* env, int depth = 0);
+    void setLineContext(int lineNo, const std::string& srcLine)
+        { currentLineNo_ = lineNo; currentSrcLine_ = srcLine; }
     void addBreakpoint(int line)          { breakpoints_.add(line); }
     void removeBreakpoint(int line)       { breakpoints_.remove(line); }
     void addWatch(const std::string& n)   { watches_.add(n); }
     void removeWatch(const std::string& n){ watches_.remove(n); }
 protected:
-    ExecutionState    state_       = ExecutionState::STEP;
-    int               nextDepth_   = 0;
+    ExecutionState    state_          = ExecutionState::STEP;
+    int               nextDepth_      = 0;
+    int               currentLineNo_  = 0;
+    std::string       currentSrcLine_;
     BreakpointManager breakpoints_;
     WatchManager      watches_;
 };
