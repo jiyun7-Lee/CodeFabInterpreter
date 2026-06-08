@@ -10,33 +10,9 @@
 // ================================================================
 // Fixture
 // ================================================================
-class FunctionFixture : public ::testing::Test
+class FunctionFixture : public ExecutorFixture
 {
 protected:
-    // 소스 문자열 파싱 후 실행 → stdout 반환
-    std::string runSource(const std::string& source)
-    {
-        Tokenizer tz;
-        auto tokens = tz.tokenize(source);
-        Parser parser;
-        auto stmts = parser.parse(tokens);
-        Executor executor;
-        testing::internal::CaptureStdout();
-        executor.execute(stmts);
-        return testing::internal::GetCapturedStdout();
-    }
-
-    // 소스 문자열 파싱 후 실행 → runtime_error 기대
-    void runSourceExpectThrow(const std::string& source)
-    {
-        Tokenizer tz;
-        auto tokens = tz.tokenize(source);
-        Parser parser;
-        auto stmts = parser.parse(tokens);
-        Executor executor;
-        ASSERT_THROW(executor.execute(stmts), std::runtime_error);
-    }
-
     // 소스 문자열 파싱 후 Checker 오류 목록 반환
     std::vector<std::string> checkerErrors(const std::string& source)
     {

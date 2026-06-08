@@ -9,33 +9,7 @@
 // ================================================================
 // Fixture
 // ================================================================
-class ArrayFixture : public ::testing::Test
-{
-protected:
-    // 소스 문자열 파싱 후 실행 → stdout 반환
-    std::string runSource(const std::string& source)
-    {
-        Tokenizer tz;
-        auto tokens = tz.tokenize(source);
-        Parser parser;
-        auto stmts = parser.parse(tokens);
-        Executor executor;
-        testing::internal::CaptureStdout();
-        executor.execute(stmts);
-        return testing::internal::GetCapturedStdout();
-    }
-
-    // 소스 문자열 파싱 후 실행 → runtime_error 기대
-    void runSourceExpectThrow(const std::string& source)
-    {
-        Tokenizer tz;
-        auto tokens = tz.tokenize(source);
-        Parser parser;
-        auto stmts = parser.parse(tokens);
-        Executor executor;
-        ASSERT_THROW(executor.execute(stmts), std::runtime_error);
-    }
-};
+class ArrayFixture : public ExecutorFixture {};
 
 // ================================================================
 // 파싱 테스트 (TC-AR-01~02, TC-AR-13)
