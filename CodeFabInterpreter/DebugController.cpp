@@ -32,7 +32,26 @@ static std::string valueToString(const Value& val)
         if constexpr (std::is_same_v<T, std::string>)  return "\"" + v + "\"";
         if constexpr (std::is_same_v<T, bool>)         return v ? "true" : "false";
         if constexpr (std::is_same_v<T, std::monostate>) return "null";
-        if constexpr (std::is_same_v<T, std::shared_ptr<ArrayValue>>) return "[array]";
+        if constexpr (std::is_same_v<T, std::shared_ptr<ArrayValue>>)
+        {
+            std::string result = "[";
+            for (size_t i = 0; i < v->elements.size(); ++i)
+            {
+                if (i > 0) result += ", ";
+                result += std::visit([](const auto& elem) -> std::string {
+                    using ET = std::decay_t<decltype(elem)>;
+                    if constexpr (std::is_same_v<ET, double>)
+                    {
+                        std::ostringstream oss; oss << elem; return oss.str();
+                    }
+                    if constexpr (std::is_same_v<ET, std::string>)    return "\"" + elem + "\"";
+                    if constexpr (std::is_same_v<ET, bool>)           return elem ? "true" : "false";
+                    if constexpr (std::is_same_v<ET, std::monostate>) return "null";
+                    return "?";
+                }, v->elements[i]);
+            }
+            return result + "]";
+        }
         return "?";
     }, val);
 }
