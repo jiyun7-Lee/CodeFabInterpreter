@@ -314,6 +314,7 @@ PR에는 아래 3가지를 반드시 포함합니다.
 #### A. 검증
 
 - Merge 전 직접 실행 또는 테스트 수행
+- 커버리지 측정: [COVERAGE.md](COVERAGE.md) 참조 (`measure_coverage.ps1` 실행)
 
 #### B. Git 관리
 
