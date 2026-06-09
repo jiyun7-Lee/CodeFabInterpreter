@@ -45,13 +45,14 @@ Executor           ← AST 실행, Scope 관리, Runtime Error 처리
 |------|-----------|------|
 | **Visitor** | `Expr` 계층 × `Executor` — dynamic_cast 체인을 이중 디스패치로 대체 | [PATTERN_Visitor.md](CodeFabInterpreter/PATTERN_Visitor.md) |
 | **Strategy** | `Parser` — 표현식 파싱 알고리즘을 합성으로 교체 가능하도록 분리 | [PATTERN_Strategy.md](CodeFabInterpreter/PATTERN_Strategy.md) |
+| **Adapter** + **Factory Method** | `FactoryShell::createRunner()` — 모드별 Runner의 서로 다른 시그니처를 `IShellRunner::run()`으로 통일, 새 모드 추가 시 `run()` 수정 불필요 | [PATTERN_Adapter.md](CodeFabInterpreter/PATTERN_Adapter.md) |
 
 ### 초기 설계 시 적용된 패턴
 
 | 패턴 | 적용 위치 | 문서 |
 |------|-----------|------|
 | **Interpreter** | `Expr`/`Stmt` 계층 — 언어 문법 규칙을 클래스로 표현, `Executor`가 AST를 해석 | [PATTERN_Interpreter.md](CodeFabInterpreter/PATTERN_Interpreter.md) |
-| **Factory Method** | `FactoryShell` — 실행 인자에 따라 `Shell`/`FileRunner`/`DebugShell` 생성 | [PATTERN_Factory.md](CodeFabInterpreter/PATTERN_Factory.md) |
+| **Factory Method** | `FactoryShell::createRunner()` — ShellMode에 따라 `ReplAdapter`/`FileAdapter`/`DebugAdapter` 생성 | [PATTERN_Factory.md](CodeFabInterpreter/PATTERN_Factory.md) |
 | **Template Method** | `BaseRunner::executeSource()` — tokenize→parse→check→execute 파이프라인 고정 | [PATTERN_TemplateMethod.md](CodeFabInterpreter/PATTERN_TemplateMethod.md) |
 | **Observer** | `Executor` ↔ `DebugController` — 각 Stmt 실행 전 `beforeExecute()` 이벤트 후킹 | [PATTERN_Observer.md](CodeFabInterpreter/PATTERN_Observer.md) |
 | **State** | `ExecutionState` + `DebugController` — STEP/RUNNING/PAUSED/NEXT 상태 전환 | [PATTERN_State.md](CodeFabInterpreter/PATTERN_State.md) |
