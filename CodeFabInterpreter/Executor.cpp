@@ -149,15 +149,18 @@ void Executor::printValue(const Value& val)
 
 // -----------------------------------------------------------------------
 // evaluateExpr — env_ 를 설정하고 Visitor 디스패치를 시작한다.
-// 재귀 호출 시 env_ 가 훼손되지 않도록 save/restore 패턴을 적용한다.
+// RAII guard 로 정상 종료·예외 모든 경로에서 env_ 복원을 보장한다.
 // -----------------------------------------------------------------------
 Value Executor::evaluateExpr(Expr* expr, Environment* env)
 {
     Environment* saved = env_;
     env_ = env;
-    Value result = expr->accept(*this);
-    env_ = saved;
-    return result;
+    struct EnvGuard {
+        Executor&    exec;
+        Environment* prev;
+        ~EnvGuard() { exec.env_ = prev; }
+    } guard{*this, saved};
+    return expr->accept(*this);
 }
 
 // -----------------------------------------------------------------------

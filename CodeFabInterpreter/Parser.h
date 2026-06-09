@@ -30,7 +30,8 @@ public:
 
     std::vector<std::unique_ptr<Stmt>> parse(const std::vector<Token>& tokens);
 
-    // 토큰 커서 메서드 — IExprParser 전략 구현체가 사용할 수 있도록 public 으로 노출
+    // 토큰 커서 메서드 — IExprParser 구현체 전용.
+    // IExprParser 구현체 외에서 직접 호출하면 토큰 스트림 위치가 어긋날 수 있다.
     bool  isAtEnd()  const;
     Token peek()     const;
     Token previous() const;
@@ -41,8 +42,7 @@ public:
 
 protected:
     // B파트 진입점. 주입된 전략이 있으면 위임하고, 없으면 기본 구현(parseAssignment)을 사용한다.
-    // virtual 을 유지하여 FakeExprParser 상속 방식과의 하위 호환성을 보장한다.
-    virtual std::unique_ptr<Expr> parseExpression();
+    std::unique_ptr<Expr> parseExpression();
 
     std::vector<Token> m_tokens;
     int m_current = 0;

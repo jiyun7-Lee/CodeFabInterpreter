@@ -38,7 +38,7 @@ private:
 ```
 
 ```cpp
-// ParserTest.cpp (테스트) — 상속 방식
+// ParserTest.cpp (테스트) — 상속 방식 (리팩토링 전)
 class FakeExprParser : public Parser {
 protected:
     std::unique_ptr<Expr> parseExpression() override {
@@ -52,6 +52,8 @@ protected:
 
 이 구조의 문제: 표현식 파서를 교체하려면 **반드시 Parser 를 상속**해야 하고,
 Parser 내부의 토큰 커서 상태(`m_tokens`, `m_current`)에 직접 의존하게 된다.
+
+> **현재 상태**: 리팩토링 완료 — `FakeExprParser` 는 `IExprParser` 를 구현하는 방식으로 전환됨 (하단 참고)
 
 ---
 
@@ -122,19 +124,19 @@ std::unique_ptr<Expr> Parser::parseExpression()
 
 ## 두 가지 사용 방식 비교
 
-### 방식 A — 기존 상속 방식 (하위 호환 유지)
+### 방식 A — 합성 방식 (Strategy 패턴, FakeExprParser 포함)
 
 ```
 ParserTest.cpp 의 FakeExprParser
 ───────────────────────────────
-FakeExprParser : public Parser
-  parseExpression() override → 토큰 1개 소비 후 LiteralExpr 반환
+FakeExprParser : public IExprParser
+  parseExpression(Parser& ctx) → ctx 의 커서 API 를 통해 토큰 소비 후 LiteralExpr 반환
+
+FakeExprParser fake;
+Parser p{&fake};   // 전략 주입 — Parser 를 상속하지 않음
 ```
 
-`exprStrategy_` 가 null 이므로 `parseExpression()` 호출 시 vtable 로
-`FakeExprParser::parseExpression()` 이 실행된다. 동작 변경 없음.
-
-### 방식 B — 신규 합성 방식 (Strategy 패턴)
+### 방식 B — 신규 합성 방식 (Strategy 패턴, 실험적 구현)
 
 ```
 새 코드 (예: Pratt 파서 실험)
@@ -202,16 +204,12 @@ Parser::parse()
 반대로 `Parser` 의 Statement 파싱(C파트) 테스트 시 `FakeExprParser` 를  
 `IExprParser` 로 만들어 Parser 에 주입하면 됨으로써 더 명확한 경계를 만든다.
 
-### 3. 하위 호환성 유지
-`virtual parseExpression()` 을 제거하지 않았으므로 기존 `FakeExprParser` 방식은
-그대로 동작한다. 기존 테스트 코드(ParserTest.cpp) 변경 없음.
-
-### 4. 합성 vs 상속 원칙 준수
+### 3. 합성 vs 상속 원칙 준수
 "상속보다 합성을 선호하라(Favor composition over inheritance)" 원칙에 따라
 표현식 파싱 전략을 **has-a** 관계로 보유한다.  
 Parser 가 표현식 파서의 동작 방식에 대해 알 필요가 없다.
 
-### 5. 실험적 구현 격리
+### 4. 실험적 구현 격리
 Pratt 파서, 메모이제이션 파서 등 실험적 표현식 파싱 알고리즘을
 `Parser` 코드를 건드리지 않고 교체·비교할 수 있다.
 
@@ -221,7 +219,7 @@ Pratt 파서, 메모이제이션 파서 등 실험적 표현식 파싱 알고리
 
 | 파일 | 변경 유형 | 핵심 내용 |
 |------|-----------|-----------|
-| `Parser.h` | 수정 | `IExprParser` 인터페이스 추가, `Parser(IExprParser*)` 생성자, 커서 메서드 `public` 이동, `exprStrategy_` 멤버 |
+| `Parser.h` | 수정 | `IExprParser` 인터페이스 추가, `Parser(IExprParser*)` 생성자, 커서 메서드 `public` 이동·주석 강화, `exprStrategy_` 멤버, `virtual` 제거 |
 | `Parser.cpp` | 수정 | 생성자 구현, `parseExpression()` 에 전략 위임 분기 추가 |
-| `ParserTest.cpp` | 무변경 | `FakeExprParser : public Parser` 방식 하위 호환 유지 |
+| `ParserTest.cpp` | 수정 | `FakeExprParser` 를 `IExprParser` 구현체로 리팩토링, 픽스처를 전략 주입 방식으로 변경 |
 | `ExpressionParserTest.cpp` | 무변경 | `Parser parser` 기본 생성자 사용, 동작 동일 |
