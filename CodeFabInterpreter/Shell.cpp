@@ -20,7 +20,8 @@ static std::string toLower(std::string s)
 
 static bool isExitCommand(const std::string& s)
 {
-    return toLower(s) == "exit" || toLower(s) == "quit";
+    const std::string lower = toLower(s);
+    return lower == "exit" || lower == "quit";
 }
 
 // -----------------------------------------------------------------------
