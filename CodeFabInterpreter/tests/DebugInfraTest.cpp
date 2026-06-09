@@ -51,6 +51,6 @@ TEST_F(DebugInfraTest, TC_DBG_INFRA_03_NoHookNormalExecution)
 {
     auto stmts = parse("print 1+2;");
     Executor executor;
-    EXPECT_NO_THROW(executor.execute(stmts));
-    EXPECT_EQ(captureOutput([&]{ executor.execute(parse("print 1+2;")); }), "3\n");
+    std::string out = captureOutput([&]{ EXPECT_NO_THROW(executor.execute(stmts)); });
+    EXPECT_EQ(out, "3\n");
 }
