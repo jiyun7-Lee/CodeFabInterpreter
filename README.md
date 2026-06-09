@@ -39,12 +39,23 @@ Executor           ← AST 실행, Scope 관리, Runtime Error 처리
 
 ## 디자인 패턴
 
-리팩토링을 통해 적용된 GoF 디자인 패턴입니다.
+### 리팩토링을 통해 적용된 패턴
 
 | 패턴 | 적용 위치 | 문서 |
 |------|-----------|------|
 | **Visitor** | `Expr` 계층 × `Executor` — dynamic_cast 체인을 이중 디스패치로 대체 | [PATTERN_Visitor.md](CodeFabInterpreter/PATTERN_Visitor.md) |
 | **Strategy** | `Parser` — 표현식 파싱 알고리즘을 합성으로 교체 가능하도록 분리 | [PATTERN_Strategy.md](CodeFabInterpreter/PATTERN_Strategy.md) |
+
+### 초기 설계 시 적용된 패턴
+
+| 패턴 | 적용 위치 | 문서 |
+|------|-----------|------|
+| **Interpreter** | `Expr`/`Stmt` 계층 — 언어 문법 규칙을 클래스로 표현, `Executor`가 AST를 해석 | [PATTERN_Interpreter.md](CodeFabInterpreter/PATTERN_Interpreter.md) |
+| **Factory Method** | `FactoryShell` — 실행 인자에 따라 `Shell`/`FileRunner`/`DebugShell` 생성 | [PATTERN_Factory.md](CodeFabInterpreter/PATTERN_Factory.md) |
+| **Template Method** | `BaseRunner::executeSource()` — tokenize→parse→check→execute 파이프라인 고정 | [PATTERN_TemplateMethod.md](CodeFabInterpreter/PATTERN_TemplateMethod.md) |
+| **Observer** | `Executor` ↔ `DebugController` — 각 Stmt 실행 전 `beforeExecute()` 이벤트 후킹 | [PATTERN_Observer.md](CodeFabInterpreter/PATTERN_Observer.md) |
+| **State** | `ExecutionState` + `DebugController` — STEP/RUNNING/PAUSED/NEXT 상태 전환 | [PATTERN_State.md](CodeFabInterpreter/PATTERN_State.md) |
+| **Composite** | `Stmt` 계층 — `BlockStmt`/`IfStmt`/`ForStmt`가 자식 Stmt를 포함하는 트리 구조 | [PATTERN_Composite.md](CodeFabInterpreter/PATTERN_Composite.md) |
 
 ---
 
