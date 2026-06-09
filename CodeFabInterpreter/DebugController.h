@@ -50,6 +50,7 @@ class DebugController
 public:
     virtual ~DebugController() = default;
     virtual void beforeExecute(Stmt* stmt, Environment* env, int depth = 0);
+    // Deprecated: DebugShell은 setSourceLines() 사용. setLineContext는 테스트 호환용으로만 유지.
     void setLineContext(int lineNo, const std::string& srcLine)
         { currentLineNo_ = lineNo; currentSrcLine_ = srcLine; }
     // 전체 파일 소스 라인 등록 — beforeExecute에서 실제 줄 텍스트 표시에 사용

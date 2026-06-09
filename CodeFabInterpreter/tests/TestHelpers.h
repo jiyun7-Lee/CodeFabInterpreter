@@ -1,6 +1,7 @@
 #pragma once
 #include <gtest/gtest.h>
 #include <stdexcept>
+#include <cassert>
 #include <memory>
 #include <vector>
 #include <variant>
@@ -172,6 +173,7 @@ public:
     std::vector<int> stoppedAtLines;
     void beforeExecute(Stmt* stmt, Environment*, int) override
     {
+        assert(stmt != nullptr);
         int line = currentLineNo_ > 0 ? currentLineNo_ : stmt->line;
         stoppedAtLines.push_back(line);
         state_ = ExecutionState::STEP;
@@ -219,6 +221,8 @@ public:
 
     enum class Cmd { STEP, NEXT, CONT };
     std::vector<Cmd> script;
+
+    void setRunning() { state_ = ExecutionState::RUNNING; }
 
     void beforeExecute(Stmt* stmt, Environment*, int depth) override
     {
