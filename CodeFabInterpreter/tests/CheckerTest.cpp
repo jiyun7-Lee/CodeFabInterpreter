@@ -116,6 +116,29 @@ static std::vector<std::unique_ptr<Stmt>> S(Args&&... args)
     return v;
 }
 
+static std::unique_ptr<Stmt> makeExprStmt(std::unique_ptr<Expr> expr)
+{
+    auto s = std::make_unique<ExpressionStmt>();
+    s->expression = std::move(expr);
+    return s;
+}
+
+static std::unique_ptr<Expr> makeFuncCall(const std::string& name,
+                                           std::vector<std::unique_ptr<Expr>> args = {})
+{
+    auto e = std::make_unique<FunctionCallExpr>();
+    e->callee = idTok(name);
+    e->args   = std::move(args);
+    return e;
+}
+
+static std::unique_ptr<Expr> makeArrayLiteral(std::vector<std::unique_ptr<Expr>> elems)
+{
+    auto e = std::make_unique<ArrayLiteralExpr>();
+    e->elements = std::move(elems);
+    return e;
+}
+
 // ================================================================
 // Fixture
 // ================================================================
@@ -382,4 +405,108 @@ TEST_F(CheckerFixture, C_TC_23_NestedIfShadowing)
             )
         ))
     ));
+}
+
+// ================================================================
+// reset() 동작 검증 (C-TC-24~25)
+// ================================================================
+
+// C-TC-24 : REPL 시뮬레이션 — reset() 후 스코프 초기화로 재선언 허용
+// check() 는 scopes_/funcs_ 를 누적한다. reset() 만이 이를 초기화한다.
+TEST_F(CheckerFixture, C_TC_24_ResetClearsScope)
+{
+    checker.check(S(makeVarDecl("a", makeLit(1.0))));               // a 스코프 등록
+    EXPECT_FALSE(checker.check(S(makeVarDecl("a", makeLit(2.0))))); // 누적 스코프: 중복 에러
+    checker.reset();
+    EXPECT_TRUE(checker.check(S(makeVarDecl("a", makeLit(3.0)))));  // 리셋 후 재선언 OK
+    EXPECT_TRUE(checker.getErrors().empty());
+}
+
+// C-TC-25 : reset() 후 함수 레지스트리 초기화 → 인자 개수 검사 없어짐
+TEST_F(CheckerFixture, C_TC_25_ResetClearsFuncRegistry)
+{
+    // foo(a, b) 등록
+    checker.check(S(makeFuncDecl("foo", {"a", "b"}, makeBlock(S()))));
+
+    // 리셋 전: foo(1) → 인자 개수 불일치 에러
+    std::vector<std::unique_ptr<Expr>> oneArg;
+    oneArg.push_back(makeLit(1.0));
+    EXPECT_FALSE(checker.check(S(makeExprStmt(makeFuncCall("foo", std::move(oneArg))))));
+
+    // 리셋 후: funcs_ 소거 → foo 는 미등록 상태, Checker 에러 없음 (Runtime 이 담당)
+    checker.reset();
+    std::vector<std::unique_ptr<Expr>> oneArg2;
+    oneArg2.push_back(makeLit(1.0));
+    EXPECT_TRUE(checker.check(S(makeExprStmt(makeFuncCall("foo", std::move(oneArg2))))));
+}
+
+// ================================================================
+// 배열 표현식 노드 — checkExpr + foldExpr 경로 검증 (C-TC-26~28)
+// ArrayTest.cpp 의 runSource() 는 Checker 를 경유하지 않으므로
+// 여기서 AST 를 직접 구성해 checkExpr/foldExpr 의 배열 브랜치를 커버한다.
+// ================================================================
+
+// C-TC-26 : ArrayLiteralExpr — checkExpr 원소 순회 + foldExpr 원소 폴딩
+// var arr = [1+2, 3+4]; → elements folded to [3.0, 7.0]
+TEST_F(CheckerFixture, C_TC_26_ArrayLiteralElementsFolded)
+{
+    std::vector<std::unique_ptr<Expr>> elems;
+    elems.push_back(makeBin(makeLit(1.0), TokenType::PLUS, makeLit(2.0)));
+    elems.push_back(makeBin(makeLit(3.0), TokenType::PLUS, makeLit(4.0)));
+
+    auto arrLit  = makeArrayLiteral(std::move(elems));
+    auto* rawArr = dynamic_cast<ArrayLiteralExpr*>(arrLit.get());
+
+    auto stmts = S(makeVarDecl("arr", std::move(arrLit)));
+    EXPECT_TRUE(checker.check(stmts));
+
+    ASSERT_NE(rawArr, nullptr);
+    ASSERT_EQ(rawArr->elements.size(), 2u);
+    auto* e0 = dynamic_cast<LiteralExpr*>(rawArr->elements[0].get());
+    auto* e1 = dynamic_cast<LiteralExpr*>(rawArr->elements[1].get());
+    ASSERT_NE(e0, nullptr);
+    ASSERT_NE(e1, nullptr);
+    EXPECT_EQ(std::get<double>(e0->value), 3.0);
+    EXPECT_EQ(std::get<double>(e1->value), 7.0);
+}
+
+// C-TC-27 : ArrayAccessExpr — checkExpr 순회 + foldExpr index 폴딩
+// arr[1+2] → index folded to 3.0
+TEST_F(CheckerFixture, C_TC_27_ArrayAccessIndexFolded)
+{
+    auto accessExpr    = std::make_unique<ArrayAccessExpr>();
+    accessExpr->array  = makeVar("arr");
+    accessExpr->index  = makeBin(makeLit(1.0), TokenType::PLUS, makeLit(2.0));
+    auto* rawAccess    = accessExpr.get();
+
+    auto stmts = S(
+        makeVarDecl("arr", makeLit(0.0)),
+        makeExprStmt(std::move(accessExpr))
+    );
+    EXPECT_TRUE(checker.check(stmts));
+
+    auto* idx = dynamic_cast<LiteralExpr*>(rawAccess->index.get());
+    ASSERT_NE(idx, nullptr);
+    EXPECT_EQ(std::get<double>(idx->value), 3.0);
+}
+
+// C-TC-28 : ArrayWriteExpr — checkExpr 순회 + foldExpr value/index 폴딩
+// arr[0] = 1+2; → value folded to 3.0
+TEST_F(CheckerFixture, C_TC_28_ArrayWriteValueFolded)
+{
+    auto writeExpr    = std::make_unique<ArrayWriteExpr>();
+    writeExpr->array  = makeVar("arr");
+    writeExpr->index  = makeLit(0.0);
+    writeExpr->value  = makeBin(makeLit(1.0), TokenType::PLUS, makeLit(2.0));
+    auto* rawWrite    = writeExpr.get();
+
+    auto stmts = S(
+        makeVarDecl("arr", makeLit(0.0)),
+        makeExprStmt(std::move(writeExpr))
+    );
+    EXPECT_TRUE(checker.check(stmts));
+
+    auto* val = dynamic_cast<LiteralExpr*>(rawWrite->value.get());
+    ASSERT_NE(val, nullptr);
+    EXPECT_EQ(std::get<double>(val->value), 3.0);
 }

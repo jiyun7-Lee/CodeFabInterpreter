@@ -329,13 +329,13 @@ PR에는 아래 3가지를 반드시 포함합니다.
 
 ## 테스트 케이스 명세
 
-전체 TC: **312개**
+전체 TC: **317개**
 
 | 명세 파일 | 대상 모듈 | TC 수 |
 |-----------|-----------|------:|
 | [TC_Tokenizer.md](CodeFabInterpreter/TC_Tokenizer.md) | Tokenizer | 26 |
 | [TC_ExprParser.md](CodeFabInterpreter/TC_ExprParser.md) | Expression Parser | 22 |
-| [TC_StmtParserAndChecker.md](CodeFabInterpreter/TC_StmtParserAndChecker.md) | Statement Parser + Checker | 58 |
+| [TC_StmtParserAndChecker.md](CodeFabInterpreter/TC_StmtParserAndChecker.md) | Statement Parser + Checker | 63 |
 | [TC_executor.md](CodeFabInterpreter/TC_executor.md) | Executor | 27 |
 | [TC_Function.md](CodeFabInterpreter/TC_Function.md) | 함수 | 14 |
 | [TC_Array.md](CodeFabInterpreter/TC_Array.md) | 배열 | 12 |

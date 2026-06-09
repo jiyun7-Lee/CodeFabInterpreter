@@ -84,6 +84,11 @@
 | C-TC-21 | NoInitializerNoError | `var a;` | true (OK) | 🟢 Green |
 | C-TC-22 | ForScopeCleanupAllowsRedecl | `for (var i=0;...) {} var i=1;` | true (OK) | 🟢 Green |
 | C-TC-23 | NestedIfShadowing | `{ var a=1; if(x){ var a=2; } }` | true (OK) | 🟢 Green |
+| C-TC-24 | ResetClearsScope | `check(var a=1)` → `reset()` → `check(var a=3)` | true (OK) | 🟢 Green |
+| C-TC-25 | ResetClearsFuncRegistry | `check(func foo(a,b){})` → `reset()` → `check(foo(1))` | true (OK) | 🟢 Green |
+| C-TC-26 | ArrayLiteralElementsFolded | `var arr = [1+2, 3+4];` → elements 폴딩 | true (OK) | 🟢 Green |
+| C-TC-27 | ArrayAccessIndexFolded | `arr[1+2]` → index 폴딩 | true (OK) | 🟢 Green |
+| C-TC-28 | ArrayWriteValueFolded | `arr[0] = 1+2;` → value 폴딩 | true (OK) | 🟢 Green |
 
 ---
 
@@ -1047,3 +1052,92 @@ BlockStmt
 | Arrange | `{ var a=1; if(true){ var a=2; } }` AST 구성 |
 | Act | `checker.check(stmts)` 호출 |
 | Assert | 반환값 `true` |
+
+---
+
+### C-TC-24 ResetClearsScope
+
+**목적**: `reset()` 이 `scopes_` 를 초기화해 REPL 세션의 누적 스코프를 제거하는지 확인
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `check(var a=1)` 으로 a를 스코프에 등록 |
+| Act 1 | `check(var a=2)` → 중복 에러 (false) |
+| Act 2 | `reset()` 호출 |
+| Act 3 | `check(var a=3)` |
+| Assert | 마지막 check 반환값 `true`, errors 비어 있음 |
+
+---
+
+### C-TC-25 ResetClearsFuncRegistry
+
+**목적**: `reset()` 이 `funcs_` 를 초기화해 이전 함수 선언 정보를 제거하는지 확인
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `check(func foo(a, b) {})` 으로 foo 2-파라미터 등록 |
+| Act 1 | `check(foo(1))` → 인자 불일치 에러 (false) |
+| Act 2 | `reset()` 호출 |
+| Act 3 | `check(foo(1))` |
+| Assert | 반환값 `true` (foo 미등록 → Checker 에러 없음, Runtime 담당) |
+
+---
+
+### C-TC-26 ArrayLiteralElementsFolded
+
+**목적**: `ArrayLiteralExpr` 원소가 `checkExpr` 에서 순회되고 `foldExpr` 에서 상수 폴딩되는지 확인
+
+**입력 AST**
+```
+VarDeclareStmt(arr)
+└── ArrayLiteralExpr
+    ├── BinaryExpr(1.0 + 2.0)   → LiteralExpr(3.0)
+    └── BinaryExpr(3.0 + 4.0)   → LiteralExpr(7.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `var arr = [1+2, 3+4];` AST 구성 |
+| Act | `checker.check(stmts)` 호출 |
+| Assert | 반환값 `true`, `elements[0]` = LiteralExpr(3.0), `elements[1]` = LiteralExpr(7.0) |
+
+---
+
+### C-TC-27 ArrayAccessIndexFolded
+
+**목적**: `ArrayAccessExpr` 가 `checkExpr` 에서 순회되고 `foldExpr` 에서 index 가 폴딩되는지 확인
+
+**입력 AST**
+```
+ExpressionStmt
+└── ArrayAccessExpr
+    ├── array: VariableExpr(arr)
+    └── index: BinaryExpr(1.0 + 2.0)   → LiteralExpr(3.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `arr[1+2]` AST 구성 (arr 선언 포함) |
+| Act | `checker.check(stmts)` 호출 |
+| Assert | 반환값 `true`, `index` = LiteralExpr(3.0) |
+
+---
+
+### C-TC-28 ArrayWriteValueFolded
+
+**목적**: `ArrayWriteExpr` 가 `checkExpr` 에서 순회되고 `foldExpr` 에서 value 가 폴딩되는지 확인
+
+**입력 AST**
+```
+ExpressionStmt
+└── ArrayWriteExpr
+    ├── array: VariableExpr(arr)
+    ├── index: LiteralExpr(0.0)
+    └── value: BinaryExpr(1.0 + 2.0)   → LiteralExpr(3.0)
+```
+
+| 단계 | 내용 |
+|---|---|
+| Arrange | `arr[0] = 1+2;` AST 구성 (arr 선언 포함) |
+| Act | `checker.check(stmts)` 호출 |
+| Assert | 반환값 `true`, `value` = LiteralExpr(3.0) |
