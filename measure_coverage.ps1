@@ -32,11 +32,11 @@ $prodSrcs = @(
 
 $testSrcs = @(
     "ArrayTest.cpp", "BreakpointTest.cpp", "CheckerTest.cpp",
-    "DebugInfraTest.cpp", "ExecutorTest.cpp", "ExpressionParserTest.cpp",
-    "FactoryShellTest.cpp", "FileModeTest.cpp", "FunctionTest.cpp",
-    "integrationTest.cpp", "negativeTest.cpp", "OptimizationTest.cpp",
-    "ParserTest.cpp", "ShellTest.cpp", "StepTest.cpp",
-    "TokenizerTest.cpp", "WatchTest.cpp"
+    "DebugControllerTest.cpp", "DebugInfraTest.cpp", "ExecutorTest.cpp",
+    "ExpressionParserTest.cpp", "FactoryShellTest.cpp", "FileModeTest.cpp",
+    "FunctionTest.cpp", "integrationTest.cpp", "negativeTest.cpp",
+    "OptimizationTest.cpp", "ParserTest.cpp", "ShellTest.cpp",
+    "StepTest.cpp", "TokenizerTest.cpp", "WatchTest.cpp"
 ) | ForEach-Object { "$src\tests\$_" }
 
 $gtestSrcs = @(
