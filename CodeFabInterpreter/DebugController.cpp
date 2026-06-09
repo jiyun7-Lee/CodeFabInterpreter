@@ -32,7 +32,26 @@ static std::string valueToString(const Value& val)
         if constexpr (std::is_same_v<T, std::string>)  return "\"" + v + "\"";
         if constexpr (std::is_same_v<T, bool>)         return v ? "true" : "false";
         if constexpr (std::is_same_v<T, std::monostate>) return "null";
-        if constexpr (std::is_same_v<T, std::shared_ptr<ArrayValue>>) return "[array]";
+        if constexpr (std::is_same_v<T, std::shared_ptr<ArrayValue>>)
+        {
+            std::string result = "[";
+            for (size_t i = 0; i < v->elements.size(); ++i)
+            {
+                if (i > 0) result += ", ";
+                result += std::visit([](const auto& elem) -> std::string {
+                    using ET = std::decay_t<decltype(elem)>;
+                    if constexpr (std::is_same_v<ET, double>)
+                    {
+                        std::ostringstream oss; oss << elem; return oss.str();
+                    }
+                    if constexpr (std::is_same_v<ET, std::string>)    return "\"" + elem + "\"";
+                    if constexpr (std::is_same_v<ET, bool>)           return elem ? "true" : "false";
+                    if constexpr (std::is_same_v<ET, std::monostate>) return "null";
+                    return "?";
+                }, v->elements[i]);
+            }
+            return result + "]";
+        }
         return "?";
     }, val);
 }
@@ -143,8 +162,16 @@ void DebugController::beforeExecute(Stmt* stmt, Environment* env, int depth)
     if (!watches_.empty())
         watches_.printWatches(env);
 
+    // sourceLines_ 우선 사용 (전체 파일 파싱 시 정확한 줄 텍스트),
+    // 없으면 setLineContext로 설정된 값 사용 (블록 단위 파싱 호환)
+    const std::string& srcDisplay =
+        (!sourceLines_.empty() && effectiveLine >= 1
+         && effectiveLine <= static_cast<int>(sourceLines_.size()))
+        ? sourceLines_[effectiveLine - 1]
+        : currentSrcLine_;
+
     std::cout << "[DEBUG] " << effectiveLine << "번째 줄에서 정지 -> '"
-              << currentSrcLine_ << "'\n";
+              << srcDisplay << "'\n";
     std::cout << "> " << std::flush;
 
     std::string cmd;
