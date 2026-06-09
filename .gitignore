@@ -361,3 +361,6 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Coverage measurement output (measure_coverage.ps1)
+coverage_clang/
+coverage_out/
