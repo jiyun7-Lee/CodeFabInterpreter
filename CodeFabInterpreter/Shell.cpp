@@ -1,4 +1,4 @@
-﻿#include "Shell.h"
+#include "Shell.h"
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -10,11 +10,18 @@
 #include "Parser.h"
 #include "Checker.h"
 #include "Executor.h"
+#include "DebugController.h"
 
 static std::string toLower(std::string s)
 {
     for (auto& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
     return s;
+}
+
+static bool isExitCommand(const std::string& s)
+{
+    const std::string lower = toLower(s);
+    return lower == "exit" || lower == "quit";
 }
 
 // -----------------------------------------------------------------------
@@ -37,13 +44,26 @@ struct AccumState
     bool nextElseBody       = false;
     bool blockIsIf          = false;
     bool blockIsElse        = false;
-    bool lastControlWasIf   = false; // 마지막 pendingControl++ 이 if 였는지 (for 와 구분)
+    bool lastControlWasIf   = false;
 };
 
-static bool accumulateBraces(const std::string& line,
-                              std::string& accumulated,
-                              AccumState& s)
+// BraceContext: accumulated 문자열 + AccumState 를 하나로 묶어 선언·리셋 중복 제거
+struct BraceContext
 {
+    std::string accumulated;
+    AccumState  state;
+
+    void reset()
+    {
+        accumulated.clear();
+        state = AccumState{};
+    }
+};
+
+static bool accumulateBraces(const std::string& line, BraceContext& ctx)
+{
+    AccumState& s = ctx.state;
+
     try
     {
         // 빈 줄(공백만 있는 줄)은 else 없이 구문을 끝냈다는 신호
@@ -51,12 +71,11 @@ static bool accumulateBraces(const std::string& line,
         if (s.pendingElse > 0 && line.find_first_not_of(" \t\r\n") == std::string::npos)
             s.pendingElse = 0;
 
-        int thisLineControls = 0; // 이 줄에서 추가된 if/for pending 수
+        int thisLineControls = 0;
         Tokenizer tok;
         for (const auto& t : tok.tokenize(line))
         {
             // else 대기 중에 else·EOF 가 아닌 토큰이 최상위에 오면 대기 포기
-            // EOF_TOKEN 은 줄 끝 마커이므로 다음 줄에서 else 를 더 볼 기회가 있어 제외
             if (s.pendingElse > 0 && t.type != TokenType::ELSE
                 && t.type != TokenType::EOF_TOKEN && s.braceDepth == 0)
                 s.pendingElse = 0;
@@ -71,11 +90,10 @@ static bool accumulateBraces(const std::string& line,
                 {
                     if (s.pendingControl > 0)
                     {
-                        s.blockIsElse        = s.nextElseBody;
-                        // if 바디 여부: else 바디가 아니면서 마지막 control 이 if 였을 때만
-                        s.blockIsIf          = !s.nextElseBody && s.lastControlWasIf;
-                        s.nextElseBody       = false;
-                        s.lastControlWasIf   = false;
+                        s.blockIsElse      = s.nextElseBody;
+                        s.blockIsIf        = !s.nextElseBody && s.lastControlWasIf;
+                        s.nextElseBody     = false;
+                        s.lastControlWasIf = false;
                         --s.pendingControl;
                     }
                     else
@@ -94,14 +112,13 @@ static bool accumulateBraces(const std::string& line,
                 {
                     if (s.blockIsElse)
                     {
-                        // else 바디 완료 — 추가 else 없음, 외부 pending 도 정리
                         s.pendingElse    = 0;
                         s.pendingControl = 0;
                     }
                     else if (s.blockIsIf)
-                        s.pendingElse = 1; // if 바디 완료 — else 대기
+                        s.pendingElse = 1;
                     else
-                        s.pendingElse = 0; // for 바디 또는 독립 블록
+                        s.pendingElse = 0;
                     s.blockIsElse = false;
                     s.blockIsIf   = false;
                 }
@@ -118,26 +135,20 @@ static bool accumulateBraces(const std::string& line,
             {
                 if (s.pendingElse > 0)
                 {
-                    // 블록 바디로 닫힌 if 의 else
                     s.pendingElse = 0;
                     ++s.pendingControl;
                     s.nextElseBody = true;
                 }
                 else if (s.pendingControl == 0)
                 {
-                    // ; 로 닫힌 if 의 else (pendingControl 이 이미 0)
                     ++s.pendingControl;
                     s.nextElseBody = true;
                 }
-                // pendingElse==0 && pendingControl>0: 인라인 if 바디를 상속받은 else
-                // → 카운트 변화 없음 (기존 pendingControl 이 else 바디를 커버)
             }
             else if (t.type == TokenType::SEMICOLON
                      && s.braceDepth == 0 && s.parenDepth == 0
                      && s.pendingControl > 0)
             {
-                // 같은 줄의 중첩 인라인 if 전체를 닫음
-                // max(1, thisLineControls): 이 줄에서 추가된 if/for 수 만큼만 감소
                 int toClose = std::max(1, thisLineControls);
                 s.pendingControl = std::max(0, s.pendingControl - toClose);
                 s.pendingElse    = 0;
@@ -147,8 +158,8 @@ static bool accumulateBraces(const std::string& line,
     }
     catch (...) {}
 
-    if (!accumulated.empty()) accumulated += '\n';
-    accumulated += line;
+    if (!ctx.accumulated.empty()) ctx.accumulated += '\n';
+    ctx.accumulated += line;
 
     if (s.braceDepth <= 0 && s.pendingControl <= 0 && s.pendingElse <= 0)
     {
@@ -158,114 +169,6 @@ static bool accumulateBraces(const std::string& line,
     return false;
 }
 
-// -----------------------------------------------------------------------
-// 공통 헬퍼 — 누적된 소스 실행 (FileRunner / DebugShell 공유)
-// 반환값: true = 정상 실행, false = 에러 발생 (호출자가 중단 여부 결정)
-// -----------------------------------------------------------------------
-static bool executeBlock(const std::string& src, Checker& chk, Executor& exec)
-{
-    try
-    {
-        Tokenizer tokenizer;
-        auto tokens = tokenizer.tokenize(src);
-
-        Parser parser;
-        auto stmts = parser.parse(tokens);
-
-        if (!chk.check(stmts))
-        {
-            for (const auto& err : chk.getErrors())
-                std::cout << "[Checker] " << err << "\n";
-            return false;
-        }
-
-        exec.execute(stmts);
-        return true;
-    }
-    catch (const std::exception& e)
-    {
-        std::cout << "[Error] " << e.what() << "\n";
-        return false;
-    }
-}
-
-// pendingElse > 0 이면서 입력이 끝난 경우 (else 없이 if 블록만 존재) 실행을 flush
-static bool needsPendingElseFlush(const std::string& accumulated, const AccumState& s)
-{
-    return !accumulated.empty()
-        && s.braceDepth    == 0
-        && s.pendingControl == 0
-        && s.pendingElse    > 0;
-}
-
-// -----------------------------------------------------------------------
-// Shell
-// -----------------------------------------------------------------------
-
-void Shell::run()
-{
-    std::string accumulated;
-    AccumState s;
-
-    while (true)
-    {
-        std::cout << (accumulated.empty() ? "> " : "... ") << std::flush;
-        std::string line;
-        if (!std::getline(std::cin, line)) break;
-
-        std::string trimmed = line;
-        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
-            trimmed.pop_back();
-
-        if (accumulated.empty() && (toLower(trimmed) == "exit" || toLower(trimmed) == "quit")) break;
-
-        if (accumulateBraces(line, accumulated, s))
-        {
-            runLine(accumulated);
-            accumulated.clear();
-            s = AccumState{};
-        }
-    }
-
-    // EOF 직전에 else 없는 if-블록이 pending 으로 남은 경우 flush
-    if (needsPendingElseFlush(accumulated, s))
-        runLine(accumulated);
-}
-
-void Shell::runLine(const std::string& source)
-{
-    std::string src = source;
-    while (!src.empty() && std::isspace(static_cast<unsigned char>(src.back())))
-        src.pop_back();
-
-    if (toLower(src) == "exit" || toLower(src) == "quit") return;
-
-    try
-    {
-        Tokenizer tokenizer;
-        auto tokens = tokenizer.tokenize(src);
-
-        Parser parser;
-        auto stmts = parser.parse(tokens);
-
-        if (!checker.check(stmts))
-        {
-            for (const auto& err : checker.getErrors())
-                std::cout << "[Checker] " << err << "\n";
-            return;
-        }
-
-        executor.execute(stmts);
-    }
-    catch (const std::exception& e)
-    {
-        std::cout << "[Error] " << e.what() << "\n";
-    }
-}
-
-// -----------------------------------------------------------------------
-// 공통 헬퍼 — 파일 읽기 (FileRunner / DebugShell 공유)
-// -----------------------------------------------------------------------
 // nullopt → 파일 없음, {} → 빈 파일 (정상), {...} → 내용 있는 파일
 static std::optional<std::vector<std::string>> readFile(const std::string& filepath)
 {
@@ -286,6 +189,89 @@ static std::optional<std::vector<std::string>> readFile(const std::string& filep
     return lines;
 }
 
+// pendingElse > 0 이면서 입력이 끝난 경우 (else 없이 if 블록만 존재) 실행을 flush
+static bool needsPendingElseFlush(const BraceContext& ctx)
+{
+    return !ctx.accumulated.empty()
+        && ctx.state.braceDepth     == 0
+        && ctx.state.pendingControl == 0
+        && ctx.state.pendingElse    > 0;
+}
+
+// -----------------------------------------------------------------------
+// BaseRunner — 파이프라인 실행 (tokenize → parse → check → execute)
+// -----------------------------------------------------------------------
+
+bool BaseRunner::executeSource(const std::string& src)
+{
+    try
+    {
+        Tokenizer tokenizer;
+        auto tokens = tokenizer.tokenize(src);
+
+        Parser parser;
+        auto stmts = parser.parse(tokens);
+
+        if (!checker.check(stmts))
+        {
+            for (const auto& err : checker.getErrors())
+                std::cout << "[Checker] " << err << "\n";
+            return false;
+        }
+
+        executor.execute(stmts);
+        return true;
+    }
+    catch (const std::exception& e)
+    {
+        std::cout << "[Error] " << e.what() << "\n";
+        return false;
+    }
+}
+
+// -----------------------------------------------------------------------
+// Shell
+// -----------------------------------------------------------------------
+
+void Shell::run()
+{
+    BraceContext ctx;
+
+    while (true)
+    {
+        std::cout << (ctx.accumulated.empty() ? "> " : "... ") << std::flush;
+        std::string line;
+        if (!std::getline(std::cin, line)) break;
+
+        std::string trimmed = line;
+        while (!trimmed.empty() && std::isspace(static_cast<unsigned char>(trimmed.back())))
+            trimmed.pop_back();
+
+        if (ctx.accumulated.empty() && isExitCommand(trimmed)) break;
+
+        if (accumulateBraces(line, ctx))
+        {
+            runLine(ctx.accumulated);
+            ctx.reset();
+        }
+    }
+
+    // EOF 직전에 else 없는 if-블록이 pending 으로 남은 경우 flush
+    if (needsPendingElseFlush(ctx))
+        runLine(ctx.accumulated);
+}
+
+void Shell::runLine(const std::string& source)
+{
+    std::string src = source;
+    while (!src.empty() && std::isspace(static_cast<unsigned char>(src.back())))
+        src.pop_back();
+
+    if (isExitCommand(src)) return;
+
+    executeSource(src);
+}
+
 // -----------------------------------------------------------------------
 // FileRunner
 // -----------------------------------------------------------------------
@@ -299,21 +285,18 @@ void FileRunner::run(const std::string& filepath)
 
 void FileRunner::runSource(const std::vector<std::string>& lines)
 {
-    std::string accumulated;
-    AccumState s;
+    BraceContext ctx;
 
     for (const std::string& srcLine : lines)
     {
-        if (!accumulateBraces(srcLine, accumulated, s)) continue;
-
-        if (!executeBlock(accumulated, checker, executor)) return;
-        accumulated.clear();
-        s = AccumState{};
+        if (!accumulateBraces(srcLine, ctx)) continue;
+        if (!executeSource(ctx.accumulated)) return;
+        ctx.reset();
     }
 
     // else 없이 if-블록이 파일 끝에서 pending 으로 남은 경우 flush
-    if (needsPendingElseFlush(accumulated, s))
-        executeBlock(accumulated, checker, executor);
+    if (needsPendingElseFlush(ctx))
+        executeSource(ctx.accumulated);
 }
 
 // -----------------------------------------------------------------------
@@ -342,9 +325,8 @@ void DebugShell::runSource(const std::vector<std::string>& lines,
         ~CtrlGuard() { ex.setDebugController(nullptr); }
     } guard{ executor };
 
-    std::string accumulated;
-    AccumState s;
-    int startLineNo    = 0;
+    BraceContext ctx;
+    int startLineNo = 0;
     std::string startSrcLine;
 
     for (size_t i = 0; i < lines.size(); ++i)
@@ -353,26 +335,24 @@ void DebugShell::runSource(const std::vector<std::string>& lines,
         if (srcLine.empty()) continue;
 
         // 블록 시작 줄 기억 (디버그 출력용)
-        if (accumulated.empty())
+        if (ctx.accumulated.empty())
         {
             startLineNo  = static_cast<int>(i + 1);
             startSrcLine = srcLine;
         }
 
-        if (!accumulateBraces(srcLine, accumulated, s)) continue;
+        if (!accumulateBraces(srcLine, ctx)) continue;
 
         ctrl.setLineContext(startLineNo, startSrcLine);
-
-        if (!executeBlock(accumulated, checker, executor)) return;
-        accumulated.clear();
-        s = AccumState{};
+        if (!executeSource(ctx.accumulated)) return;
+        ctx.reset();
     }
 
     // else 없이 if-블록이 파일 끝에서 pending 으로 남은 경우 flush
-    if (needsPendingElseFlush(accumulated, s))
+    if (needsPendingElseFlush(ctx))
     {
         ctrl.setLineContext(startLineNo, startSrcLine);
-        executeBlock(accumulated, checker, executor);
+        executeSource(ctx.accumulated);
     }
 }
 
