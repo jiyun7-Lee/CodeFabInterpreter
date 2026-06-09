@@ -37,6 +37,16 @@
 | TC21   | VarNoInitializerPrintsNull    | Positive | 🟢 Green  |
 | TC22   | ModuloByZero                  | Negative | 🟢 Green  |
 | TC3+   | ArithmeticExpr (% 케이스 2개) | Positive | 🟢 Green  |
+| TC-PRINT-ARR-01 | PrintArray_Empty            | Positive | 🟢 Green  |
+| TC-PRINT-ARR-02 | PrintArray_NumberElements   | Positive | 🟢 Green  |
+| TC-PRINT-ARR-03 | PrintArray_StringElements   | Positive | 🟢 Green  |
+| TC-PRINT-ARR-04 | PrintArray_BoolElements     | Positive | 🟢 Green  |
+| TC-BRANCH-01 | ForStatement_NoIncrement       | Positive | 🟢 Green  |
+| TC-BRANCH-02 | ReturnWithoutValue_ReturnsNull | Positive | 🟢 Green  |
+| TC-BRANCH-03 | UserDefinedArrayOverride       | Positive | 🟢 Green  |
+| TC-BRANCH-04 | ArrayBuiltin_ZeroArgs_Throws   | Negative | 🟢 Green  |
+| TC-BRANCH-05 | ArrayBuiltin_NegativeSize_Throws | Negative | 🟢 Green  |
+| TC-BRANCH-06 | EmptyString_IsFalsy            | Positive | 🟢 Green  |
 
 ---
 
@@ -589,5 +599,195 @@ print f() + 1;
 | Arrange | FunctionDeclareStmt(f, [], BlockStmt{}), PrintStmt(BinaryExpr(FunctionCallExpr(f), PLUS, 1.0)) 수동 구성 |
 | Act | `executor.execute(stmts)` 호출 |
 | Assert | `ASSERT_THROW(..., std::runtime_error)` |
+
+**구현 상태** : 완료
+
+---
+
+## printValue ArrayValue 브랜치 TC (TC-PRINT-ARR 시리즈)
+
+> `printValue`의 `std::shared_ptr<ArrayValue>` 분기 및 원소 타입별 출력 커버
+
+---
+
+### TC-PRINT-ARR-01 — PrintArray_Empty
+
+**목적**
+빈 배열 출력 시 `[]` 출력 — 원소 루프 0회 실행 브랜치 커버
+
+**사전 조건**
+```
+var arr = Array(0);
+print arr;
+```
+
+**기대 결과**
+- `"[]\n"` 출력
+
+**구현 상태** : 완료
+
+---
+
+### TC-PRINT-ARR-02 — PrintArray_NumberElements
+
+**목적**
+숫자 원소 배열 출력 — `double` 원소 분기 커버
+
+**사전 조건**
+```
+var arr = Array(3);
+arr[0] = 1; arr[1] = 2; arr[2] = 3;
+print arr;
+```
+
+**기대 결과**
+- `"[1, 2, 3]\n"` 출력
+
+**구현 상태** : 완료
+
+---
+
+### TC-PRINT-ARR-03 — PrintArray_StringElements
+
+**목적**
+문자열 원소 배열 출력 — `std::string` 원소 분기 커버
+
+**사전 조건**
+```
+var arr = Array(2);
+arr[0] = "hello"; arr[1] = "world";
+print arr;
+```
+
+**기대 결과**
+- `"[hello, world]\n"` 출력
+
+**구현 상태** : 완료
+
+---
+
+### TC-PRINT-ARR-04 — PrintArray_BoolElements
+
+**목적**
+bool 원소 배열 출력 — `bool` 원소 분기 커버
+
+**사전 조건**
+```
+var arr = Array(2);
+arr[0] = true; arr[1] = false;
+print arr;
+```
+
+**기대 결과**
+- `"[true, false]\n"` 출력
+
+**구현 상태** : 완료
+
+---
+
+## 브랜치 커버리지 개선 TC (TC-BRANCH 시리즈)
+
+> Executor.cpp 미커버 브랜치 보완 목적으로 추가 (브랜치 커버리지 90.41% → 92.47%)
+
+---
+
+### TC-BRANCH-01 — ForStatement_NoIncrement
+
+**목적**
+`ForStmt::increment == nullptr` 브랜치 커버 — increment 없는 for 루프 정상 실행
+
+**사전 조건**
+- `ForStmt { init: var i=0, condition: i<3, increment: nullptr, body: { i=i+1; print i; } }`
+
+**기대 결과**
+- `"1\n2\n3\n"` 출력 (body 안에서 직접 i 증가)
+
+**구현 상태** : 완료
+
+---
+
+### TC-BRANCH-02 — ReturnWithoutValue_ReturnsNull
+
+**목적**
+`ReturnStmt::value == nullptr` 브랜치 커버 — `return;` (값 없는 return) 시 null 반환
+
+**사전 조건**
+```
+func f() { return; }
+print f();
+```
+
+**기대 결과**
+- `"null\n"` 출력
+
+**구현 상태** : 완료
+
+---
+
+### TC-BRANCH-03 — UserDefinedArrayOverride
+
+**목적**
+`visitFunctionCall` 내 `functions_.find("Array") != end()` 브랜치 커버
+— 사용자가 `func Array(n){}` 선언 시 빌트인 대신 사용자 정의 함수 실행
+
+**사전 조건**
+```
+func Array(n) { return n + 1; }
+print Array(5);
+```
+
+**기대 결과**
+- `"6\n"` 출력 (빌트인 Array가 아닌 사용자 정의 실행)
+
+**구현 상태** : 완료
+
+---
+
+### TC-BRANCH-04 — ArrayBuiltin_ZeroArgs_Throws
+
+**목적**
+빌트인 `Array()` 호출 시 인자 수 불일치 에러 — `e.args.size() != 1` 브랜치 커버
+
+**사전 조건**
+```
+Array();
+```
+
+**기대 결과**
+- `std::runtime_error` 발생 ("Array(): 인자가 1개 필요합니다.")
+
+**구현 상태** : 완료
+
+---
+
+### TC-BRANCH-05 — ArrayBuiltin_NegativeSize_Throws
+
+**목적**
+`Array(-1)` 호출 시 음수 크기 에러 — `size < 0` 브랜치 커버
+
+**사전 조건**
+```
+Array(-1);
+```
+
+**기대 결과**
+- `std::runtime_error` 발생 ("Array(): 배열 크기는 0 이상이어야 합니다.")
+
+**구현 상태** : 완료
+
+---
+
+### TC-BRANCH-06 — EmptyString_IsFalsy
+
+**목적**
+`isTruthy`에서 빈 문자열 `""` → false 반환 브랜치 커버
+
+**사전 조건**
+```
+if ("") { print 1; } else { print 0; }
+```
+
+**기대 결과**
+- `"0\n"` 출력 (빈 문자열은 falsy)
 
 **구현 상태** : 완료

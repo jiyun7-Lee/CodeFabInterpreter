@@ -407,3 +407,125 @@ TEST_F(ExecutorTest, VarNoInitializerPrintsNull)
 {
 	EXPECT_EQ(captureOutput([&]{ executor.execute(parse("var x; print x;")); }), "null\n");
 }
+
+// ================================================================
+// TC-PRINT-ARR: printValue ArrayValue 브랜치 커버
+// ================================================================
+
+// TC-PRINT-ARR-01: 빈 배열 출력 → "[]"
+TEST_F(ExecutorTest, PrintArray_Empty)
+{
+    EXPECT_EQ(captureOutput([&]{ executor.execute(parse("var arr = Array(0); print arr;")); }), "[]\n");
+}
+
+// TC-PRINT-ARR-02: 숫자 원소 배열 → double 원소 분기
+TEST_F(ExecutorTest, PrintArray_NumberElements)
+{
+    EXPECT_EQ(captureOutput([&]{ executor.execute(parse(
+        "var arr = Array(3);"
+        "arr[0] = 1; arr[1] = 2; arr[2] = 3;"
+        "print arr;"
+    )); }), "[1, 2, 3]\n");
+}
+
+// TC-PRINT-ARR-03: 문자열 원소 배열 → string 원소 분기
+TEST_F(ExecutorTest, PrintArray_StringElements)
+{
+    EXPECT_EQ(captureOutput([&]{ executor.execute(parse(
+        "var arr = Array(2);"
+        "arr[0] = \"hello\"; arr[1] = \"world\";"
+        "print arr;"
+    )); }), "[hello, world]\n");
+}
+
+// TC-PRINT-ARR-04: bool 원소 배열 → bool 원소 분기
+TEST_F(ExecutorTest, PrintArray_BoolElements)
+{
+    EXPECT_EQ(captureOutput([&]{ executor.execute(parse(
+        "var arr = Array(2);"
+        "arr[0] = true; arr[1] = false;"
+        "print arr;"
+    )); }), "[true, false]\n");
+}
+
+// ================================================================
+// 미커버 브랜치 TC — Executor.cpp 브랜치 커버리지 개선
+// ================================================================
+
+// TC-BRANCH-01: for 루프 increment 없음 — s->increment == nullptr 브랜치
+TEST_F(ExecutorTest, ForStatement_NoIncrement)
+{
+    Token iToken; iToken.lexeme = "i";
+
+    // body: i = i + 1; print i;
+    auto inc = std::make_unique<AssignExpr>();
+    inc->name  = iToken;
+    inc->value = makeBin(makeVar(iToken), TokenType::PLUS, makeLit(1.0));
+    auto incStmt = std::make_unique<ExpressionStmt>();
+    incStmt->expression = std::move(inc);
+
+    auto block = std::make_unique<BlockStmt>();
+    block->statements.push_back(std::move(incStmt));
+    block->statements.push_back(makePrintVar(iToken));
+
+    auto forStmt = std::make_unique<ForStmt>();
+    forStmt->init      = makeVarDeclLit(iToken, 0.0);
+    forStmt->condition = makeBin(makeVar(iToken), TokenType::LESS, makeLit(3.0));
+    forStmt->increment = nullptr;   // ← 커버 대상
+    forStmt->body      = std::move(block);
+
+    ASSERT_EQ(captureOutput([&]{ executor.execute(makeStmts(std::move(forStmt))); }),
+              "1\n2\n3\n");
+}
+
+// TC-BRANCH-02: return; (값 없는 return) — s->value == nullptr 브랜치
+TEST_F(ExecutorTest, ReturnWithoutValue_ReturnsNull)
+{
+    EXPECT_EQ(captureOutput([&]{
+        executor.execute(parse("func f() { return; } print f();"));
+    }), "null\n");
+}
+
+// TC-BRANCH-03: 사용자 정의 Array 함수 — 빌트인 오버라이드 브랜치
+TEST_F(ExecutorTest, UserDefinedArrayOverride)
+{
+    EXPECT_EQ(captureOutput([&]{
+        executor.execute(parse("func Array(n) { return n + 1; } print Array(5);"));
+    }), "6\n");
+}
+
+// TC-BRANCH-04: Array() 인자 0개 → RuntimeError
+TEST_F(ExecutorTest, ArrayBuiltin_ZeroArgs_Throws)
+{
+    ASSERT_THROW(executor.execute(parse("Array();")), std::runtime_error);
+}
+
+// TC-BRANCH-05: Array(-1) 음수 크기 → RuntimeError
+TEST_F(ExecutorTest, ArrayBuiltin_NegativeSize_Throws)
+{
+    ASSERT_THROW(executor.execute(parse("Array(-1);")), std::runtime_error);
+}
+
+// TC-BRANCH-06: 빈 문자열 isTruthy → false (else 브랜치 실행)
+TEST_F(ExecutorTest, EmptyString_IsFalsy)
+{
+    EXPECT_EQ(captureOutput([&]{
+        executor.execute(parse("if (\"\") { print 1; } else { print 0; }"));
+    }), "0\n");
+}
+
+// TC-PRINT-ARR-05: null 원소 배열 → monostate 원소 분기 (Array 초기값)
+TEST_F(ExecutorTest, PrintArray_NullElement)
+{
+    EXPECT_EQ(captureOutput([&]{ executor.execute(parse("var arr = Array(1); print arr;")); }), "[null]\n");
+}
+
+// TC-PRINT-ARR-06: 혼합 원소 배열 → double/string/bool/null 분기 전체 + 구분자 ", " 검증
+TEST_F(ExecutorTest, PrintArray_MixedElements)
+{
+    EXPECT_EQ(captureOutput([&]{ executor.execute(parse(
+        "var arr = Array(4);"
+        "arr[0] = 1; arr[1] = \"hi\"; arr[2] = true;"
+        "print arr;"   // arr[3] = null (Array 초기값)
+    )); }), "[1, hi, true, null]\n");
+}
