@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <memory>
 #include "Executor.h"
 #include "Checker.h"
 
@@ -51,6 +52,46 @@ public:
 };
 
 // -----------------------------------------------------------------------
+// IShellRunner — Adapter 공통 인터페이스
+// 새 모드 추가 시 IShellRunner 를 구현하는 Adapter 클래스만 추가하면 됨
+// -----------------------------------------------------------------------
+class IShellRunner
+{
+public:
+    virtual ~IShellRunner() = default;
+    virtual void run() = 0;
+};
+
+// -----------------------------------------------------------------------
+// Adapter 구현체
+// -----------------------------------------------------------------------
+
+class ReplAdapter : public IShellRunner
+{
+    Shell shell_;
+public:
+    void run() override { shell_.run(); }
+};
+
+class FileAdapter : public IShellRunner
+{
+    FileRunner  runner_;
+    std::string filepath_;
+public:
+    explicit FileAdapter(std::string filepath) : filepath_(std::move(filepath)) {}
+    void run() override { runner_.run(filepath_); }
+};
+
+class DebugAdapter : public IShellRunner
+{
+    DebugShell  shell_;
+    std::string filepath_;
+public:
+    explicit DebugAdapter(std::string filepath) : filepath_(std::move(filepath)) {}
+    void run() override { shell_.run(filepath_); }
+};
+
+// -----------------------------------------------------------------------
 // FactoryShell — 실행 모드 분기
 // -----------------------------------------------------------------------
 enum class ShellMode { REPL, FILE, DEBUG };
@@ -60,4 +101,8 @@ class FactoryShell
 public:
     ShellMode detectMode(int argc, char** argv) const;
     void      run(int argc, char** argv);
+
+private:
+    // 모드에 맞는 Adapter 생성 — 새 모드는 여기에 case 추가
+    std::unique_ptr<IShellRunner> createRunner(int argc, char** argv) const;
 };
