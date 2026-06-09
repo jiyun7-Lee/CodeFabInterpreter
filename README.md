@@ -283,7 +283,7 @@ PR에는 아래 3가지를 반드시 포함합니다.
 
 ## 테스트 케이스 명세
 
-전체 TC: **241개**
+전체 TC: **312개**
 
 | 명세 파일 | 대상 모듈 | TC 수 |
 |-----------|-----------|------:|
@@ -296,3 +296,4 @@ PR에는 아래 3가지를 반드시 포함합니다.
 | [TC_Specification_Chapter4.md](CodeFabInterpreter/TC_Specification_Chapter4.md) | 최적화 | 41 |
 | [TC_Step.md](CodeFabInterpreter/TC_Step.md) | 디버그 Step | 4 |
 | [TC_Integration.md](CodeFabInterpreter/TC_Integration.md) | 통합 테스트 | 37 |
+| [TC_NegativeTest.md](CodeFabInterpreter/TC_NegativeTest.md) | 네거티브 테스트 (Parser / Checker / Runtime 에러) | 27 |
