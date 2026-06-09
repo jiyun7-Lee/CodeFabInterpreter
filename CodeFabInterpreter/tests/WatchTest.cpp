@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include "../DebugController.h"
 #include "../Environment.h"
+#include "TestHelpers.h"
 
 class WatchTest : public ::testing::Test
 {
@@ -15,10 +16,7 @@ TEST_F(WatchTest, TC_WATCH_01_AddWatch)
     mgr.add("x");
     env.define("x", 10.0);
 
-    testing::internal::CaptureStdout();
-    mgr.printWatches(&env);
-    std::string out = testing::internal::GetCapturedStdout();
-
+    auto out = captureOutput([&]{ mgr.printWatches(&env); });
     EXPECT_NE(out.find("x"),  std::string::npos);
     EXPECT_NE(out.find("10"), std::string::npos);
 }
@@ -30,10 +28,7 @@ TEST_F(WatchTest, TC_WATCH_02_RemoveWatch)
     mgr.remove("x");
     env.define("x", 10.0);
 
-    testing::internal::CaptureStdout();
-    mgr.printWatches(&env);
-    std::string out = testing::internal::GetCapturedStdout();
-
+    auto out = captureOutput([&]{ mgr.printWatches(&env); });
     EXPECT_NE(out.find("감시 중인 변수 없음"), std::string::npos);
 }
 
@@ -45,10 +40,7 @@ TEST_F(WatchTest, TC_WATCH_03_PrintMultipleWatches)
     env.define("a", 1.0);
     env.define("b", 2.0);
 
-    testing::internal::CaptureStdout();
-    mgr.printWatches(&env);
-    std::string out = testing::internal::GetCapturedStdout();
-
+    auto out = captureOutput([&]{ mgr.printWatches(&env); });
     EXPECT_NE(out.find("a"), std::string::npos);
     EXPECT_NE(out.find("b"), std::string::npos);
 }
@@ -57,11 +49,7 @@ TEST_F(WatchTest, TC_WATCH_03_PrintMultipleWatches)
 TEST_F(WatchTest, TC_WATCH_04_OutOfScopeVariable)
 {
     mgr.add("unknown");
-
-    testing::internal::CaptureStdout();
-    mgr.printWatches(&env);
-    std::string out = testing::internal::GetCapturedStdout();
-
+    auto out = captureOutput([&]{ mgr.printWatches(&env); });
     EXPECT_NE(out.find("스코프 밖"), std::string::npos);
 }
 
@@ -71,10 +59,7 @@ TEST_F(WatchTest, TC_WATCH_05_Inspect)
     env.define("x", 5.0);
     env.define("y", 10.0);
 
-    testing::internal::CaptureStdout();
-    mgr.printInspect(&env);
-    std::string out = testing::internal::GetCapturedStdout();
-
+    auto out = captureOutput([&]{ mgr.printInspect(&env); });
     EXPECT_NE(out.find("x"), std::string::npos);
     EXPECT_NE(out.find("y"), std::string::npos);
 }
@@ -85,10 +70,7 @@ TEST_F(WatchTest, TC_WATCH_06_AddWatch_TrimsWhitespace)
     mgr.add("  x  ");
     env.define("x", 42.0);
 
-    testing::internal::CaptureStdout();
-    mgr.printWatches(&env);
-    std::string out = testing::internal::GetCapturedStdout();
-
+    auto out = captureOutput([&]{ mgr.printWatches(&env); });
     EXPECT_NE(out.find("x"),        std::string::npos);
     EXPECT_EQ(out.find("스코프 밖"), std::string::npos);
 }
@@ -103,10 +85,7 @@ TEST_F(WatchTest, TC_WATCH_07_Inspect_DoesNotExposeParentScope)
     child.parent = &parent;
     child.define("x", 5.0);
 
-    testing::internal::CaptureStdout();
-    mgr.printInspect(&child);
-    std::string out = testing::internal::GetCapturedStdout();
-
+    auto out = captureOutput([&]{ mgr.printInspect(&child); });
     EXPECT_NE(out.find("x"), std::string::npos);
     EXPECT_EQ(out.find("g"), std::string::npos);
 }

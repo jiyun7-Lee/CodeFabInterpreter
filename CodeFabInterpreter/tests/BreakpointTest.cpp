@@ -3,22 +3,7 @@
 #include "../Tokenizer.h"
 #include "../Parser.h"
 #include "../Executor.h"
-
-// stdin 블로킹 없이 breakpoint 도달 시 상태 전환만 검증하는 서브클래스
-class PauseTrackingController : public DebugController
-{
-public:
-    int pausedAtLine = -1;
-    void setRunning() { state_ = ExecutionState::RUNNING; }
-    void beforeExecute(Stmt* stmt, Environment* /*env*/, int /*depth*/) override
-    {
-        if (state_ == ExecutionState::RUNNING && breakpoints_.isBreakpoint(stmt->line))
-        {
-            state_       = ExecutionState::PAUSED;
-            pausedAtLine = stmt->line;
-        }
-    }
-};
+#include "TestHelpers.h"
 
 class BreakpointTest : public ::testing::Test
 {
@@ -47,9 +32,7 @@ TEST_F(BreakpointTest, TC_BP_03_PrintBreakpoints)
 {
     mgr.add(3);
     mgr.add(7);
-    testing::internal::CaptureStdout();
-    mgr.print();
-    std::string out = testing::internal::GetCapturedStdout();
+    auto out = captureOutput([&]{ mgr.print(); });
     EXPECT_NE(out.find("3"), std::string::npos);
     EXPECT_NE(out.find("7"), std::string::npos);
 }
@@ -68,9 +51,7 @@ TEST_F(BreakpointTest, TC_BP_04_PausesAtBreakpointLine)
     Executor executor;
     executor.setDebugController(&ctrl);
 
-    testing::internal::CaptureStdout();
-    executor.execute(stmts);
-    testing::internal::GetCapturedStdout();
+    captureOutput([&]{ executor.execute(stmts); });
 
     EXPECT_EQ(ctrl.pausedAtLine, 2);
 }

@@ -3,12 +3,13 @@
 #include "../Parser.h"
 #include "../Executor.h"
 #include "../DebugController.h"
+#include "TestHelpers.h"
 
 class MockDebugController : public DebugController
 {
 public:
     int callCount = 0;
-    void beforeExecute(Stmt* /*stmt*/, Environment* /*env*/, int /*depth*/) override { callCount++; }
+    void beforeExecute(Stmt*, Environment*, int) override { callCount++; }
 };
 
 class DebugInfraTest : public ::testing::Test
@@ -42,7 +43,6 @@ TEST_F(DebugInfraTest, TC_DBG_INFRA_02_HookCalledForEachStmt)
     executor.setDebugController(&mock);
     executor.execute(stmts);
 
-    // 최상위 Stmt 2개 → hook 2회 호출
     EXPECT_EQ(mock.callCount, 2);
 }
 
@@ -50,9 +50,7 @@ TEST_F(DebugInfraTest, TC_DBG_INFRA_02_HookCalledForEachStmt)
 TEST_F(DebugInfraTest, TC_DBG_INFRA_03_NoHookNormalExecution)
 {
     auto stmts = parse("print 1+2;");
-
     Executor executor;
-    testing::internal::CaptureStdout();
     EXPECT_NO_THROW(executor.execute(stmts));
-    EXPECT_EQ(testing::internal::GetCapturedStdout(), "3\n");
+    EXPECT_EQ(captureOutput([&]{ executor.execute(parse("print 1+2;")); }), "3\n");
 }
