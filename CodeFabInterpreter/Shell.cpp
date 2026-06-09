@@ -325,35 +325,19 @@ void DebugShell::runSource(const std::vector<std::string>& lines,
         ~CtrlGuard() { ex.setDebugController(nullptr); }
     } guard{ executor };
 
-    BraceContext ctx;
-    int startLineNo = 0;
-    std::string startSrcLine;
+    // 소스 라인 등록 — beforeExecute 에서 실제 줄 텍스트 표시에 사용
+    ctrl.setSourceLines(lines);
 
+    // 전체 소스를 하나로 합쳐 파싱 → Stmt 마다 정확한 파일 줄번호 보유
+    // setLineContext 없이도 step/next/breakpoint 가 올바른 줄번호를 사용
+    std::string source;
     for (size_t i = 0; i < lines.size(); ++i)
     {
-        const std::string& srcLine = lines[i];
-        if (srcLine.empty()) continue;
-
-        // 블록 시작 줄 기억 (디버그 출력용)
-        if (ctx.accumulated.empty())
-        {
-            startLineNo  = static_cast<int>(i + 1);
-            startSrcLine = srcLine;
-        }
-
-        if (!accumulateBraces(srcLine, ctx)) continue;
-
-        ctrl.setLineContext(startLineNo, startSrcLine);
-        if (!executeSource(ctx.accumulated)) return;
-        ctx.reset();
+        if (i > 0) source += '\n';
+        source += lines[i];
     }
 
-    // else 없이 if-블록이 파일 끝에서 pending 으로 남은 경우 flush
-    if (needsPendingElseFlush(ctx))
-    {
-        ctrl.setLineContext(startLineNo, startSrcLine);
-        executeSource(ctx.accumulated);
-    }
+    executeSource(source);
 }
 
 // -----------------------------------------------------------------------

@@ -143,8 +143,16 @@ void DebugController::beforeExecute(Stmt* stmt, Environment* env, int depth)
     if (!watches_.empty())
         watches_.printWatches(env);
 
+    // sourceLines_ 우선 사용 (전체 파일 파싱 시 정확한 줄 텍스트),
+    // 없으면 setLineContext로 설정된 값 사용 (블록 단위 파싱 호환)
+    const std::string& srcDisplay =
+        (!sourceLines_.empty() && effectiveLine >= 1
+         && effectiveLine <= static_cast<int>(sourceLines_.size()))
+        ? sourceLines_[effectiveLine - 1]
+        : currentSrcLine_;
+
     std::cout << "[DEBUG] " << effectiveLine << "번째 줄에서 정지 -> '"
-              << currentSrcLine_ << "'\n";
+              << srcDisplay << "'\n";
     std::cout << "> " << std::flush;
 
     std::string cmd;

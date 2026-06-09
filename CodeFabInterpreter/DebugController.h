@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <unordered_set>
 #include <string>
+#include <vector>
 
 class Stmt;
 class Environment;
@@ -51,15 +52,18 @@ public:
     virtual void beforeExecute(Stmt* stmt, Environment* env, int depth = 0);
     void setLineContext(int lineNo, const std::string& srcLine)
         { currentLineNo_ = lineNo; currentSrcLine_ = srcLine; }
+    // 전체 파일 소스 라인 등록 — beforeExecute에서 실제 줄 텍스트 표시에 사용
+    void setSourceLines(const std::vector<std::string>& lines) { sourceLines_ = lines; }
     void addBreakpoint(int line)          { breakpoints_.add(line); }
     void removeBreakpoint(int line)       { breakpoints_.remove(line); }
     void addWatch(const std::string& n)   { watches_.add(n); }
     void removeWatch(const std::string& n){ watches_.remove(n); }
 protected:
-    ExecutionState    state_          = ExecutionState::STEP;
-    int               nextDepth_      = 0;
-    int               currentLineNo_  = 0;
-    std::string       currentSrcLine_;
+    ExecutionState           state_          = ExecutionState::STEP;
+    int                      nextDepth_      = 0;
+    int                      currentLineNo_  = 0;
+    std::string              currentSrcLine_;
+    std::vector<std::string> sourceLines_;
     BreakpointManager breakpoints_;
     WatchManager      watches_;
 };

@@ -170,9 +170,10 @@ class RecordingController : public DebugController
 {
 public:
     std::vector<int> stoppedAtLines;
-    void beforeExecute(Stmt*, Environment*, int) override
+    void beforeExecute(Stmt* stmt, Environment*, int) override
     {
-        stoppedAtLines.push_back(currentLineNo_);
+        int line = currentLineNo_ > 0 ? currentLineNo_ : stmt->line;
+        stoppedAtLines.push_back(line);
         state_ = ExecutionState::STEP;
     }
 };
