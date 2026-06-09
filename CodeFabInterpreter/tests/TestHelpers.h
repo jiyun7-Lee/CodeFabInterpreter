@@ -213,6 +213,25 @@ public:
     }
 };
 
+// state_ 노출 최소 서브클래스 — base class beforeExecute 직접 테스트용
+class ExposedController : public DebugController
+{
+public:
+    void setRunning()            { state_ = ExecutionState::RUNNING; }
+    void setNext(int depth = 0)  { nextDepth_ = depth; state_ = ExecutionState::NEXT; }
+    ExecutionState getState() const { return state_; }
+};
+
+// stdin 리다이렉트 RAII 가드 — interactive 명령어 테스트용
+struct CinRedirect
+{
+    std::istringstream  iss;
+    std::streambuf*     orig;
+    explicit CinRedirect(const std::string& input)
+        : iss(input), orig(std::cin.rdbuf(iss.rdbuf())) {}
+    ~CinRedirect() { std::cin.rdbuf(orig); }
+};
+
 // step/next/continue를 스크립트로 실행하는 테스트용 컨트롤러
 class ScriptedController : public DebugController
 {
