@@ -22,6 +22,7 @@
 | TC-AR-10 | NegativeIndexThrows      | Negative | 🟢 Green  |
 | TC-AR-11 | NegativeArraySizeThrows  | Negative | 🟢 Green  |
 | TC-AR-12 | ZeroSizeArrayAccessThrows| Negative | 🟢 Green  |
+| TC-AR-13 | ParsesArrayWrite         | Positive | 🟢 Green  |
 
 ---
 

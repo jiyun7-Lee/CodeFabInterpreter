@@ -1,4 +1,4 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 #include "../Tokenizer.h"
 
 #include <algorithm>
@@ -31,7 +31,7 @@ protected:
 };
 
 // ──────────────────────────────────────────────
-// 통합: 지원하는 모든 TokenType이 올바른 순서로 인식된다 (literal 검증은 TC-07~09 참조)
+// TC-01 : 지원하는 모든 TokenType이 올바른 순서로 인식된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, TokenizesAllTokenTypesInOrder)
 {
@@ -75,7 +75,7 @@ TEST_F(TokenizerFixture, TokenizesAllTokenTypesInOrder)
 }
 
 // ──────────────────────────────────────────────
-// 경계: 빈 소스를 입력하면 EOF_TOKEN 하나만 반환한다
+// TC-02 : 빈 소스를 입력하면 EOF_TOKEN 하나만 반환한다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, EmptySourceReturnsOnlyEof)
 {
@@ -86,7 +86,7 @@ TEST_F(TokenizerFixture, EmptySourceReturnsOnlyEof)
 }
 
 // ──────────────────────────────────────────────
-// 경계: 소스가 무엇이든 마지막 토큰은 항상 EOF_TOKEN이다
+// TC-03 : 소스가 무엇이든 마지막 토큰은 항상 EOF_TOKEN이다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, LastTokenIsAlwaysEof)
 {
@@ -97,7 +97,7 @@ TEST_F(TokenizerFixture, LastTokenIsAlwaysEof)
 }
 
 // ──────────────────────────────────────────────
-// 공백: 스페이스와 탭은 토큰을 생성하지 않는다
+// TC-04 : 스페이스와 탭은 토큰을 생성하지 않는다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, WhitespaceIsSkipped)
 {
@@ -111,7 +111,7 @@ TEST_F(TokenizerFixture, WhitespaceIsSkipped)
 }
 
 // ──────────────────────────────────────────────
-// lexeme: 단일 문자 토큰의 lexeme이 소스 문자와 일치한다
+// TC-05 : 단일 문자 토큰의 lexeme이 소스 문자와 일치한다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, SingleCharTokensHaveCorrectLexeme)
 {
@@ -125,7 +125,7 @@ TEST_F(TokenizerFixture, SingleCharTokensHaveCorrectLexeme)
 }
 
 // ──────────────────────────────────────────────
-// lexeme: 식별자 토큰의 lexeme이 소스 단어와 일치한다
+// TC-06 : 식별자 토큰의 lexeme이 소스 단어와 일치한다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, IdentifierHasCorrectLexeme)
 {
@@ -137,7 +137,7 @@ TEST_F(TokenizerFixture, IdentifierHasCorrectLexeme)
 }
 
 // ──────────────────────────────────────────────
-// literal: 문자열 리터럴의 literal 값이 따옴표를 제외한 내용이다
+// TC-07 : 문자열 리터럴의 literal 값이 따옴표를 제외한 내용이다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, StringLiteralHasCorrectValue)
 {
@@ -149,7 +149,7 @@ TEST_F(TokenizerFixture, StringLiteralHasCorrectValue)
 }
 
 // ──────────────────────────────────────────────
-// literal: 정수 숫자 리터럴의 literal 값이 double로 저장된다
+// TC-08 : 정수 숫자 리터럴의 literal 값이 double로 저장된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, IntegerLiteralHasCorrectValue)
 {
@@ -161,7 +161,7 @@ TEST_F(TokenizerFixture, IntegerLiteralHasCorrectValue)
 }
 
 // ──────────────────────────────────────────────
-// literal: 소수점 숫자 리터럴의 literal 값이 double로 정확히 저장된다
+// TC-09 : 소수점 숫자 리터럴의 literal 값이 double로 정확히 저장된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, FloatLiteralHasCorrectValue)
 {
@@ -173,7 +173,7 @@ TEST_F(TokenizerFixture, FloatLiteralHasCorrectValue)
 }
 
 // ──────────────────────────────────────────────
-// 예약어: 모든 키워드가 IDENTIFIER가 아닌 고유 TokenType으로 인식된다
+// TC-10 : 모든 키워드가 IDENTIFIER가 아닌 고유 TokenType으로 인식된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, KeywordsAreNotIdentifiers)
 {
@@ -200,7 +200,7 @@ TEST_F(TokenizerFixture, KeywordsAreNotIdentifiers)
 }
 
 // ──────────────────────────────────────────────
-// 예약어: 예약어로 시작하지만 더 긴 단어는 IDENTIFIER로 인식된다
+// TC-11 : 예약어로 시작하지만 더 긴 단어는 IDENTIFIER로 인식된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, IdentifierStartingWithKeywordIsIdentifier)
 {
@@ -217,15 +217,7 @@ TEST_F(TokenizerFixture, IdentifierStartingWithKeywordIsIdentifier)
 }
 
 // ──────────────────────────────────────────────
-// lexeme: ! 는 BANG 타입으로 인식되고 lexeme이 "!"이다
-// ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, BangTokenHasCorrectLexeme)
-{
-    checkSingleToken("!", TokenType::BANG);
-}
-
-// ──────────────────────────────────────────────
-// line: 개행 문자를 만날 때마다 line 번호가 1씩 증가한다
+// TC-12 : 개행 문자를 만날 때마다 line 번호가 1씩 증가한다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, NewlineIncrementsLineNumber)
 {
@@ -239,46 +231,51 @@ TEST_F(TokenizerFixture, NewlineIncrementsLineNumber)
 }
 
 // ──────────────────────────────────────────────
-// 에러: 종결되지 않은 문자열 리터럴은 runtime_error를 throw한다
+// TC-13 : ! 는 BANG 타입으로 인식되고 lexeme이 "!"이다
 // ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, UnterminatedStringLiteralThrows)
+TEST_F(TokenizerFixture, BangTokenHasCorrectLexeme)
 {
-    ASSERT_THROW(tokenizer.tokenize("\"hello"), std::runtime_error);
+    checkSingleToken("!", TokenType::BANG);
 }
 
 // ──────────────────────────────────────────────
-// line: 멀티라인 문자열 토큰의 line은 닫는 " 줄이 아닌 시작 줄이다
+// TC-14 : 문자열 토큰의 lexeme은 따옴표를 포함한다
 // ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, MultilineStringHasStartLineNumber)
+TEST_F(TokenizerFixture, StringLexemeIncludesQuotes)
 {
-    // "line1\nline2" → 1번 줄에서 시작, 2번 줄에서 닫힘
-    // token.line == 1 (시작 줄)
-    const auto tokens = tokenizer.tokenize("\"line1\nline2\"");
+    const auto tokens = tokenizer.tokenize("\"hello\"");
 
     ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type, TokenType::STRING);
-    EXPECT_EQ(tokens[0].line, 1);
+    EXPECT_EQ(tokens[0].type,   TokenType::STRING);
+    EXPECT_EQ(tokens[0].lexeme, "\"hello\"");
 }
 
 // ──────────────────────────────────────────────
-// 에러: 알 수 없는 문자는 runtime_error를 throw한다
+// TC-15 : 숫자 토큰의 lexeme은 소스 문자열과 일치한다
 // ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, UnknownCharacterThrows)
+TEST_F(TokenizerFixture, NumberLexemeMatchesSource)
 {
-    ASSERT_THROW(tokenizer.tokenize("@"), std::runtime_error);
+    const auto tokens = tokenizer.tokenize("3.14");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::NUMBER);
+    EXPECT_EQ(tokens[0].lexeme, "3.14");
 }
 
 // ──────────────────────────────────────────────
-// 에러(T-1): 소스 중간에 알 수 없는 문자가 있으면 runtime_error를 throw한다
+// TC-16 : 밑줄(_)로 시작하는 식별자를 IDENTIFIER로 인식한다
 // ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, UnknownCharMidSourceThrows)
+TEST_F(TokenizerFixture, UnderscoreIdentifierIsRecognized)
 {
-    // 유효한 토큰(var, x) 사이에 '@' 가 끼어있는 경우
-    ASSERT_THROW(tokenizer.tokenize("var @ x"), std::runtime_error);
+    const auto tokens = tokenizer.tokenize("_count");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type,   TokenType::IDENTIFIER);
+    EXPECT_EQ(tokens[0].lexeme, "_count");
 }
 
 // ──────────────────────────────────────────────
-// 복합: 여러 줄 소스의 type과 line이 동시에 올바르다
+// TC-17 : 여러 줄 소스의 type과 line이 동시에 올바르다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, MultilineSourceHasCorrectTypeAndLine)
 {
@@ -297,31 +294,7 @@ TEST_F(TokenizerFixture, MultilineSourceHasCorrectTypeAndLine)
 }
 
 // ──────────────────────────────────────────────
-// lexeme: 문자열 토큰의 lexeme은 따옴표를 포함한다
-// ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, StringLexemeIncludesQuotes)
-{
-    const auto tokens = tokenizer.tokenize("\"hello\"");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::STRING);
-    EXPECT_EQ(tokens[0].lexeme, "\"hello\"");
-}
-
-// ──────────────────────────────────────────────
-// lexeme: 숫자 토큰의 lexeme은 소스 문자열과 일치한다
-// ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, NumberLexemeMatchesSource)
-{
-    const auto tokens = tokenizer.tokenize("3.14");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::NUMBER);
-    EXPECT_EQ(tokens[0].lexeme, "3.14");
-}
-
-// ──────────────────────────────────────────────
-// 예약어: func 키워드가 FUNC 타입으로 인식된다
+// TC-18 : func 키워드가 FUNC 타입으로 인식된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, FuncKeywordIsRecognized)
 {
@@ -329,7 +302,7 @@ TEST_F(TokenizerFixture, FuncKeywordIsRecognized)
 }
 
 // ──────────────────────────────────────────────
-// 예약어: return 키워드가 RETURN 타입으로 인식된다
+// TC-19 : return 키워드가 RETURN 타입으로 인식된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, ReturnKeywordIsRecognized)
 {
@@ -337,7 +310,7 @@ TEST_F(TokenizerFixture, ReturnKeywordIsRecognized)
 }
 
 // ──────────────────────────────────────────────
-// 연산자: '[' 가 LEFT_BRACKET 타입으로 인식된다
+// TC-20 : '[' 가 LEFT_BRACKET 타입으로 인식된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, LeftBracketIsRecognized)
 {
@@ -345,7 +318,7 @@ TEST_F(TokenizerFixture, LeftBracketIsRecognized)
 }
 
 // ──────────────────────────────────────────────
-// 연산자: ']' 가 RIGHT_BRACKET 타입으로 인식된다
+// TC-21 : ']' 가 RIGHT_BRACKET 타입으로 인식된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, RightBracketIsRecognized)
 {
@@ -353,21 +326,48 @@ TEST_F(TokenizerFixture, RightBracketIsRecognized)
 }
 
 // ──────────────────────────────────────────────
-// 연산자: '%' 가 PERCENT 타입으로 인식된다
+// TC-22 : 종결되지 않은 문자열 리터럴은 runtime_error를 throw한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, UnterminatedStringLiteralThrows)
+{
+    ASSERT_THROW(tokenizer.tokenize("\"hello"), std::runtime_error);
+}
+
+// ──────────────────────────────────────────────
+// TC-23 : 멀티라인 문자열 토큰의 line은 닫는 " 줄이 아닌 시작 줄이다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, MultilineStringHasStartLineNumber)
+{
+    // "line1\nline2" → 1번 줄에서 시작, 2번 줄에서 닫힘
+    // token.line == 1 (시작 줄)
+    const auto tokens = tokenizer.tokenize("\"line1\nline2\"");
+
+    ASSERT_GE(tokens.size(), 1u);
+    EXPECT_EQ(tokens[0].type, TokenType::STRING);
+    EXPECT_EQ(tokens[0].line, 1);
+}
+
+// ──────────────────────────────────────────────
+// TC-24 : 알 수 없는 문자는 runtime_error를 throw한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, UnknownCharacterThrows)
+{
+    ASSERT_THROW(tokenizer.tokenize("@"), std::runtime_error);
+}
+
+// ──────────────────────────────────────────────
+// TC-25 : 소스 중간에 알 수 없는 문자가 있으면 runtime_error를 throw한다
+// ──────────────────────────────────────────────
+TEST_F(TokenizerFixture, UnknownCharMidSourceThrows)
+{
+    // 유효한 토큰(var, x) 사이에 '@' 가 끼어있는 경우
+    ASSERT_THROW(tokenizer.tokenize("var @ x"), std::runtime_error);
+}
+
+// ──────────────────────────────────────────────
+// TC-26 : '%' 가 PERCENT 타입으로 인식된다
 // ──────────────────────────────────────────────
 TEST_F(TokenizerFixture, PercentTokenIsRecognized)
 {
     checkSingleToken("%", TokenType::PERCENT);
-}
-
-// ──────────────────────────────────────────────
-// lexeme: 밑줄(_)로 시작하는 식별자를 IDENTIFIER로 인식한다
-// ──────────────────────────────────────────────
-TEST_F(TokenizerFixture, UnderscoreIdentifierIsRecognized)
-{
-    const auto tokens = tokenizer.tokenize("_count");
-
-    ASSERT_GE(tokens.size(), 1u);
-    EXPECT_EQ(tokens[0].type,   TokenType::IDENTIFIER);
-    EXPECT_EQ(tokens[0].lexeme, "_count");
 }

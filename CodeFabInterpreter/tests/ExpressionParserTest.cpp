@@ -1,14 +1,13 @@
-﻿#include <gtest/gtest.h>
+#include <gtest/gtest.h>
 #include "../Parser.h"
 #include "../Expr.h"
 #include "../Stmt.h"
 #include "../Token.h"
 #include "../Value.h"
 
-// -----------------------------------------------------------------------
-// 헬퍼
-// -----------------------------------------------------------------------
-
+// ================================================================
+// 토큰 생성 헬퍼
+// ================================================================
 static Token tok(TokenType type, const std::string& lexeme, Value literal = {}, int line = 1)
 {
     return Token{ type, lexeme, line, literal };
@@ -16,72 +15,78 @@ static Token tok(TokenType type, const std::string& lexeme, Value literal = {}, 
 
 static Token eof() { return tok(TokenType::EOF_TOKEN, ""); }
 
-// parse() 결과의 첫 번째 Stmt 를 ExpressionStmt 로 꺼낸다.
-// unique_ptr 소유권은 stmts 에 있으므로 raw pointer 로 반환 (읽기 전용).
-static Expr* firstExpr(const std::vector<std::unique_ptr<Stmt>>& stmts)
+// ================================================================
+// Fixture
+// ================================================================
+class ExprParserFixture : public ::testing::Test
 {
-    if (stmts.empty()) return nullptr;
-    auto* es = dynamic_cast<ExpressionStmt*>(stmts[0].get());
-    if (!es) return nullptr;
-    return es->expression.get();
-}
+protected:
+    Parser parser;
 
-// -----------------------------------------------------------------------
-// TC 1 : 숫자 리터럴 파싱
+    // parse() 결과의 첫 번째 Stmt 를 ExpressionStmt 로 꺼낸다.
+    Expr* firstExpr(const std::vector<std::unique_ptr<Stmt>>& stmts)
+    {
+        if (stmts.empty()) return nullptr;
+        auto* es = dynamic_cast<ExpressionStmt*>(stmts[0].get());
+        if (!es) return nullptr;
+        return es->expression.get();
+    }
+};
+
+// ================================================================
+// TC-01 : 숫자 리터럴 파싱
 // 입력  : 42;
-// 기대  : ExpressionStmt → LiteralExpr(42.0)
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesNumberLiteral)
+// 기대  : LiteralExpr(42.0)
+// ================================================================
+TEST_F(ExprParserFixture, ParsesNumberLiteral)
 {
-    // Arrange: 숫자 리터럴 42 하나짜리 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::NUMBER, "42", 42.0),
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: 첫 번째 Stmt 가 ExpressionStmt 이고, 그 안의 Expr 이 LiteralExpr(42.0) 인지 확인
+    // Assert
     auto* lit = dynamic_cast<LiteralExpr*>(firstExpr(stmts));
     ASSERT_NE(lit, nullptr);
     EXPECT_EQ(std::get<double>(lit->value), 42.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 2 : 변수 참조 파싱
+// ================================================================
+// TC-02 : 변수 참조 파싱
 // 입력  : a;
-// 기대  : ExpressionStmt → VariableExpr(name.lexeme == "a")
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesVariableExpr)
+// 기대  : VariableExpr(name.lexeme == "a")
+// ================================================================
+TEST_F(ExprParserFixture, ParsesVariableExpr)
 {
-    // Arrange: 식별자 "a" 하나짜리 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::IDENTIFIER, "a"),
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: Expr 이 VariableExpr 이고, name.lexeme 가 "a" 인지 확인
+    // Assert
     auto* var = dynamic_cast<VariableExpr*>(firstExpr(stmts));
     ASSERT_NE(var, nullptr);
     EXPECT_EQ(var->name.lexeme, "a");
 }
 
-// -----------------------------------------------------------------------
-// TC 3 : 사칙연산 우선순위 (* 가 + 보다 먼저)
+// ================================================================
+// TC-03 : 사칙연산 우선순위 (* 가 + 보다 먼저)
 // 입력  : 1 + 2 * 3;
-// 기대  : BinaryExpr(PLUS, LiteralExpr(1), BinaryExpr(STAR, LiteralExpr(2), LiteralExpr(3)))
-// -----------------------------------------------------------------------
-TEST(ExprParser, RespectsMulBeforeAdd)
+// 기대  : BinaryExpr(PLUS, LiteralExpr(1), BinaryExpr(STAR, 2, 3))
+// ================================================================
+TEST_F(ExprParserFixture, RespectsMulBeforeAdd)
 {
-    // Arrange: "1 + 2 * 3" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::NUMBER, "1", 1.0),
         tok(TokenType::PLUS,   "+"),
@@ -91,12 +96,11 @@ TEST(ExprParser, RespectsMulBeforeAdd)
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: 루트가 PLUS, 우측 자식이 STAR 인 트리 구조인지 확인 (우선순위 검증)
+    // Assert: 루트가 PLUS, 우측 자식이 STAR (우선순위 검증)
     auto* add = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(add, nullptr);
     EXPECT_EQ(add->op.type, TokenType::PLUS);
@@ -113,18 +117,18 @@ TEST(ExprParser, RespectsMulBeforeAdd)
     auto* mulRight = dynamic_cast<LiteralExpr*>(mul->right.get());
     ASSERT_NE(mulLeft, nullptr);
     ASSERT_NE(mulRight, nullptr);
-    EXPECT_EQ(std::get<double>(mulLeft->value), 2.0);
+    EXPECT_EQ(std::get<double>(mulLeft->value),  2.0);
     EXPECT_EQ(std::get<double>(mulRight->value), 3.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 4 : 괄호로 우선순위 변경
+// ================================================================
+// TC-04 : 괄호로 우선순위 변경
 // 입력  : (1 + 2) * 3;
 // 기대  : BinaryExpr(STAR, GroupingExpr(BinaryExpr(PLUS, 1, 2)), LiteralExpr(3))
-// -----------------------------------------------------------------------
-TEST(ExprParser, GroupingOverridesPrecedence)
+// ================================================================
+TEST_F(ExprParserFixture, GroupingOverridesPrecedence)
 {
-    // Arrange: "(1 + 2) * 3" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::LEFT_PAREN,  "("),
         tok(TokenType::NUMBER, "1", 1.0),
@@ -136,12 +140,11 @@ TEST(ExprParser, GroupingOverridesPrecedence)
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: 루트가 STAR 이고, 좌측 자식이 GroupingExpr(PLUS) 인지 확인 (괄호 우선순위 역전 검증)
+    // Assert: 루트가 STAR, 좌측 자식이 GroupingExpr(PLUS) (괄호 우선순위 역전 검증)
     auto* mul = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(mul, nullptr);
     EXPECT_EQ(mul->op.type, TokenType::STAR);
@@ -158,14 +161,14 @@ TEST(ExprParser, GroupingOverridesPrecedence)
     EXPECT_EQ(std::get<double>(mulRight->value), 3.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 5 : 대입 표현식 파싱
+// ================================================================
+// TC-05 : 대입 표현식 파싱
 // 입력  : a = 10;
-// 기대  : ExpressionStmt → AssignExpr(name.lexeme == "a", LiteralExpr(10))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesAssignExpr)
+// 기대  : AssignExpr(name.lexeme == "a", LiteralExpr(10))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesAssignExpr)
 {
-    // Arrange: "a = 10" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::IDENTIFIER, "a"),
         tok(TokenType::EQUAL,      "="),
@@ -173,12 +176,11 @@ TEST(ExprParser, ParsesAssignExpr)
         tok(TokenType::SEMICOLON,  ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: Expr 이 AssignExpr 이고, name 과 value 가 올바른지 확인
+    // Assert
     auto* assign = dynamic_cast<AssignExpr*>(firstExpr(stmts));
     ASSERT_NE(assign, nullptr);
     EXPECT_EQ(assign->name.lexeme, "a");
@@ -188,98 +190,94 @@ TEST(ExprParser, ParsesAssignExpr)
     EXPECT_EQ(std::get<double>(val->value), 10.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 6 : 문자열 리터럴 파싱
+// ================================================================
+// TC-06 : 문자열 리터럴 파싱
 // 입력  : "hello";
-// 기대  : ExpressionStmt → LiteralExpr(value == "hello")
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesStringLiteral)
+// 기대  : LiteralExpr(value == "hello")
+// ================================================================
+TEST_F(ExprParserFixture, ParsesStringLiteral)
 {
-    // Arrange: 문자열 리터럴 토큰 시퀀스 구성 (literal 필드에 실제 문자열 값 저장)
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::STRING, "\"hello\"", std::string("hello")),
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: LiteralExpr 이고 value 가 문자열 "hello" 인지 확인
+    // Assert
     auto* lit = dynamic_cast<LiteralExpr*>(firstExpr(stmts));
     ASSERT_NE(lit, nullptr);
     EXPECT_EQ(std::get<std::string>(lit->value), "hello");
 }
 
-// -----------------------------------------------------------------------
-// TC 7 : 불리언 true 리터럴 파싱
+// ================================================================
+// TC-07 : 불리언 true 리터럴 파싱
 // 입력  : true;
-// 기대  : ExpressionStmt → LiteralExpr(value == true)
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesBooleanTrue)
+// 기대  : LiteralExpr(value == true)
+// ================================================================
+TEST_F(ExprParserFixture, ParsesBooleanTrue)
 {
-    // Arrange: TRUE 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::TRUE, "true"),
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: LiteralExpr 이고 value 가 bool true 인지 확인
+    // Assert
     auto* lit = dynamic_cast<LiteralExpr*>(firstExpr(stmts));
     ASSERT_NE(lit, nullptr);
     EXPECT_EQ(std::get<bool>(lit->value), true);
 }
 
-// -----------------------------------------------------------------------
-// TC 8 : 불리언 false 리터럴 파싱
+// ================================================================
+// TC-08 : 불리언 false 리터럴 파싱
 // 입력  : false;
-// 기대  : ExpressionStmt → LiteralExpr(value == false)
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesBooleanFalse)
+// 기대  : LiteralExpr(value == false)
+// ================================================================
+TEST_F(ExprParserFixture, ParsesBooleanFalse)
 {
-    // Arrange: FALSE 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::FALSE, "false"),
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: LiteralExpr 이고 value 가 bool false 인지 확인
+    // Assert
     auto* lit = dynamic_cast<LiteralExpr*>(firstExpr(stmts));
     ASSERT_NE(lit, nullptr);
     EXPECT_EQ(std::get<bool>(lit->value), false);
 }
 
-// -----------------------------------------------------------------------
-// TC 9 : 단항 음수 파싱
+// ================================================================
+// TC-09 : 단항 음수 파싱
 // 입력  : -5;
-// 기대  : ExpressionStmt → UnaryExpr(MINUS, LiteralExpr(5.0))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesUnaryMinus)
+// 기대  : UnaryExpr(MINUS, LiteralExpr(5.0))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesUnaryMinus)
 {
-    // Arrange: 단항 음수 "-5" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::MINUS, "-"),
         tok(TokenType::NUMBER, "5", 5.0),
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: UnaryExpr 이고 operator 가 MINUS, 피연산자가 LiteralExpr(5.0) 인지 확인
+    // Assert
     auto* unary = dynamic_cast<UnaryExpr*>(firstExpr(stmts));
     ASSERT_NE(unary, nullptr);
     EXPECT_EQ(unary->op.type, TokenType::MINUS);
@@ -289,14 +287,14 @@ TEST(ExprParser, ParsesUnaryMinus)
     EXPECT_EQ(std::get<double>(operand->value), 5.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 10 : 비교 연산자 파싱
+// ================================================================
+// TC-10 : 비교 연산자 > 파싱
 // 입력  : a > 3;
-// 기대  : ExpressionStmt → BinaryExpr(GREATER, VariableExpr(a), LiteralExpr(3.0))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesComparisonGreater)
+// 기대  : BinaryExpr(GREATER, VariableExpr(a), LiteralExpr(3.0))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesComparisonGreater)
 {
-    // Arrange: "a > 3" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::IDENTIFIER, "a"),
         tok(TokenType::GREATER,    ">"),
@@ -304,12 +302,11 @@ TEST(ExprParser, ParsesComparisonGreater)
         tok(TokenType::SEMICOLON,  ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: BinaryExpr 이고 operator 가 GREATER, 좌우 피연산자가 올바른지 확인
+    // Assert
     auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::GREATER);
@@ -323,14 +320,14 @@ TEST(ExprParser, ParsesComparisonGreater)
     EXPECT_EQ(std::get<double>(right->value), 3.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 11 : 뺄셈 파싱
+// ================================================================
+// TC-11 : 뺄셈 파싱
 // 입력  : 5 - 3;
-// 기대  : ExpressionStmt → BinaryExpr(MINUS, LiteralExpr(5.0), LiteralExpr(3.0))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesSubtraction)
+// 기대  : BinaryExpr(MINUS, LiteralExpr(5.0), LiteralExpr(3.0))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesSubtraction)
 {
-    // Arrange: "5 - 3" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::NUMBER, "5", 5.0),
         tok(TokenType::MINUS,  "-"),
@@ -338,12 +335,11 @@ TEST(ExprParser, ParsesSubtraction)
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: BinaryExpr 이고 operator 가 MINUS, 좌우 피연산자가 올바른지 확인
+    // Assert
     auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::MINUS);
@@ -357,14 +353,14 @@ TEST(ExprParser, ParsesSubtraction)
     EXPECT_EQ(std::get<double>(right->value), 3.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 12 : 논리 and 파싱
+// ================================================================
+// TC-12 : 논리 and 파싱
 // 입력  : a and b;
-// 기대  : ExpressionStmt → BinaryExpr(AND, VariableExpr(a), VariableExpr(b))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesLogicalAnd)
+// 기대  : BinaryExpr(AND, VariableExpr(a), VariableExpr(b))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesLogicalAnd)
 {
-    // Arrange: "a and b" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::IDENTIFIER, "a"),
         tok(TokenType::AND,        "and"),
@@ -372,12 +368,11 @@ TEST(ExprParser, ParsesLogicalAnd)
         tok(TokenType::SEMICOLON,  ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: BinaryExpr 이고 operator 가 AND, 좌우 피연산자가 VariableExpr 인지 확인
+    // Assert
     auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::AND);
@@ -391,44 +386,14 @@ TEST(ExprParser, ParsesLogicalAnd)
     EXPECT_EQ(right->name.lexeme, "b");
 }
 
-// -----------------------------------------------------------------------
-// TC 14 : 논리 부정 단항 연산자 파싱
-// 입력  : !true;
-// 기대  : ExpressionStmt → UnaryExpr(BANG, LiteralExpr(true))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesUnaryBang)
-{
-    // Arrange: 논리 부정 "!true" 에 해당하는 토큰 시퀀스 구성
-    std::vector<Token> tokens = {
-        tok(TokenType::BANG,      "!"),
-        tok(TokenType::TRUE,      "true"),
-        tok(TokenType::SEMICOLON, ";"),
-        eof()
-    };
-    Parser parser;
-
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
-    auto stmts = parser.parse(tokens);
-
-    // Assert: UnaryExpr 이고 operator 가 BANG, 피연산자가 LiteralExpr(true) 인지 확인
-    auto* unary = dynamic_cast<UnaryExpr*>(firstExpr(stmts));
-    ASSERT_NE(unary, nullptr);
-    EXPECT_EQ(unary->op.type, TokenType::BANG);
-
-    auto* operand = dynamic_cast<LiteralExpr*>(unary->right.get());
-    ASSERT_NE(operand, nullptr);
-    EXPECT_EQ(std::get<bool>(operand->value), true);
-}
-
-// -----------------------------------------------------------------------
-// TC 13 : 대입 우결합 파싱
+// ================================================================
+// TC-13 : 대입 우결합 파싱
 // 입력  : a = b = 3;
-// 기대  : AssignExpr(a, AssignExpr(b, LiteralExpr(3.0)))
-//         → a = (b = 3) 으로 파싱되어야 한다
-// -----------------------------------------------------------------------
-TEST(ExprParser, AssignIsRightAssociative)
+// 기대  : AssignExpr(a, AssignExpr(b, LiteralExpr(3.0)))  → a = (b = 3)
+// ================================================================
+TEST_F(ExprParserFixture, AssignIsRightAssociative)
 {
-    // Arrange: "a = b = 3" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::IDENTIFIER, "a"),
         tok(TokenType::EQUAL,      "="),
@@ -438,12 +403,11 @@ TEST(ExprParser, AssignIsRightAssociative)
         tok(TokenType::SEMICOLON,  ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: 외부 AssignExpr(a, ...) 내부에 AssignExpr(b, 3) 이 중첩되어 있는지 확인
+    // Assert: 외부 AssignExpr(a, ...) 내부에 AssignExpr(b, 3) 중첩
     auto* outer = dynamic_cast<AssignExpr*>(firstExpr(stmts));
     ASSERT_NE(outer, nullptr);
     EXPECT_EQ(outer->name.lexeme, "a");
@@ -457,14 +421,42 @@ TEST(ExprParser, AssignIsRightAssociative)
     EXPECT_EQ(std::get<double>(val->value), 3.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 15 : 나눗셈 파싱
-// 입력  : 6 / 2;
-// 기대  : ExpressionStmt → BinaryExpr(SLASH, LiteralExpr(6.0), LiteralExpr(2.0))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesDivision)
+// ================================================================
+// TC-14 : 논리 부정 단항 연산자 파싱
+// 입력  : !true;
+// 기대  : UnaryExpr(BANG, LiteralExpr(true))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesUnaryBang)
 {
-    // Arrange: "6 / 2" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
+    std::vector<Token> tokens = {
+        tok(TokenType::BANG,      "!"),
+        tok(TokenType::TRUE,      "true"),
+        tok(TokenType::SEMICOLON, ";"),
+        eof()
+    };
+
+    // Act
+    auto stmts = parser.parse(tokens);
+
+    // Assert
+    auto* unary = dynamic_cast<UnaryExpr*>(firstExpr(stmts));
+    ASSERT_NE(unary, nullptr);
+    EXPECT_EQ(unary->op.type, TokenType::BANG);
+
+    auto* operand = dynamic_cast<LiteralExpr*>(unary->right.get());
+    ASSERT_NE(operand, nullptr);
+    EXPECT_EQ(std::get<bool>(operand->value), true);
+}
+
+// ================================================================
+// TC-15 : 나눗셈 파싱
+// 입력  : 6 / 2;
+// 기대  : BinaryExpr(SLASH, LiteralExpr(6.0), LiteralExpr(2.0))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesDivision)
+{
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::NUMBER, "6", 6.0),
         tok(TokenType::SLASH,  "/"),
@@ -472,12 +464,11 @@ TEST(ExprParser, ParsesDivision)
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: BinaryExpr 이고 operator 가 SLASH, 좌우 피연산자가 올바른지 확인
+    // Assert
     auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::SLASH);
@@ -491,14 +482,14 @@ TEST(ExprParser, ParsesDivision)
     EXPECT_EQ(std::get<double>(right->value), 2.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 16 : 비교 연산자 < 파싱
+// ================================================================
+// TC-16 : 비교 연산자 < 파싱
 // 입력  : 3 < 5;
-// 기대  : ExpressionStmt → BinaryExpr(LESS, LiteralExpr(3.0), LiteralExpr(5.0))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesComparisonLess)
+// 기대  : BinaryExpr(LESS, LiteralExpr(3.0), LiteralExpr(5.0))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesComparisonLess)
 {
-    // Arrange: "3 < 5" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::NUMBER, "3", 3.0),
         tok(TokenType::LESS,   "<"),
@@ -506,12 +497,11 @@ TEST(ExprParser, ParsesComparisonLess)
         tok(TokenType::SEMICOLON, ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: BinaryExpr 이고 operator 가 LESS, 좌우 피연산자가 올바른지 확인
+    // Assert
     auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::LESS);
@@ -525,116 +515,14 @@ TEST(ExprParser, ParsesComparisonLess)
     EXPECT_EQ(std::get<double>(right->value), 5.0);
 }
 
-// -----------------------------------------------------------------------
-// TC 18 : 이항 연산자 오른쪽 피연산자 누락
-// 입력  : 1 +
-// 기대  : std::runtime_error throw
-// -----------------------------------------------------------------------
-TEST(ExprParser, MissingRightOperandThrows)
-{
-    std::vector<Token> tokens = {
-        tok(TokenType::NUMBER, "1", 1.0),
-        tok(TokenType::PLUS,   "+"),
-        eof()
-    };
-    Parser parser;
-    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
-}
-
-// -----------------------------------------------------------------------
-// TC 19 : 닫는 괄호 없는 그루핑
-// 입력  : (1 + 2
-// 기대  : std::runtime_error throw
-// -----------------------------------------------------------------------
-TEST(ExprParser, UnterminatedGroupingThrows)
-{
-    std::vector<Token> tokens = {
-        tok(TokenType::LEFT_PAREN, "("),
-        tok(TokenType::NUMBER, "1", 1.0),
-        tok(TokenType::PLUS,   "+"),
-        tok(TokenType::NUMBER, "2", 2.0),
-        eof()
-    };
-    Parser parser;
-    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
-}
-
-// -----------------------------------------------------------------------
-// TC 20 : 빈 괄호 그루핑
-// 입력  : ();
-// 기대  : std::runtime_error throw
-// -----------------------------------------------------------------------
-TEST(ExprParser, EmptyGroupingThrows)
-{
-    std::vector<Token> tokens = {
-        tok(TokenType::LEFT_PAREN,  "("),
-        tok(TokenType::RIGHT_PAREN, ")"),
-        tok(TokenType::SEMICOLON,   ";"),
-        eof()
-    };
-    Parser parser;
-    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
-}
-
-// -----------------------------------------------------------------------
-// TC 21 : 대입 연산자 오른쪽 값 누락
-// 입력  : a =;
-// 기대  : std::runtime_error throw
-// -----------------------------------------------------------------------
-TEST(ExprParser, MissingAssignValueThrows)
-{
-    std::vector<Token> tokens = {
-        tok(TokenType::IDENTIFIER, "a"),
-        tok(TokenType::EQUAL,      "="),
-        tok(TokenType::SEMICOLON,  ";"),
-        eof()
-    };
-    Parser parser;
-    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
-}
-
-// -----------------------------------------------------------------------
-// TC 22 : 모듈러 연산자 파싱
-// 입력  : 10 % 3;
-// 기대  : ExpressionStmt → BinaryExpr(PERCENT, LiteralExpr(10.0), LiteralExpr(3.0))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesModulo)
-{
-    // Arrange: "10 % 3" 에 해당하는 토큰 시퀀스 구성
-    std::vector<Token> tokens = {
-        tok(TokenType::NUMBER,    "10", 10.0),
-        tok(TokenType::PERCENT,   "%"),
-        tok(TokenType::NUMBER,    "3",  3.0),
-        tok(TokenType::SEMICOLON, ";"),
-        eof()
-    };
-    Parser parser;
-
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
-    auto stmts = parser.parse(tokens);
-
-    // Assert: BinaryExpr 이고 operator 가 PERCENT, 좌우 피연산자가 올바른지 확인
-    auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
-    ASSERT_NE(bin, nullptr);
-    EXPECT_EQ(bin->op.type, TokenType::PERCENT);
-
-    auto* left = dynamic_cast<LiteralExpr*>(bin->left.get());
-    ASSERT_NE(left, nullptr);
-    EXPECT_EQ(std::get<double>(left->value), 10.0);
-
-    auto* right = dynamic_cast<LiteralExpr*>(bin->right.get());
-    ASSERT_NE(right, nullptr);
-    EXPECT_EQ(std::get<double>(right->value), 3.0);
-}
-
-// -----------------------------------------------------------------------
-// TC 17 : 논리 or 파싱
+// ================================================================
+// TC-17 : 논리 or 파싱
 // 입력  : a or b;
-// 기대  : ExpressionStmt → BinaryExpr(OR, VariableExpr(a), VariableExpr(b))
-// -----------------------------------------------------------------------
-TEST(ExprParser, ParsesLogicalOr)
+// 기대  : BinaryExpr(OR, VariableExpr(a), VariableExpr(b))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesLogicalOr)
 {
-    // Arrange: "a or b" 에 해당하는 토큰 시퀀스 구성
+    // Arrange
     std::vector<Token> tokens = {
         tok(TokenType::IDENTIFIER, "a"),
         tok(TokenType::OR,         "or"),
@@ -642,12 +530,11 @@ TEST(ExprParser, ParsesLogicalOr)
         tok(TokenType::SEMICOLON,  ";"),
         eof()
     };
-    Parser parser;
 
-    // Act: 토큰 시퀀스를 파싱하여 AST 생성
+    // Act
     auto stmts = parser.parse(tokens);
 
-    // Assert: BinaryExpr 이고 operator 가 OR, 좌우 피연산자가 VariableExpr 인지 확인
+    // Assert
     auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
     ASSERT_NE(bin, nullptr);
     EXPECT_EQ(bin->op.type, TokenType::OR);
@@ -659,4 +546,97 @@ TEST(ExprParser, ParsesLogicalOr)
     auto* right = dynamic_cast<VariableExpr*>(bin->right.get());
     ASSERT_NE(right, nullptr);
     EXPECT_EQ(right->name.lexeme, "b");
+}
+
+// ================================================================
+// TC-18 : 이항 연산자 오른쪽 피연산자 누락 → runtime_error
+// 입력  : 1 +
+// ================================================================
+TEST_F(ExprParserFixture, MissingRightOperandThrows)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::NUMBER, "1", 1.0),
+        tok(TokenType::PLUS,   "+"),
+        eof()
+    };
+    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
+}
+
+// ================================================================
+// TC-19 : 닫는 괄호 없는 그루핑 → runtime_error
+// 입력  : (1 + 2
+// ================================================================
+TEST_F(ExprParserFixture, UnterminatedGroupingThrows)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::LEFT_PAREN, "("),
+        tok(TokenType::NUMBER, "1", 1.0),
+        tok(TokenType::PLUS,   "+"),
+        tok(TokenType::NUMBER, "2", 2.0),
+        eof()
+    };
+    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
+}
+
+// ================================================================
+// TC-20 : 빈 괄호 그루핑 → runtime_error
+// 입력  : ();
+// ================================================================
+TEST_F(ExprParserFixture, EmptyGroupingThrows)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::LEFT_PAREN,  "("),
+        tok(TokenType::RIGHT_PAREN, ")"),
+        tok(TokenType::SEMICOLON,   ";"),
+        eof()
+    };
+    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
+}
+
+// ================================================================
+// TC-21 : 대입 연산자 오른쪽 값 누락 → runtime_error
+// 입력  : a =;
+// ================================================================
+TEST_F(ExprParserFixture, MissingAssignValueThrows)
+{
+    std::vector<Token> tokens = {
+        tok(TokenType::IDENTIFIER, "a"),
+        tok(TokenType::EQUAL,      "="),
+        tok(TokenType::SEMICOLON,  ";"),
+        eof()
+    };
+    ASSERT_THROW(parser.parse(tokens), std::runtime_error);
+}
+
+// ================================================================
+// TC-22 : 모듈러 연산자 파싱
+// 입력  : 10 % 3;
+// 기대  : BinaryExpr(PERCENT, LiteralExpr(10.0), LiteralExpr(3.0))
+// ================================================================
+TEST_F(ExprParserFixture, ParsesModulo)
+{
+    // Arrange
+    std::vector<Token> tokens = {
+        tok(TokenType::NUMBER,    "10", 10.0),
+        tok(TokenType::PERCENT,   "%"),
+        tok(TokenType::NUMBER,    "3",  3.0),
+        tok(TokenType::SEMICOLON, ";"),
+        eof()
+    };
+
+    // Act
+    auto stmts = parser.parse(tokens);
+
+    // Assert
+    auto* bin = dynamic_cast<BinaryExpr*>(firstExpr(stmts));
+    ASSERT_NE(bin, nullptr);
+    EXPECT_EQ(bin->op.type, TokenType::PERCENT);
+
+    auto* left = dynamic_cast<LiteralExpr*>(bin->left.get());
+    ASSERT_NE(left, nullptr);
+    EXPECT_EQ(std::get<double>(left->value), 10.0);
+
+    auto* right = dynamic_cast<LiteralExpr*>(bin->right.get());
+    ASSERT_NE(right, nullptr);
+    EXPECT_EQ(std::get<double>(right->value), 3.0);
 }
