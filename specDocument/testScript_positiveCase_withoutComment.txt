@@ -1,0 +1,61 @@
+print 1 + 2 * 3;  
+print (1 + 2) * 3; 
+print 10 - 4 - 3; 
+print 8 / 2 / 2;   
+print -3 + 2;
+
+
+print 1 < 2; 
+print 3 > 5;
+
+print "Hello, " + "CodeFab!";   
+
+
+print 5;        
+print 5.0;        
+print 3.14;   
+
+print true;          
+print false;   
+
+var a = 10;
+var b = 20;
+print a + b;           
+
+
+a = a + 5;
+print a;              
+
+var x = "global";
+{
+  var x = "inner";
+  print x;             
+}
+print x;               
+
+var count = 0;
+{
+  count = count + 1; 
+}
+print count;            
+
+var outer = "A";
+{
+  var inner = "B";
+  {
+    print outer + inner; 
+  }
+}
+
+
+if (true) print "bbq";    
+
+if (false) print "no"; else print "kfc";
+
+
+if (true)
+  if (false) print "kfc";
+  else print "bbq";        
+
+
+for (var j = 0; j < 3; j = j + 1) { print j; }

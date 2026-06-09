@@ -31,6 +31,11 @@
 // public
 // -----------------------------------------------------------------------
 
+Parser::Parser(IExprParser* exprStrategy)
+    : exprStrategy_(exprStrategy)
+{
+}
+
 std::vector<std::unique_ptr<Stmt>> Parser::parse(const std::vector<Token>& tokens)
 {
     m_tokens  = tokens;
@@ -228,6 +233,7 @@ std::unique_ptr<Stmt> Parser::parseReturnStatement()
 
 std::unique_ptr<Expr> Parser::parseExpression()
 {
+    if (exprStrategy_) return exprStrategy_->parseExpression(*this);
     return parseAssignment();
 }
 

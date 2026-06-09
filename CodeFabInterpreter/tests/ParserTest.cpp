@@ -35,25 +35,25 @@ static Token makeEof(int line = 1)
 // Statement 파싱 테스트에서 Expression 파서를 격리하기 위한 Test Double.
 // parseExpression() 호출 시 문장 경계(; ) })까지 토큰을 소비하고 LiteralExpr 반환.
 // ================================================================
-class FakeExprParser : public Parser
+class FakeExprParser : public IExprParser
 {
-protected:
-    std::unique_ptr<Expr> parseExpression() override
+public:
+    std::unique_ptr<Expr> parseExpression(Parser& ctx) override
     {
         auto lit = std::make_unique<LiteralExpr>();
-        if (check(TokenType::NUMBER))
-            lit->value = std::get<double>(advance().literal);
-        else if (check(TokenType::STRING))
-            lit->value = std::get<std::string>(advance().literal);
-        else if (check(TokenType::TRUE) || check(TokenType::FALSE))
-            lit->value = (advance().type == TokenType::TRUE);
-        else if (check(TokenType::IDENTIFIER))
-            advance();
-        while (!isAtEnd()                         &&
-               !check(TokenType::SEMICOLON)       &&
-               !check(TokenType::RIGHT_PAREN)     &&
-               !check(TokenType::RIGHT_BRACE))
-            advance();
+        if (ctx.check(TokenType::NUMBER))
+            lit->value = std::get<double>(ctx.advance().literal);
+        else if (ctx.check(TokenType::STRING))
+            lit->value = std::get<std::string>(ctx.advance().literal);
+        else if (ctx.check(TokenType::TRUE) || ctx.check(TokenType::FALSE))
+            lit->value = (ctx.advance().type == TokenType::TRUE);
+        else if (ctx.check(TokenType::IDENTIFIER))
+            ctx.advance();
+        while (!ctx.isAtEnd()                         &&
+               !ctx.check(TokenType::SEMICOLON)       &&
+               !ctx.check(TokenType::RIGHT_PAREN)     &&
+               !ctx.check(TokenType::RIGHT_BRACE))
+            ctx.advance();
         return lit;
     }
 };
@@ -64,7 +64,8 @@ protected:
 class ParserStmtTest : public ::testing::Test
 {
 protected:
-    FakeExprParser p;
+    FakeExprParser fake;
+    Parser p{&fake};
 };
 
 // ================================================================

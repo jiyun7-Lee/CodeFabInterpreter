@@ -1,0 +1,44 @@
+// 정의되지 않은 변수 참조
+// 기대: "Undefined variable 'notDefined'." (+ 줄 번호) 류의 메시지 
+print notDefined;
+// + 연산자에 숫자/문자열 혼용
+// 기대: "Operands must be two numbers or two strings." 류의 메시지
+print 1 + "HI";
+// 숫자가 아닌 값에 단항 마이너스
+// 기대: "Operand must be a number." 류의 메시지
+print -"FabCoding";
+// 세미콜론 누락
+// 기대: "Expect ';' after value." 류의 메시지
+print 1 + 2
+// 닫는 괄호 누락
+// 기대: "Expect ')' after expression." 류의 메시지
+print (1 + 2;
+// 잘못된 할당 대상
+// 기대: "Invalid assignment target." 류의 메시지
+var a = 1;
+var b = 2;
+a + b = 3;
+// 표현식이 와야 할 자리에 엉뚱한 토큰
+// 기대: "Expect expression." 류의 메시지
+print * 5;
+
+//2) Checker Unit 에서 검출하는 에러 (정적에러)
+
+// 지역 변수를 자기 초기화식에서 읽기 (선언전 사용 오류)
+// 기대: "Can't read local variable in initializer." 류의 메시지
+{ var a = a;}
+// 같은 로컬 스코프 중복 선언 오류 
+// 기대: "Already a variable with this name in this scope." 류의 메시지
+{ var a = "hi"; var a = 3; }
+
+//3) 실행중 발생하는 런타임 에러
+
+// 정의되지 않은 변수 참조
+// 기대: "Undefined variable 'notDefined'." (+ 줄 번호) 류의 메시지 
+print notDefined;
+// + 연산자에 숫자/문자열 혼용
+// 기대: "Operands must be two numbers or two strings." 류의 메시지
+print 1 + "HI";
+// 숫자가 아닌 값에 단항 마이너스
+// 기대: "Operand must be a number." 류의 메시지
+print -"FabCoding";
