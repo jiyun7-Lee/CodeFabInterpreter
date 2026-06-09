@@ -12,7 +12,7 @@
 - Checker: `check(stmts)` 반환값(bool) + `getErrors()` 크기로 검증
 - 표현식 서브트리는 **FakeExprParser** 가 토큰 1개를 소비해 `LiteralExpr` 반환 (B파트 독립성 확보)
 - 각 TC는 **Arrange → Act → Assert** 패턴으로 구성
-- 현재 상태: **🟢 Green** (Parser 35개 / Checker 23개)
+- 현재 상태: **🟢 Green** (Parser 35개 / Checker 28개)
 
 ---
 
