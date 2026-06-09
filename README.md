@@ -39,6 +39,13 @@ Executor           ← AST 실행, Scope 관리, Runtime Error 처리
 
 ## 디자인 패턴
 
+### 리팩토링을 통해 적용된 패턴
+
+| 패턴 | 적용 위치 | 문서 |
+|------|-----------|------|
+| **Visitor** | `Expr` 계층 × `Executor` — dynamic_cast 체인을 이중 디스패치로 대체 | [PATTERN_Visitor.md](CodeFabInterpreter/PATTERN_Visitor.md) |
+| **Strategy** | `Parser` — 표현식 파싱 알고리즘을 합성으로 교체 가능하도록 분리 | [PATTERN_Strategy.md](CodeFabInterpreter/PATTERN_Strategy.md) |
+
 ### 초기 설계 시 적용된 패턴
 
 | 패턴 | 적용 위치 | 문서 |
@@ -49,13 +56,6 @@ Executor           ← AST 실행, Scope 관리, Runtime Error 처리
 | **Observer** | `Executor` ↔ `DebugController` — 각 Stmt 실행 전 `beforeExecute()` 이벤트 후킹 | [PATTERN_Observer.md](CodeFabInterpreter/PATTERN_Observer.md) |
 | **State** | `ExecutionState` + `DebugController` — STEP/RUNNING/PAUSED/NEXT 상태 전환 | [PATTERN_State.md](CodeFabInterpreter/PATTERN_State.md) |
 | **Composite** | `Stmt` 계층 — `BlockStmt`/`IfStmt`/`ForStmt`가 자식 Stmt를 포함하는 트리 구조 | [PATTERN_Composite.md](CodeFabInterpreter/PATTERN_Composite.md) |
-
-### 리팩토링을 통해 적용된 패턴
-
-| 패턴 | 적용 위치 | 문서 |
-|------|-----------|------|
-| **Visitor** | `Expr` 계층 × `Executor` — dynamic_cast 체인을 이중 디스패치로 대체 | [PATTERN_Visitor.md](CodeFabInterpreter/PATTERN_Visitor.md) |
-| **Strategy** | `Parser` — 표현식 파싱 알고리즘을 합성으로 교체 가능하도록 분리 | [PATTERN_Strategy.md](CodeFabInterpreter/PATTERN_Strategy.md) |
 
 ---
 
