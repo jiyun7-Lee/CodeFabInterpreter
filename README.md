@@ -37,6 +37,17 @@ Executor           ← AST 실행, Scope 관리, Runtime Error 처리
 
 ---
 
+## 디자인 패턴
+
+리팩토링을 통해 적용된 GoF 디자인 패턴입니다.
+
+| 패턴 | 적용 위치 | 문서 |
+|------|-----------|------|
+| **Visitor** | `Expr` 계층 × `Executor` — dynamic_cast 체인을 이중 디스패치로 대체 | [PATTERN_Visitor.md](CodeFabInterpreter/PATTERN_Visitor.md) |
+| **Strategy** | `Parser` — 표현식 파싱 알고리즘을 합성으로 교체 가능하도록 분리 | [PATTERN_Strategy.md](CodeFabInterpreter/PATTERN_Strategy.md) |
+
+---
+
 ## 실행 방법
 
 ```bash
