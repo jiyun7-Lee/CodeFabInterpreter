@@ -1,4 +1,5 @@
 #include "Shell.h"
+#include <cassert>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -363,37 +364,37 @@ ShellMode FactoryShell::detectMode(int argc, char** argv) const
     return ShellMode::REPL;
 }
 
-void FactoryShell::run(int argc, char** argv)
+std::unique_ptr<IShellRunner> FactoryShell::createRunner(int argc, char** argv) const
 {
     switch (detectMode(argc, argv))
     {
         case ShellMode::REPL:
-        {
-            Shell shell;
-            shell.run();
-            break;
-        }
+            return std::make_unique<ReplAdapter>();
+
         case ShellMode::FILE:
-        {
             if (argc < 3)
             {
                 std::cout << "Error: 파일 경로가 필요합니다. 사용법: run <파일경로>\n";
-                break;
+                return nullptr;
             }
-            FileRunner runner;
-            runner.run(argv[2]);
-            break;
-        }
+            return std::make_unique<FileAdapter>(argv[2]);
+
         case ShellMode::DEBUG:
-        {
             if (argc < 3)
             {
                 std::cout << "Error: 파일 경로가 필요합니다. 사용법: debug <파일경로>\n";
-                break;
+                return nullptr;
             }
-            DebugShell debugShell;
-            debugShell.run(argv[2]);
-            break;
-        }
+            return std::make_unique<DebugAdapter>(argv[2]);
+
+        default:
+            assert(false && "unhandled ShellMode — createRunner()에 case 추가 필요");
+            return nullptr;
     }
+}
+
+void FactoryShell::run(int argc, char** argv)
+{
+    auto runner = createRunner(argc, argv);
+    if (runner) runner->run();
 }
