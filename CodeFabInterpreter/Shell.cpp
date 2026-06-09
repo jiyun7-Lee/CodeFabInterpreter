@@ -60,99 +60,107 @@ struct BraceContext
     }
 };
 
+static void resetPendingElseOnBlankLine(const std::string& line, AccumState& s)
+{
+    if (s.pendingElse > 0 && line.find_first_not_of(" \t\r\n") == std::string::npos)
+        s.pendingElse = 0;
+}
+
+static void cancelPendingElseIfNeeded(const Token& t, AccumState& s)
+{
+    if (s.pendingElse > 0 && t.type != TokenType::ELSE
+        && t.type != TokenType::EOF_TOKEN && s.braceDepth == 0)
+        s.pendingElse = 0;
+}
+
+static void processOpenBrace(AccumState& s)
+{
+    if (s.braceDepth == 0)
+    {
+        if (s.pendingControl > 0)
+        {
+            s.blockIsElse      = s.nextElseBody;
+            s.blockIsIf        = !s.nextElseBody && s.lastControlWasIf;
+            s.nextElseBody     = false;
+            s.lastControlWasIf = false;
+            --s.pendingControl;
+        }
+        else
+        {
+            s.blockIsElse = s.blockIsIf = s.lastControlWasIf = false;
+        }
+    }
+    ++s.braceDepth;
+}
+
+static void processCloseBrace(AccumState& s)
+{
+    --s.braceDepth;
+    if (s.braceDepth == 0)
+    {
+        if (s.blockIsElse)      { s.pendingElse = 0; s.pendingControl = 0; }
+        else if (s.blockIsIf)     s.pendingElse = 1;
+        else                      s.pendingElse = 0;
+        s.blockIsElse = s.blockIsIf = false;
+    }
+}
+
+static void processControlKeyword(TokenType type, AccumState& s, int& thisLineControls)
+{
+    ++s.pendingControl;
+    ++thisLineControls;
+    s.lastControlWasIf = (type == TokenType::IF);
+}
+
+static void processElseKeyword(AccumState& s)
+{
+    if (s.pendingElse > 0)
+        { s.pendingElse = 0; ++s.pendingControl; s.nextElseBody = true; }
+    else if (s.pendingControl == 0)
+        { ++s.pendingControl; s.nextElseBody = true; }
+}
+
+static void processSemicolon(AccumState& s, int& thisLineControls)
+{
+    int toClose = std::max(1, thisLineControls);
+    s.pendingControl = std::max(0, s.pendingControl - toClose);
+    s.pendingElse    = 0;
+    thisLineControls = 0;
+}
+
 static bool accumulateBraces(const std::string& line, BraceContext& ctx)
 {
     AccumState& s = ctx.state;
+    resetPendingElseOnBlankLine(line, s);
 
+    int thisLineControls = 0;
     try
     {
-        // 빈 줄(공백만 있는 줄)은 else 없이 구문을 끝냈다는 신호
-        // → pendingElse 를 해제해 REPL 에서 무한 대기에 빠지지 않도록 함
-        if (s.pendingElse > 0 && line.find_first_not_of(" \t\r\n") == std::string::npos)
-            s.pendingElse = 0;
-
-        int thisLineControls = 0;
         Tokenizer tok;
         for (const auto& t : tok.tokenize(line))
         {
-            // else 대기 중에 else·EOF 가 아닌 토큰이 최상위에 오면 대기 포기
-            if (s.pendingElse > 0 && t.type != TokenType::ELSE
-                && t.type != TokenType::EOF_TOKEN && s.braceDepth == 0)
-                s.pendingElse = 0;
+            cancelPendingElseIfNeeded(t, s);
 
-            if (t.type == TokenType::LEFT_PAREN)
-                ++s.parenDepth;
-            else if (t.type == TokenType::RIGHT_PAREN)
-                --s.parenDepth;
-            else if (t.type == TokenType::LEFT_BRACE)
+            switch (t.type)
             {
-                if (s.braceDepth == 0)
-                {
-                    if (s.pendingControl > 0)
-                    {
-                        s.blockIsElse      = s.nextElseBody;
-                        s.blockIsIf        = !s.nextElseBody && s.lastControlWasIf;
-                        s.nextElseBody     = false;
-                        s.lastControlWasIf = false;
-                        --s.pendingControl;
-                    }
-                    else
-                    {
-                        s.blockIsElse      = false;
-                        s.blockIsIf        = false;
-                        s.lastControlWasIf = false;
-                    }
-                }
-                ++s.braceDepth;
-            }
-            else if (t.type == TokenType::RIGHT_BRACE)
-            {
-                --s.braceDepth;
-                if (s.braceDepth == 0)
-                {
-                    if (s.blockIsElse)
-                    {
-                        s.pendingElse    = 0;
-                        s.pendingControl = 0;
-                    }
-                    else if (s.blockIsIf)
-                        s.pendingElse = 1;
-                    else
-                        s.pendingElse = 0;
-                    s.blockIsElse = false;
-                    s.blockIsIf   = false;
-                }
-            }
-            else if (s.braceDepth == 0 && s.parenDepth == 0
-                     && (t.type == TokenType::IF || t.type == TokenType::FOR))
-            {
-                ++s.pendingControl;
-                ++thisLineControls;
-                s.lastControlWasIf = (t.type == TokenType::IF);
-            }
-            else if (t.type == TokenType::ELSE
-                     && s.braceDepth == 0 && s.parenDepth == 0)
-            {
-                if (s.pendingElse > 0)
-                {
-                    s.pendingElse = 0;
-                    ++s.pendingControl;
-                    s.nextElseBody = true;
-                }
-                else if (s.pendingControl == 0)
-                {
-                    ++s.pendingControl;
-                    s.nextElseBody = true;
-                }
-            }
-            else if (t.type == TokenType::SEMICOLON
-                     && s.braceDepth == 0 && s.parenDepth == 0
-                     && s.pendingControl > 0)
-            {
-                int toClose = std::max(1, thisLineControls);
-                s.pendingControl = std::max(0, s.pendingControl - toClose);
-                s.pendingElse    = 0;
-                thisLineControls = 0;
+                case TokenType::LEFT_PAREN:  ++s.parenDepth; break;
+                case TokenType::RIGHT_PAREN: --s.parenDepth; break;
+                case TokenType::LEFT_BRACE:  processOpenBrace(s); break;
+                case TokenType::RIGHT_BRACE: processCloseBrace(s); break;
+                case TokenType::IF:
+                case TokenType::FOR:
+                    if (s.braceDepth == 0 && s.parenDepth == 0)
+                        processControlKeyword(t.type, s, thisLineControls);
+                    break;
+                case TokenType::ELSE:
+                    if (s.braceDepth == 0 && s.parenDepth == 0)
+                        processElseKeyword(s);
+                    break;
+                case TokenType::SEMICOLON:
+                    if (s.braceDepth == 0 && s.parenDepth == 0 && s.pendingControl > 0)
+                        processSemicolon(s, thisLineControls);
+                    break;
+                default: break;
             }
         }
     }
