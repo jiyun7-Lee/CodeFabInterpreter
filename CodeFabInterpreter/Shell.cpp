@@ -1,4 +1,5 @@
 #include "Shell.h"
+#include <cassert>
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -385,8 +386,11 @@ std::unique_ptr<IShellRunner> FactoryShell::createRunner(int argc, char** argv) 
                 return nullptr;
             }
             return std::make_unique<DebugAdapter>(argv[2]);
+
+        default:
+            assert(false && "unhandled ShellMode — createRunner()에 case 추가 필요");
+            return nullptr;
     }
-    return nullptr;
 }
 
 void FactoryShell::run(int argc, char** argv)
